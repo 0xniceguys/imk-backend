@@ -47,7 +47,10 @@ if IS_LINUX:
     _LIB_EXT = ".so"
     _PLUGIN_DIR = "/usr/lib/x86_64-linux-gnu/mupen64plus"
     _DATA_DIR = "/usr/share/mupen64plus"
-    _GFX_PLUGIN = f"mupen64plus-video-rice{_LIB_EXT}"
+    # Use z64 software rasterizer — rice plugin opens a 1x1 OpenGL window on
+    # headless Xvfb causing FFmpeg to capture black. z64 renders directly to
+    # the X window without needing hardware GL.
+    _GFX_PLUGIN = f"mupen64plus-video-z64{_LIB_EXT}"
     _AUDIO_PLUGIN = f"mupen64plus-audio-sdl{_LIB_EXT}"
     _INPUT_PLUGIN_NAME = f"n64train-input{_LIB_EXT}"
     _RSP_PLUGIN = f"mupen64plus-rsp-hle{_LIB_EXT}"
