@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://imk:imk_dev_password@localhost:5432/immortalkombat"
     privy_app_id: str = "cmm5ifxpw00p50cl5bkx86zcd"
     privy_app_secret: str = ""
+    use_devnet: bool = False
     hls_output_dir: str = "./hls_output"
     vod_archive_dir: str = "./vod_archive"
     host: str = "0.0.0.0"

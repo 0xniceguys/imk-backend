@@ -15,6 +15,8 @@ dependencies = [
     "jinja2>=3.1.4",
     "python-multipart>=0.0.12",
     "Pillow>=10.0",
+    "solders>=0.21.0",
+    "privy-client>=0.5.0",
 ]
 
 [project.optional-dependencies]
