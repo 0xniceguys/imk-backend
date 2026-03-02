@@ -46,10 +46,9 @@ CUSTOM_UI_BINARY = REPO_ROOT / "vendor" / "mupen64plus-ui-console" / "projects" 
 if IS_LINUX:
     _LIB_EXT = ".so"
     _PLUGIN_DIR = "/usr/lib/x86_64-linux-gnu/mupen64plus"
-    _DATA_DIR = "/usr/share/mupen64plus"
-    # rice + Xvnc (TigerVNC): Xvnc has built-in Mesa software GLX so rice's
-    # OpenGL renders correctly. Xvfb's GLX is broken for direct GL contexts.
-    _GFX_PLUGIN = f"mupen64plus-video-rice{_LIB_EXT}"
+    _DATA_DIR = "/usr/share/games/mupen64plus"
+    # Use Z64 software renderer - Rice OpenGL requires real GLX which Xvfb lacks
+    _GFX_PLUGIN = f"mupen64plus-video-glide64mk2{_LIB_EXT}"
     _AUDIO_PLUGIN = f"mupen64plus-audio-sdl{_LIB_EXT}"
     _INPUT_PLUGIN_NAME = f"n64train-input{_LIB_EXT}"
     _RSP_PLUGIN = f"mupen64plus-rsp-hle{_LIB_EXT}"
@@ -239,25 +238,29 @@ class EmulatorSession:
             _w, _h = self.options.resolution.split("x")
 
             def _resize_window():
-                import time as _t, subprocess as _sp
+                import time as _t, subprocess as _sp, re as _re
                 # Poll for the mupen64plus window (up to 10s)
                 for _attempt in range(20):
                     _t.sleep(0.5)
                     try:
+                        # Use xwininfo to get window tree - more reliable than xdotool
                         r = _sp.run(
-                            ["xdotool", "search", "--display", _display,
-                             "--name", "Mupen64Plus"],
+                            ["xwininfo", "-root", "-tree", "-display", _display],
                             capture_output=True, text=True, timeout=5,
                         )
-                        # Also try Z64gl window name
-                        if not r.stdout.strip():
-                            r = _sp.run(
-                                ["xdotool", "search", "--display", _display,
-                                 "--name", "Z64gl"],
-                                capture_output=True, text=True, timeout=5,
-                            )
-                        if r.stdout.strip():
-                            win_id = r.stdout.strip().split()[0]
+
+                        win_id = None
+                        # Look for mupen64plus window in tree
+                        for line in r.stdout.splitlines():
+                            if any(name in line.lower() for name in ["mupen64plus", "rice", "z64"]):
+                                # Extract window ID from line like: 0x200006 "Mupen64Plus..."
+                                match = _re.search(r'(0x[0-9a-fA-F]+)', line)
+                                if match:
+                                    win_id = match.group(1)
+                                    logger.info("Found mupen window: %s", line.strip()[:80])
+                                    break
+
+                        if win_id:
                             logger.info(
                                 "Resizing mupen64plus window %s → %sx%s on %s",
                                 win_id, _w, _h, _display,
