@@ -19,117 +19,169 @@ class ArenaListScreen extends ConsumerStatefulWidget {
 }
 
 class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
-  // 0 = Live, 1 = Upcoming. Starts on Live — switches to Upcoming if no live.
+  late final PageController _pageCtrl;
   int _tab = 0;
   bool _tabInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageCtrl = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  void _goToTab(int index) {
+    setState(() => _tab = index);
+    _pageCtrl.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final allMatches = ref.watch(matchProvider);
     final live = allMatches.where((m) => m.status == MatchStatus.live).toList();
-    final upcoming = allMatches
-        .where((m) => m.status == MatchStatus.upcoming)
-        .toList();
+    final upcoming = allMatches.where((m) => m.status == MatchStatus.upcoming).toList();
 
-    // Set initial tab based on data (only once)
+    // Auto-select Upcoming if no live matches (only once)
     if (!_tabInitialized && allMatches.isNotEmpty) {
       _tabInitialized = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _tab = live.isNotEmpty ? 0 : 1);
-      });
+      if (live.isEmpty && _tab == 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _goToTab(1);
+        });
+      }
     }
-
-    final filtered = _tab == 0 ? live : upcoming;
 
     return AppShell(
       activeTab: NavTab.arena,
-      scrollable: true,
+      scrollable: false, // each page scrolls independently
       onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tab row
+          // ── Tab chips ──────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 _TabChip(
-                  label: 'Live',
+                  label: 'LIVE',
                   count: live.length,
                   active: _tab == 0,
-                  onTap: () => setState(() => _tab = 0),
+                  onTap: () => _goToTab(0),
                 ),
                 const SizedBox(width: 10),
                 _TabChip(
-                  label: 'Upcoming',
+                  label: 'UPCOMING',
                   count: upcoming.length,
                   active: _tab == 1,
-                  onTap: () => setState(() => _tab = 1),
+                  onTap: () => _goToTab(1),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          // Match cards with staggered fade-in
-          for (int i = 0; i < filtered.length; i++) ...[
-            TweenAnimationBuilder<double>(
-              key: ValueKey('${_tab}_${filtered[i].id}'),
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: Duration(milliseconds: 300 + (i * 80)),
-              curve: Curves.easeOut,
-              builder: (context, value, child) => Opacity(
-                opacity: value,
-                child: Transform.translate(
-                  offset: Offset(0, 12 * (1 - value)),
-                  child: child,
+
+          // ── Swipeable page content ─────────────────────────────────────
+          Expanded(
+            child: PageView(
+              controller: _pageCtrl,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: (index) => setState(() => _tab = index),
+              children: [
+                _MatchList(
+                  matches: live,
+                  allLoaded: allMatches.isNotEmpty,
+                  emptyLabel: 'No live matches',
+                  onTap: (m) => widget.onNavigate('/live-match/${m.id}'),
                 ),
-              ),
-              child: ArenaCard(
-                match: filtered[i],
-                onTap: () {
-                  final m = filtered[i];
-                  if (m.status == MatchStatus.live) {
-                    widget.onNavigate('/live-match/${m.id}');
-                  } else {
-                    widget.onNavigate('/battle-detail/${m.id}');
-                  }
-                },
-              ),
+                _MatchList(
+                  matches: upcoming,
+                  allLoaded: allMatches.isNotEmpty,
+                  emptyLabel: 'No upcoming matches',
+                  onTap: (m) => widget.onNavigate('/battle-detail/${m.id}'),
+                ),
+              ],
             ),
-            if (i < filtered.length - 1) const SizedBox(height: 28),
-          ],
-          if (filtered.isEmpty && allMatches.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Center(
-                child: Text(
-                  _tab == 0 ? 'No live matches' : 'No upcoming matches',
-                  style: bodyStyle(size: 16, color: Palette.muted),
-                ),
-              ),
-            ),
-          // Shimmer skeleton while data hasn't loaded yet
-          if (allMatches.isEmpty)
-            for (int i = 0; i < 3; i++) ...[
-              TweenAnimationBuilder<double>(
-                key: ValueKey('skeleton_$i'),
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: Duration(milliseconds: 300 + (i * 100)),
-                curve: Curves.easeOut,
-                builder: (context, value, child) => Opacity(
-                  opacity: value,
-                  child: child,
-                ),
-                child: const ArenaCardSkeleton(),
-              ),
-              const SizedBox(height: 28),
-            ],
-          const SizedBox(height: 20),
+          ),
         ],
       ),
     );
   }
 }
+
+// ── Scrollable list for one page ───────────────────────────────────────────────
+
+class _MatchList extends StatelessWidget {
+  const _MatchList({
+    required this.matches,
+    required this.allLoaded,
+    required this.emptyLabel,
+    required this.onTap,
+  });
+
+  final List<Match> matches;
+  final bool allLoaded;
+  final String emptyLabel;
+  final void Function(Match) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Still loading
+    if (!allLoaded) {
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+        itemCount: 3,
+        separatorBuilder: (context, i) => const SizedBox(height: 28),
+        itemBuilder: (_, i) => TweenAnimationBuilder<double>(
+          key: ValueKey('skeleton_$i'),
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: Duration(milliseconds: 300 + i * 100),
+          curve: Curves.easeOut,
+          builder: (context, v, child) => Opacity(opacity: v, child: child),
+          child: const ArenaCardSkeleton(),
+        ),
+      );
+    }
+
+    // Empty state
+    if (matches.isEmpty) {
+      return Center(
+        child: Text(emptyLabel, style: bodyStyle(size: 16, color: Palette.muted)),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+      itemCount: matches.length,
+      separatorBuilder: (context, idx) => const SizedBox(height: 28),
+      itemBuilder: (_, i) => TweenAnimationBuilder<double>(
+        key: ValueKey(matches[i].id),
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: Duration(milliseconds: 300 + i * 80),
+        curve: Curves.easeOut,
+        builder: (context, v, child) => Opacity(
+          opacity: v,
+          child: Transform.translate(offset: Offset(0, 12 * (1 - v)), child: child),
+        ),
+        child: ArenaCard(
+          match: matches[i],
+          onTap: () => onTap(matches[i]),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tab chip ────────────────────────────────────────────────────────────────────
 
 class _TabChip extends StatelessWidget {
   const _TabChip({
@@ -154,37 +206,27 @@ class _TabChip extends StatelessWidget {
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          border: Border.all(
-              color: active ? Palette.gold : Palette.border),
+          border: Border.all(color: active ? Palette.gold : Palette.border),
           borderRadius: BorderRadius.circular(4),
-          color: active
-              ? Palette.gold.withValues(alpha: 0.12)
-              : Colors.transparent,
+          color: active ? Palette.gold.withValues(alpha: 0.12) : Colors.transparent,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
-              style: displayStyle(
-                size: 14,
-                color: active ? Palette.gold : Palette.muted,
-              ),
+              style: displayStyle(size: 14, color: active ? Palette.gold : Palette.muted),
               child: Text(label),
             ),
             const SizedBox(width: 6),
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: active ? Palette.gold : Palette.muted,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                '$count',
-                style: bodyStyle(size: 11, color: Palette.black),
-              ),
+              child: Text('$count', style: bodyStyle(size: 11, color: Palette.black)),
             ),
           ],
         ),
@@ -192,3 +234,4 @@ class _TabChip extends StatelessWidget {
     );
   }
 }
+
