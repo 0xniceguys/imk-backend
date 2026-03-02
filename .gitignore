@@ -1,4 +1,7 @@
-# Python
+# ── Training (excluded entirely — runs on server) ─────────────────────────────
+training/
+
+# ── Python runtime / build artifacts ──────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -8,62 +11,32 @@ dist/
 build/
 *.egg
 
-# Large pre-built web app (build separately)
-streaming/web/
-streaming/output/
-
-# Training scan binary data
-training/data/position_scan/
-training/data/rollouts/
-training/data/bridge/
-training/data/cache/
-training/data/reverse/
-
-# Environment
+# ── Environment / secrets ──────────────────────────────────────────────────────
 .env
 *.env.local
-
-# Logs
-logs/*.log
-*.log
-
-# Database
-*.db
-*.sqlite3
-
-# ML model temporary outputs
-hls_output/
-vod_archive/
-/tmp/
-
-# Emulator runtime
-.m64p/
-/training/data/bridge/
-/training/data/cache/
-/backend/alembic/versions/
-
-# Secrets / keys
 *.pem
 *.key
 
-# macOS
-.DS_Store
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/*.log
+*.log
 
-# Flutter
-streaming/flutter_app/.dart_tool/
-streaming/flutter_app/.flutter-plugins
-streaming/flutter_app/.flutter-plugins-dependencies
-streaming/flutter_app/build/
-streaming/flutter_app/.packages
+# ── Database ──────────────────────────────────────────────────────────────────
+*.db
+*.sqlite3
+
+# ── Backend runtime outputs ────────────────────────────────────────────────────
+streaming/web/
 streaming/output/
+hls_output/
+vod_archive/
+/tmp/
+backend/alembic/versions/
 
-# Training artifacts (large)
-training/data/rollouts/
-training/data/checkpoints/
-backend/app/agents/checkpoints/*.onnx
-backend/app/agents/checkpoints/*.onnx.data
+# ── Emulator runtime ──────────────────────────────────────────────────────────
+.m64p/
 
-# ROM files (large binary, distribute separately)
+# ── ROM / binary game files (large, distribute separately) ────────────────────
 *.z64
 *.n64
 *.rom
@@ -71,9 +44,23 @@ backend/app/agents/checkpoints/*.onnx.data
 *.cue
 *.bin
 
-# Alembic auto-generated versions
-backend/alembic/versions/
-
-# vendor (compiled binaries)
+# ── Vendor compiled binaries ──────────────────────────────────────────────────
 vendor/mupen64plus-core/build/
 vendor/mupen64plus-ui-console/build/
+
+# ── macOS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+
+# ── Flutter (generated / build artifacts only — source is tracked) ────────────
+streaming/flutter_app/.dart_tool/
+streaming/flutter_app/.flutter-plugins
+streaming/flutter_app/.flutter-plugins-dependencies
+streaming/flutter_app/.packages
+streaming/flutter_app/build/
+# iOS CocoaPods build cache (not source)
+streaming/flutter_app/ios/Pods/
+streaming/flutter_app/ios/.symlinks/
+# Android Gradle cache
+streaming/flutter_app/android/.gradle/
+streaming/flutter_app/android/local.properties
+# flutter pub cache lock is committed (pubspec.lock stays)
