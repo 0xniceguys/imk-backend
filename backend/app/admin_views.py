@@ -119,6 +119,33 @@ async def admin_logout():
     return resp
 
 
+# ── Debug / diagnostics ──
+
+@router.get("/debug", response_class=HTMLResponse)
+async def debug_display(request: Request):
+    """Show all active runners and their display/FFmpeg/ctrl status."""
+    if r := _require_admin(request): return r
+    runners = get_all_runners()
+    info = []
+    for mid, r in runners.items():
+        info.append({
+            "match_id": mid,
+            "instance_id": r.instance_id,
+            "state": r.state.value,
+            "display": r._session.display if r._session else "—",
+            "ctrl_p1": r._ctrl_p1_path or "—",
+            "ctrl_p2": r._ctrl_p2_path or "—",
+            "ffmpeg_running": r._frame_capture._running if r._frame_capture else False,
+            "latest_frame_kb": round(len(r.latest_frame) / 1024, 1) if r.latest_frame else 0,
+            "viewer_url": f"/admin/viewer/{mid}",
+        })
+    return templates.TemplateResponse("debug.html", {
+        "request": request,
+        "active_page": "debug",
+        "runners": info,
+    })
+
+
 # ── Live Viewer ──
 
 @router.get("/viewer", response_class=HTMLResponse)

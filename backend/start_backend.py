@@ -27,10 +27,10 @@ os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 with open(LOG_FILE, "w") as log:
     p = subprocess.Popen(
         [
-            ".venv/bin/uvicorn", "app.main:app",
+            "/home/ubuntu/imk/.venv/bin/uvicorn", "app.main:app",
             "--host", "0.0.0.0",
             "--port", str(PORT),
-            "--log-level", "warning",
+            "--log-level", "info",
         ],
         cwd=os.path.dirname(os.path.abspath(__file__)),
         env=env,
