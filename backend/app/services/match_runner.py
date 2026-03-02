@@ -192,10 +192,11 @@ class MatchRunner:
         macOS:  captures primary screen via avfoundation.
         """
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None, self._bridge.debugger_command, "run"
-        )
+        await loop.run_in_executor(None, self._bridge.debugger_command, "run")
         logger.info("Emulator set to free-running mode")
+
+        # p1p2state.st loads mid-fight — give game 1s to render first frame
+        await asyncio.sleep(1.0)
 
         if is_linux():
             display = self._session.display if self._session else ":99"
@@ -621,13 +622,6 @@ async def start_match(
     """Create and start a match runner. Returns the runner."""
     if match_id in _active_runners:
         raise RuntimeError(f"Match {match_id} already has an active runner")
-
-    # Guard: only one concurrent match until per-instance mmap propagation is fixed.
-    if _active_runners:
-        raise RuntimeError(
-            "Only one concurrent match is supported until per-instance mmap paths are "
-            "propagated to the mupen64plus grandchild process. Stop the running match first."
-        )
 
     p1_agent = create_agent(p1_agent_id)
     p2_agent = create_agent(p2_agent_id)

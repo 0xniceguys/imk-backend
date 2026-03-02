@@ -47,10 +47,9 @@ if IS_LINUX:
     _LIB_EXT = ".so"
     _PLUGIN_DIR = "/usr/lib/x86_64-linux-gnu/mupen64plus"
     _DATA_DIR = "/usr/share/mupen64plus"
-    # Use z64 software rasterizer — rice plugin opens a 1x1 OpenGL window on
-    # headless Xvfb causing FFmpeg to capture black. z64 renders directly to
-    # the X window without needing hardware GL.
-    _GFX_PLUGIN = f"mupen64plus-video-z64{_LIB_EXT}"
+    # Use rice plugin with Mesa software GL (LIBGL_ALWAYS_SOFTWARE=1).
+    # z64 renders a black frame on headless Xvfb — rice + llvmpipe works.
+    _GFX_PLUGIN = f"mupen64plus-video-rice{_LIB_EXT}"
     _AUDIO_PLUGIN = f"mupen64plus-audio-sdl{_LIB_EXT}"
     _INPUT_PLUGIN_NAME = f"n64train-input{_LIB_EXT}"
     _RSP_PLUGIN = f"mupen64plus-rsp-hle{_LIB_EXT}"
@@ -106,9 +105,11 @@ class EmulatorSession:
         else:
             self.socket_path = REPO_ROOT / "training" / "data" / "bridge" / f"{self.instance_id}.sock"
 
-        # Controller mmap file paths
-        self.ctrl_p1_path = "/tmp/mk4_ctrl"
-        self.ctrl_p2_path = "/tmp/mk4_ctrl_p2"
+        # Controller mmap file paths — per-instance so concurrent matches don't collide
+        _ctrl_dir = Path(f"/tmp/imk/{self.instance_id}")
+        _ctrl_dir.mkdir(parents=True, exist_ok=True)
+        self.ctrl_p1_path = str(_ctrl_dir / "ctrl_p1")
+        self.ctrl_p2_path = str(_ctrl_dir / "ctrl_p2")
 
     @property
     def instance_dir(self) -> Path:
@@ -191,10 +192,13 @@ class EmulatorSession:
         # On Linux, point the emulator at the Xvfb display
         if IS_LINUX:
             env["DISPLAY"] = self.display
-            # SDL needs to know about the virtual display
             env["SDL_VIDEODRIVER"] = "x11"
+            # Mesa software GL — required for rice plugin on headless Xvfb
+            env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+            env["MESA_GL_VERSION_OVERRIDE"] = "3.3"
+            env["GALLIUM_DRIVER"] = "llvmpipe"
             logger.info(
-                "Linux emulator env: DISPLAY=%s SDL_VIDEODRIVER=x11",
+                "Linux emulator env: DISPLAY=%s SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1",
                 self.display,
             )
 
@@ -237,6 +241,13 @@ class EmulatorSession:
                              "--name", "Mupen64Plus"],
                             capture_output=True, text=True, timeout=5,
                         )
+                        # Also try Z64gl window name
+                        if not r.stdout.strip():
+                            r = _sp.run(
+                                ["xdotool", "search", "--display", _display,
+                                 "--name", "Z64gl"],
+                                capture_output=True, text=True, timeout=5,
+                            )
                         if r.stdout.strip():
                             win_id = r.stdout.strip().split()[0]
                             logger.info(
@@ -376,6 +387,11 @@ class EmulatorSession:
             with suppress(OSError):
                 if os.path.exists(ctrl_path):
                     os.unlink(ctrl_path)
+        # Remove the per-instance ctrl dir
+        _ctrl_dir = Path(f"/tmp/imk/{self.instance_id}")
+        with suppress(OSError):
+            import shutil as _shutil2
+            _shutil2.rmtree(_ctrl_dir, ignore_errors=True)
         # Clean up tmpfs screenshot dir on Linux
         if IS_LINUX:
             with suppress(OSError):
