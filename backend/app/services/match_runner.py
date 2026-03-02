@@ -504,8 +504,16 @@ class MatchRunner:
                     )
 
                 # 4. Check round status
-                round_done = is_round_over(state)
-                winner_p1 = p1_won(state) if round_done else False
+                # Grace period: skip round-over detection for the first N steps
+                # so the display stays running after savestate load even if
+                # HP reads temporarily as 0 at startup.
+                ROUND_OVER_GRACE_STEPS = 300  # ~30s at 10Hz
+                if step_count > ROUND_OVER_GRACE_STEPS:
+                    round_done = is_round_over(state)
+                    winner_p1 = p1_won(state) if round_done else False
+                else:
+                    round_done = False
+                    winner_p1 = False
 
                 # 5. Update snapshot and broadcast game state
                 self.latest_snapshot = GameSnapshot(
