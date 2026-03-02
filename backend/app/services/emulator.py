@@ -188,6 +188,15 @@ class EmulatorSession:
             env["DISPLAY"] = self.display
             # SDL needs to know about the virtual display
             env["SDL_VIDEODRIVER"] = "x11"
+            # Force Mesa software rendering so Rice plugin renders to the
+            # Xvfb window (not an offscreen GPU context which gives black frames)
+            env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+            env["GALLIUM_DRIVER"] = "softpipe"
+            logger.info(
+                "Linux emulator env: DISPLAY=%s SDL_VIDEODRIVER=x11 "
+                "LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=softpipe",
+                self.display,
+            )
 
         logger.info(
             "Launching bridge server: ctrl_p1=%s, ctrl_p2=%s, display=%s",
@@ -208,6 +217,22 @@ class EmulatorSession:
             "Bridge server started (pid=%d, instance=%s, socket=%s)",
             self.process.pid, self.instance_id, self.socket_path,
         )
+
+        # Log Xvfb window state 3s after launch to diagnose rendering issues
+        if IS_LINUX:
+            import threading
+            def _log_xwininfo():
+                import time as _t, subprocess as _sp
+                _t.sleep(5)
+                try:
+                    r = _sp.run(
+                        ["xwininfo", "-root", "-tree", "-display", self.display],
+                        capture_output=True, text=True, timeout=5,
+                    )
+                    logger.info("xwininfo on %s:\n%s", self.display, r.stdout[:800])
+                except Exception as e:
+                    logger.warning("xwininfo failed: %s", e)
+            threading.Thread(target=_log_xwininfo, daemon=True).start()
 
     def _start_xvfb(self) -> None:
         """Start a virtual X11 display for headless rendering (Linux only)."""

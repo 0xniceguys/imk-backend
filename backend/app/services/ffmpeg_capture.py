@@ -99,17 +99,35 @@ class FFmpegCapture:
             " ".join(cmd),
         )
 
-        # asyncio subprocess: stdout reads are truly non-blocking (event loop I/O)
+        # asyncio subprocess: pipe stderr so FFmpeg errors appear in journalctl
         self._process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,  # was DEVNULL — now captured for debugging
+        )
+
+        # Log FFmpeg stderr in background
+        asyncio.create_task(
+            self._log_ffmpeg_stderr(),
+            name="ffmpeg-stderr-logger",
         )
 
         self._reader_task = asyncio.create_task(
             self._read_frames(on_frame),
             name="ffmpeg-reader",
         )
+
+    async def _log_ffmpeg_stderr(self) -> None:
+        """Drain FFmpeg stderr and log it so errors surface in journalctl."""
+        if not self._process or not self._process.stderr:
+            return
+        try:
+            async for line in self._process.stderr:
+                txt = line.decode(errors="replace").rstrip()
+                if txt:
+                    logger.warning("FFmpeg: %s", txt)
+        except Exception:
+            pass
 
     async def _read_frames(
         self, on_frame: Callable[[bytes], Awaitable[None]]
@@ -122,11 +140,14 @@ class FFmpegCapture:
         JPEG_START = b"\xff\xd8"
         JPEG_END = b"\xff\xd9"
         buf = bytearray()
+        frames_received = 0
+        last_log_time = asyncio.get_event_loop().time()
 
         try:
             while self._running:
-                chunk = await stdout.read(65536)
+                chunk = await asyncio.wait_for(stdout.read(65536), timeout=5.0)
                 if not chunk:
+                    logger.warning("FFmpeg stdout closed (frames_received=%d)", frames_received)
                     break
 
                 buf.extend(chunk)
@@ -150,12 +171,28 @@ class FFmpegCapture:
 
                     try:
                         await on_frame(frame)
+                        frames_received += 1
                     except Exception:
                         pass
+
+                    # Log frame rate every 5 seconds
+                    now = asyncio.get_event_loop().time()
+                    if now - last_log_time >= 5.0:
+                        logger.info(
+                            "FFmpeg capture: %d frames in last 5s (total=%d)",
+                            frames_received, frames_received,
+                        )
+                        last_log_time = now
 
                     # Yield back to event loop between frames
                     await asyncio.sleep(0)
 
+        except asyncio.TimeoutError:
+            logger.error(
+                "FFmpeg: no data received for 5s (frames_received=%d) — "
+                "display may be blank or wrong display number",
+                frames_received,
+            )
         except asyncio.CancelledError:
             raise
         except Exception:
