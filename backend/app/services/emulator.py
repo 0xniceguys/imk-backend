@@ -218,21 +218,59 @@ class EmulatorSession:
             self.process.pid, self.instance_id, self.socket_path,
         )
 
-        # Log Xvfb window state 3s after launch to diagnose rendering issues
+        # mupen64plus-video-rice opens a 1x1 window on headless Xvfb (SDL bug).
+        # Use xdotool to force-resize it to the correct resolution so FFmpeg
+        # x11grab captures actual game frames instead of a black root window.
         if IS_LINUX:
             import threading
-            def _log_xwininfo():
+            _display = self.display
+            _w, _h = self.options.resolution.split("x")
+
+            def _resize_window():
                 import time as _t, subprocess as _sp
-                _t.sleep(5)
-                try:
-                    r = _sp.run(
-                        ["xwininfo", "-root", "-tree", "-display", self.display],
-                        capture_output=True, text=True, timeout=5,
-                    )
-                    logger.info("xwininfo on %s:\n%s", self.display, r.stdout[:800])
-                except Exception as e:
-                    logger.warning("xwininfo failed: %s", e)
-            threading.Thread(target=_log_xwininfo, daemon=True).start()
+                # Poll for the mupen64plus window (up to 10s)
+                for _attempt in range(20):
+                    _t.sleep(0.5)
+                    try:
+                        r = _sp.run(
+                            ["xdotool", "search", "--display", _display,
+                             "--name", "Mupen64Plus"],
+                            capture_output=True, text=True, timeout=5,
+                        )
+                        if r.stdout.strip():
+                            win_id = r.stdout.strip().split()[0]
+                            logger.info(
+                                "Resizing mupen64plus window %s → %sx%s on %s",
+                                win_id, _w, _h, _display,
+                            )
+                            _sp.run(
+                                ["xdotool", "windowmove", "--display", _display,
+                                 win_id, "0", "0"],
+                                capture_output=True, timeout=5,
+                            )
+                            _sp.run(
+                                ["xdotool", "windowsize", "--display", _display,
+                                 win_id, _w, _h],
+                                capture_output=True, timeout=5,
+                            )
+                            # Log result
+                            xi = _sp.run(
+                                ["xwininfo", "-id", win_id, "-display", _display],
+                                capture_output=True, text=True, timeout=5,
+                            )
+                            for ln in xi.stdout.splitlines():
+                                if any(k in ln for k in ("geometry", "Width", "Height")):
+                                    logger.info("Window after resize: %s", ln.strip())
+                            return
+                    except Exception as _e:
+                        logger.warning("xdotool attempt %d failed: %s", _attempt, _e)
+                logger.warning(
+                    "mupen64plus window not found on %s after 10s "
+                    "— FFmpeg may capture black frames",
+                    _display,
+                )
+
+            threading.Thread(target=_resize_window, daemon=True).start()
 
     def _start_xvfb(self) -> None:
         """Start a virtual X11 display for headless rendering (Linux only)."""
