@@ -38,13 +38,9 @@ M64P_ROOT = REPO_ROOT / ".m64p"
 BRIDGE_SERVER_SCRIPT = REPO_ROOT / "training" / "scripts" / "run_bridge_server.py"
 TRAINING_SRC = REPO_ROOT / "training" / "src"
 
-# Custom mupen64plus builds with debugger CLI support
-# On Linux (EC2), use the system binary from apt (has --debug support);
-# On macOS (dev), use the custom vendor build.
-if IS_LINUX:
-    CUSTOM_UI_BINARY = Path("/usr/games/mupen64plus")
-else:
-    CUSTOM_UI_BINARY = REPO_ROOT / "vendor" / "mupen64plus-ui-console" / "projects" / "unix" / "mupen64plus"
+# Custom mupen64plus builds with debugger CLI support (stateload/statesave patched in).
+# Both Linux and macOS use the vendor build — it has stateload support.
+CUSTOM_UI_BINARY = REPO_ROOT / "vendor" / "mupen64plus-ui-console" / "projects" / "unix" / "mupen64plus"
 
 # Platform-specific shared library extension and paths
 if IS_LINUX:
@@ -66,11 +62,8 @@ else:  # macOS
     _RSP_PLUGIN = f"mupen64plus-rsp-hle{_LIB_EXT}"
     _CORELIB_NAME = f"libmupen64plus{_LIB_EXT}"
 
-# On Linux, core lib comes from apt package; on macOS from custom vendor build.
-if IS_LINUX:
-    CUSTOM_CORELIB = Path("/usr/lib/x86_64-linux-gnu/libmupen64plus.so.2")
-else:
-    CUSTOM_CORELIB = REPO_ROOT / "vendor" / "mupen64plus-core" / "projects" / "unix" / _CORELIB_NAME
+# Vendor-built core lib — has DEBUGGER=1, required for stateload/statesave support.
+CUSTOM_CORELIB = REPO_ROOT / "vendor" / "mupen64plus-core" / "projects" / "unix" / _CORELIB_NAME
 CUSTOM_INPUT_PLUGIN = REPO_ROOT / "vendor" / "n64train-input" / _INPUT_PLUGIN_NAME
 
 # Default ROM
