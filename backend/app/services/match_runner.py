@@ -5,13 +5,11 @@ Architecture (decoupled loops):
   Loop A (agent brain, ~10 Hz):
     Read game state from RAM → agent decides → write controller mmap
   Loop B (frame delivery, 60 Hz):
-    FFmpeg captures display → MJPEG pipe → JPEG frames → WebSocket broadcast
-
-Platform-aware:
-  - Linux (EC2):  FFmpeg x11grab captures Xvfb virtual display
-  - macOS (dev):  FFmpeg avfoundation captures the emulator window
+    FFmpeg captures Xvfb display → MJPEG pipe → JPEG frames → WebSocket
 
 The emulator always runs freely at native speed. No frame-stepping.
+mupen64plus config sets ScreenWidth/Height so the window opens at the
+correct size on headless Xvfb — otherwise x11grab captures a black screen.
 
 Self-contained: ZERO imports from the training package.
 """
@@ -188,17 +186,17 @@ class MatchRunner:
     async def _start_free_running(self) -> None:
         """Let the emulator run freely and start FFmpeg frame capture.
 
-        Linux:  captures Xvfb display via x11grab
-        macOS:  captures primary screen via avfoundation (device index "2")
+        Linux:  captures Xvfb display via x11grab at 60fps.
+                mupen64plus config must have ScreenWidth/Height set so the
+                window opens at full size (otherwise x11grab gets black).
+        macOS:  captures primary screen via avfoundation.
         """
         loop = asyncio.get_running_loop()
-        # Tell emulator to run (no longer paused/frame-stepping)
         await loop.run_in_executor(
             None, self._bridge.debugger_command, "run"
         )
         logger.info("Emulator set to free-running mode")
 
-        # Pick the right FFmpeg input based on platform
         if is_linux():
             display = self._session.display if self._session else ":99"
             self._frame_capture = FFmpegCapture(
@@ -210,8 +208,6 @@ class MatchRunner:
             )
             logger.info("FFmpeg capture: x11grab on display %s", display)
         else:
-            # macOS: avfoundation screen capture
-            # Screen index 2 = "Capture screen 0" (primary display)
             self._frame_capture = FFmpegCapture(
                 screen_index="2",
                 width=320,

@@ -320,16 +320,20 @@ class EmulatorSession:
                 _shutil.rmtree(self.screenshot_dir, ignore_errors=True)
 
     def _patch_screenshot_path(self, cfg_dir: Path) -> None:
-        """Pre-seed the mupen64plus config with ScreenshotPath + JPEG output.
+        """Pre-seed the mupen64plus config with ScreenshotPath + JPEG output + window size.
 
         Setting ScreenShotFormat=2 makes mupen64plus-video-rice write JPEG
-        files directly, eliminating the PNG→JPEG Pillow transcode on every frame.
+        files directly. ScreenWidth/Height forces the Rice plugin window to
+        open at the correct size on headless Xvfb (default is 1x1 which
+        causes FFmpeg x11grab to capture black).
         """
         import re
         import shutil as _shutil
 
         cfg_file = cfg_dir / "mupen64plus.cfg"
         shot_dir_str = str(self.screenshot_dir)
+        w, h = self.options.resolution.split("x")
+        res_w, res_h = int(w), int(h)
 
         if not cfg_file.exists():
             template_cfgs = sorted(
@@ -341,39 +345,37 @@ class EmulatorSession:
 
         if cfg_file.exists():
             content = cfg_file.read_text(encoding="utf-8")
+        else:
+            # No template — write a minimal config from scratch
+            content = ""
 
-            # Set screenshot output directory
-            content = re.sub(
-                r'^ScreenshotPath\s*=.*$',
-                f'ScreenshotPath = "{shot_dir_str}"',
-                content,
-                flags=re.MULTILINE,
-            )
-            # Set screenshot format to JPEG (2) so we skip PNG→JPEG transcode.
-            # mupen64plus-video-rice: 1=PNG, 2=JPEG
-            if re.search(r'^ScreenShotFormat\s*=', content, re.MULTILINE):
-                content = re.sub(
-                    r'^ScreenShotFormat\s*=.*$',
-                    'ScreenShotFormat = 2',
-                    content,
-                    flags=re.MULTILINE,
-                )
-            else:
-                # Append under the [Video-Rice] section if present, else at end
-                if '[Video-Rice]' in content:
-                    content = content.replace(
-                        '[Video-Rice]',
-                        '[Video-Rice]\nScreenShotFormat = 2',
-                        1,
-                    )
-                else:
-                    content += '\n[Video-Rice]\nScreenShotFormat = 2\n'
+        def _set_or_append(txt: str, key: str, value: str, section: str) -> str:
+            """Set key=value in section, or append it."""
+            pat = rf'^{re.escape(key)}\s*=.*$'
+            if re.search(pat, txt, re.MULTILINE):
+                return re.sub(pat, f'{key} = {value}', txt, flags=re.MULTILINE)
+            if f'[{section}]' in txt:
+                return txt.replace(f'[{section}]', f'[{section}]\n{key} = {value}', 1)
+            return txt + f'\n[{section}]\n{key} = {value}\n'
 
-            cfg_file.write_text(content, encoding="utf-8")
-            logger.info(
-                "Set ScreenshotPath=%s, ScreenShotFormat=JPEG in %s",
-                shot_dir_str, cfg_file,
-            )
+        # Screenshot path + format
+        content = _set_or_append(content, 'ScreenshotPath', f'"{shot_dir_str}"', 'Core')
+        content = _set_or_append(content, 'ScreenShotFormat', '2', 'Video-Rice')
+
+        # Window resolution — forces Rice plugin to open 320x240 on Xvfb
+        # Without this it defaults to 1x1 in headless mode → FFmpeg gets black
+        content = _set_or_append(content, 'ScreenWidth',      str(res_w), 'Video-General')
+        content = _set_or_append(content, 'ScreenHeight',     str(res_h), 'Video-General')
+        content = _set_or_append(content, 'FullscreenWidth',  str(res_w), 'Video-General')
+        content = _set_or_append(content, 'FullscreenHeight', str(res_h), 'Video-General')
+        content = _set_or_append(content, 'Fullscreen',       'False',    'Video-General')
+
+        cfg_file.write_text(content, encoding="utf-8")
+        logger.info(
+            "Config: ScreenshotPath=%s, format=JPEG, resolution=%dx%d → %s",
+            shot_dir_str, res_w, res_h, cfg_file,
+        )
+
 
     def _close_log(self) -> None:
         if self._log_handle is None:
