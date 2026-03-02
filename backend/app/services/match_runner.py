@@ -201,8 +201,8 @@ class MatchRunner:
             display = self._session.display if self._session else ":99"
             self._frame_capture = FFmpegCapture(
                 display=display,
-                width=320,
-                height=240,
+                width=640,
+                height=480,
                 framerate=60,
                 quality=5,
             )

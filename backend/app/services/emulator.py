@@ -76,7 +76,9 @@ DEFAULT_ROM = REPO_ROOT / "Mortal Kombat 4 (USA).z64"
 @dataclass(frozen=True)
 class LaunchOptions:
     instance_id: str | None = None
-    resolution: str = "320x240"
+    # Linux: always start Xvfb at 640x480 — z64 video plugin requests this
+    # exact SDL video mode. If Xvfb is smaller the window is clipped/invisible.
+    resolution: str = "640x480"
     socket_path: str | None = None
 
 
