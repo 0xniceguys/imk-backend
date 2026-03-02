@@ -30,7 +30,6 @@ streaming/web/
 streaming/output/
 hls_output/
 vod_archive/
-/tmp/
 backend/alembic/versions/
 
 # ── Emulator runtime ──────────────────────────────────────────────────────────

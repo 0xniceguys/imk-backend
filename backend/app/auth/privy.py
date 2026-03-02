@@ -16,7 +16,7 @@ async def _get_jwks() -> dict:
     if _jwks_cache is not None and (now - _jwks_fetched_at) < _JWKS_TTL:
         return _jwks_cache
 
-    url = f"https://auth.privy.io/api/v1/apps/{settings.privy_app_id}/jwks"
+    url = f"https://auth.privy.io/api/v1/apps/{settings.privy_app_id}/jwks.json"
     async with httpx.AsyncClient() as client:
         resp = await client.get(url)
         resp.raise_for_status()

@@ -130,6 +130,11 @@ class LocalBridgeBackend:
 
     def load_savestate_path(self, savestate_path: str | Path) -> dict[str, Any]:
         path = str(savestate_path)
+        if not Path(path).exists():
+            raise FileNotFoundError(
+                f"Savestate file not found: {path!r}. "
+                "Check the path stored in the match record."
+            )
         output = self._run_debugger_passthrough_command(
             f"stateload {path}",
             ok_token="M64P_STATELOAD_OK",

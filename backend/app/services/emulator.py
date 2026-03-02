@@ -196,10 +196,15 @@ class EmulatorSession:
             # Force SDL software path so z64's framebuffer blit reaches Xvfb
             env["SDL_RENDER_DRIVER"] = "software"
             env["SDL_FRAMEBUFFER_ACCELERATION"] = "0"
-            # Keep Mesa vars in case any GL path is exercised
-            env["LIBGL_ALWAYS_INDIRECT"] = "1"
+            # Suppress real audio output — no PulseAudio/ALSA needed on headless server.
+            # The SDL audio plugin still loads and satisfies mupen's plugin system,
+            # but SDL routes audio to /dev/null internally.
+            env["SDL_AUDIODRIVER"] = "dummy"
+            # Force Mesa software rasterizer (swrast/llvmpipe) for OpenGL.
+            # Do NOT set LIBGL_ALWAYS_INDIRECT — that forces server-side Xvnc GLX
+            # which doesn't advertise the visuals rice needs, making glXChooseVisual
+            # return NULL and crashing mupen with BadValue on GLXCreateContext.
             env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-            env["MESA_GL_VERSION_OVERRIDE"] = "3.3"
             logger.info(
                 "Linux emulator env: DISPLAY=%s SDL_RENDER_DRIVER=software z64",
                 self.display,
@@ -428,7 +433,7 @@ class EmulatorSession:
 
         if not cfg_file.exists():
             template_cfgs = sorted(
-                (M64P_ROOT / "instances").glob("train-*/config/mupen64plus.cfg")
+                (M64P_ROOT / "instances").glob("*/config/mupen64plus.cfg")
             )
             if template_cfgs:
                 _shutil.copy2(template_cfgs[0], cfg_file)

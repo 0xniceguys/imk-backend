@@ -229,13 +229,23 @@ class DebuggerCliSession:
         try:
             chunk = os.read(self._master_fd, 4096)
         except OSError as exc:
-            if proc.poll() is not None:
-                raise DebuggerCliError(f"Debugger process exited with code {proc.returncode}") from exc
-            raise
+            tail = bytes(self._buffer[-4096:]).decode("utf-8", errors="replace")
+            rc = proc.poll()
+            if rc is not None:
+                raise DebuggerCliError(
+                    f"Debugger process exited with code {rc}. Last output:\n{tail}"
+                ) from exc
+            raise DebuggerCliError(
+                f"PTY read error ({exc}). Last output:\n{tail}"
+            ) from exc
         if not chunk:
-            if proc.poll() is None:
+            tail = bytes(self._buffer[-4096:]).decode("utf-8", errors="replace")
+            rc = proc.poll()
+            if rc is None:
                 return b""
-            raise DebuggerCliError(f"Debugger process exited with code {proc.returncode}")
+            raise DebuggerCliError(
+                f"Debugger process exited with code {rc}. Last output:\n{tail}"
+            )
         self._buffer.extend(chunk)
         return chunk
 
