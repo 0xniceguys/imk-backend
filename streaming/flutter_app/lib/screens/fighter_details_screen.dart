@@ -66,8 +66,18 @@ class FighterDetailsScreen extends ConsumerWidget {
               children: [
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 320),
-                  child: Image.asset(Assets.detailsHero,
-                      width: 148, fit: BoxFit.contain),
+                  child: fighter.imageUrl != null && fighter.imageUrl!.isNotEmpty
+                      ? Image.network(
+                          fighter.imageUrl!,
+                          width: 148,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                              Assets.detailsHero,
+                              width: 148,
+                              fit: BoxFit.contain),
+                        )
+                      : Image.asset(Assets.detailsHero,
+                          width: 148, fit: BoxFit.contain),
                 ),
                 Text(fighter.name,
                     style: displayStyle(size: 40, color: Palette.gold)),
