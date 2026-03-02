@@ -159,6 +159,20 @@ class MatchRunner:
         try:
             await self._launch_emulator()
             await self._connect_bridge()
+
+            # Warm-up: send 'run' and wait before stateload.
+            # The video plugin (rice) does not fully initialize its OpenGL context
+            # until the emulator has started running at least once. Sending stateload
+            # while mupen is still at the initial (dbg) prompt triggers plugin callbacks
+            # before GL is ready, causing a crash (EIO on the PTY).
+            loop = asyncio.get_running_loop()
+            try:
+                logger.info("Emulator warm-up: starting run before stateload (instance=%s)", self.instance_id)
+                await loop.run_in_executor(None, self._bridge.debugger_command, "run")
+                await asyncio.sleep(1.5)
+            except Exception as warm_exc:
+                logger.warning("Warm-up run failed (will still attempt stateload): %s", warm_exc)
+
             await self._load_savestate()
 
             # Reset agents
@@ -204,10 +218,11 @@ class MatchRunner:
                 display=display,
                 width=640,
                 height=480,
-                framerate=60,
-                quality=5,
+                framerate=15,   # 60fps with software GL saturates all CPU — 15fps is plenty for streaming
+                quality=20,     # Higher value = lower quality = less encode CPU (5 was very high quality)
             )
             logger.info("FFmpeg capture: x11grab on display %s", display)
+
         else:
             self._frame_capture = FFmpegCapture(
                 screen_index="2",
