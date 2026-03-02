@@ -36,15 +36,25 @@ async def login(
     )
     user = result.scalar_one_or_none()
 
+    # Wallet address from request body (preferred) or JWT claims (fallback)
+    wallet_address = body.walletAddress or claims.get("wallet", {}).get("address")
+
     if user is None:
+        # Create new user
         user = User(
             privy_user_id=privy_user_id,
-            wallet_address=claims.get("wallet", {}).get("address"),
+            wallet_address=wallet_address,
             email=claims.get("email", {}).get("address"),
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
+    else:
+        # Update existing user's wallet address if provided
+        if wallet_address and user.wallet_address != wallet_address:
+            user.wallet_address = wallet_address
+            await db.commit()
+            await db.refresh(user)
 
     return user
 
