@@ -191,13 +191,8 @@ class EmulatorSession:
             env["DISPLAY"] = self.display
             # SDL needs to know about the virtual display
             env["SDL_VIDEODRIVER"] = "x11"
-            # Force Mesa software rendering so Rice plugin renders to the
-            # Xvfb window (not an offscreen GPU context which gives black frames)
-            env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-            env["GALLIUM_DRIVER"] = "softpipe"
             logger.info(
-                "Linux emulator env: DISPLAY=%s SDL_VIDEODRIVER=x11 "
-                "LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=softpipe",
+                "Linux emulator env: DISPLAY=%s SDL_VIDEODRIVER=x11",
                 self.display,
             )
 
