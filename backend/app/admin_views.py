@@ -369,7 +369,13 @@ async def match_start(match_id: UUID):
             if match.stream:
                 match.stream.status = StreamStatus.LIVE
                 await db.commit()
-        except Exception:
+        except Exception as exc:
+            import traceback
+            import logging as _logging
+            _logging.getLogger(__name__).error(
+                "match_start FAILED for %s: %s\n%s",
+                match_id, exc, traceback.format_exc()
+            )
             match.status = MatchStatus.UPCOMING
             match.started_at = None
             if match.stream:
