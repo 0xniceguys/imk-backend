@@ -218,8 +218,8 @@ class MatchRunner:
                 display=display,
                 width=640,
                 height=480,
-                framerate=15,   # 60fps with software GL saturates all CPU — 15fps is plenty for streaming
-                quality=20,     # Higher value = lower quality = less encode CPU (5 was very high quality)
+                framerate=30,   # 30fps for smooth streaming (up from 15fps)
+                quality=15,     # Better quality (lower number = higher quality)
             )
             logger.info("FFmpeg capture: x11grab on display %s", display)
 
@@ -234,7 +234,8 @@ class MatchRunner:
             logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
 
         await self._frame_capture.start(self._on_ffmpeg_frame)
-        logger.info("FFmpeg capture started at 60fps")
+        fps = 30 if is_linux() else 60
+        logger.info("FFmpeg capture started at %dfps", fps)
 
     async def _on_ffmpeg_frame(self, jpeg_bytes: bytes) -> None:
         """Callback: FFmpeg delivered a JPEG frame — broadcast it."""

@@ -37,14 +37,38 @@ from app.ws.game_state import router as ws_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: pre-fetch Privy JWKS so first auth request is fast
+    # Startup
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Clean up any orphaned processes from previous runs
+    from app.services.process_manager import full_cleanup
+    stats = full_cleanup()
+    logger.info(f"Startup cleanup: {stats}")
+
+    # Pre-fetch Privy JWKS so first auth request is fast
     from app.auth.privy import verify_privy_token  # noqa: F401
 
     yield
-    # Shutdown: stop all running matches
+
+    # Shutdown: gracefully stop all running matches
+    logger.info("Shutting down IMK backend...")
     from app.services.match_runner import get_all_runners, stop_match
-    for mid in list(get_all_runners().keys()):
-        await stop_match(mid)
+
+    runners = list(get_all_runners().keys())
+    if runners:
+        logger.info(f"Stopping {len(runners)} running matches...")
+        for mid in runners:
+            try:
+                await stop_match(mid)
+                logger.info(f"  ✓ Stopped match {mid}")
+            except Exception as e:
+                logger.error(f"  ✗ Error stopping match {mid}: {e}")
+
+    # Final cleanup
+    stats = full_cleanup()
+    logger.info(f"Shutdown cleanup: {stats}")
+    logger.info("IMK backend shutdown complete")
 
 
 app = FastAPI(
