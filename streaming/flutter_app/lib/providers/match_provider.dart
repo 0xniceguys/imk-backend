@@ -13,17 +13,36 @@ final apiServiceProvider = Provider<ApiService>((ref) {
 class MatchNotifier extends StateNotifier<List<Match>> {
   final ApiService _api;
   Timer? _pollTimer;
+  int _failureCount = 0;
+  static const _basePollSeconds = 10;
+  static const _maxPollSeconds = 120;
 
   MatchNotifier(this._api) : super([]) {
     refresh();
-    // Poll every 10s for match list updates
-    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => refresh());
+    _schedulePoll(_basePollSeconds);
+  }
+
+  void _schedulePoll(int seconds) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer(Duration(seconds: seconds), () async {
+      await refresh();
+      // Next interval: double on failure, reset on success, cap at max
+      final next = _failureCount == 0
+          ? _basePollSeconds
+          : (_basePollSeconds * (1 << _failureCount))
+              .clamp(_basePollSeconds, _maxPollSeconds);
+      _schedulePoll(next);
+    });
   }
 
   Future<void> refresh() async {
     final matches = await _api.fetchMatches();
-    if (matches.isNotEmpty || state.isNotEmpty) {
+    if (matches.isNotEmpty) {
+      _failureCount = 0;
       state = matches;
+    } else if (state.isNotEmpty) {
+      // Network may be down — keep old data, count failure for backoff
+      _failureCount = (_failureCount + 1).clamp(0, 4);
     }
   }
 
@@ -41,6 +60,7 @@ class MatchNotifier extends StateNotifier<List<Match>> {
     super.dispose();
   }
 }
+
 
 final matchProvider = StateNotifierProvider<MatchNotifier, List<Match>>(
   (ref) => MatchNotifier(ref.read(apiServiceProvider)),
