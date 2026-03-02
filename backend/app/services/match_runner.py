@@ -269,7 +269,7 @@ class MatchRunner:
         """Launch the bridge server (which manages mupen64plus internally)."""
         opts = LaunchOptions(
             instance_id=self.instance_id,
-            resolution="320x240",
+            resolution="640x480",
         )
         self._session = EmulatorSession(opts)
         self._ctrl_p1_path = self._session.ctrl_p1_path
