@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+hls_output/
+vod_archive/
+*.egg-info/

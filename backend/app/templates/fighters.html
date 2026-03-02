@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Fighters{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-2">
+  <h1>Fighters</h1>
+  <button onclick="document.getElementById('new-fighter-form').style.display='block'" class="btn btn-accent btn-sm">+ Add Fighter</button>
+</div>
+
+{% if flash %}
+<div class="flash flash-{{ flash.type }}">{{ flash.message }}</div>
+{% endif %}
+
+<!-- New fighter form (hidden by default) -->
+<div id="new-fighter-form" class="card mb-2" style="display:none; border-color: var(--accent);">
+  <h2>Add Fighter</h2>
+  <form method="POST" action="/admin/fighters/new">
+    <div class="grid grid-2">
+      <div class="form-group">
+        <label for="name">Display Name</label>
+        <input type="text" name="name" id="name" placeholder="e.g. SUB-ZERO" required>
+      </div>
+      <div class="form-group">
+        <label for="slug">Slug</label>
+        <input type="text" name="slug" id="slug" placeholder="e.g. sub-zero" required>
+      </div>
+      <div class="form-group">
+        <label for="character">Character</label>
+        <input type="text" name="character" id="character" placeholder="e.g. Sub-Zero" required>
+      </div>
+      <div class="form-group">
+        <label for="character_id">Character ID</label>
+        <input type="number" name="character_id" id="character_id" placeholder="0" required>
+      </div>
+      <div class="form-group">
+        <label for="llm_model">LLM Model</label>
+        <input type="text" name="llm_model" id="llm_model" placeholder="e.g. Claude Opus 4.6" required>
+      </div>
+      <div class="form-group">
+        <label for="agent_architecture">Architecture</label>
+        <input type="text" name="agent_architecture" id="agent_architecture" placeholder="e.g. mlp, lstm">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-accent">Create Fighter</button>
+    <button type="button" onclick="this.closest('.card').style.display='none'" class="btn" style="margin-left:0.5rem;">Cancel</button>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Character</th>
+        <th>LLM Model</th>
+        <th>Architecture</th>
+        <th>Matches</th>
+        <th>Wins</th>
+        <th>Win Rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in fighters %}
+      <tr>
+        <td><strong>{{ f.name }}</strong><br><span class="text-dim text-sm">{{ f.slug }}</span></td>
+        <td>{{ f.character }}</td>
+        <td>{{ f.llm_model }}</td>
+        <td class="text-dim">{{ f.agent_architecture or '—' }}</td>
+        <td>{{ f.matches_played }}</td>
+        <td>{{ f.matches_won }}</td>
+        <td>
+          <strong style="color: {% if f.win_rate >= 0.6 %}var(--green){% elif f.win_rate >= 0.4 %}var(--yellow){% else %}var(--red){% endif %};">
+            {{ (f.win_rate * 100)|round(1) }}%
+          </strong>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

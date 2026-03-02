@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}New Match{% endblock %}
+
+{% block content %}
+<h1>Create Match</h1>
+
+{% if error %}
+<div class="flash flash-error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+  <form method="POST" action="/admin/matches/new">
+    <div class="form-group">
+      <label for="savestate_path">Savestate (characters + stage)</label>
+      <select name="savestate_path" id="savestate_path" required>
+        <option value="">Select savestate...</option>
+        {% for s in savestates %}
+        <option value="{{ s.path }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="form-group">
+        <label for="p1_agent">P1 Agent</label>
+        <select name="p1_agent" id="p1_agent" required>
+          {% for a in agents %}
+          <option value="{{ a.id }}" {% if a.id == 'random' %}selected{% endif %}>{{ a.name }} — {{ a.description }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="p2_agent">P2 Agent</label>
+        <select name="p2_agent" id="p2_agent" required>
+          {% for a in agents %}
+          <option value="{{ a.id }}" {% if a.id == 'random' %}selected{% endif %}>{{ a.name }} — {{ a.description }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="form-group">
+        <label for="best_of">Best Of</label>
+        <select name="best_of" id="best_of" required>
+          <option value="1">1 Round</option>
+          <option value="3" selected>Best of 3</option>
+          <option value="5">Best of 5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="label">Match Label</label>
+        <input type="text" name="label" id="label" value="MK4-Classic" placeholder="e.g. MK4-Classic, Tournament Round 1">
+      </div>
+    </div>
+
+    <div class="mt-2">
+      <button type="submit" class="btn btn-accent">Create Match</button>
+      <a href="/admin/matches" class="btn" style="margin-left: 0.5rem;">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

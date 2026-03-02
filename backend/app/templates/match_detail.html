@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Match Detail{% endblock %}
+
+{% block content %}
+<h1>
+  <span class="badge badge-{{ match.status.value }}">{{ match.status.value }}</span>
+  {{ p1_agent_name }} vs {{ p2_agent_name }}
+</h1>
+
+{% if flash %}
+<div class="flash flash-{{ flash.type }}">{{ flash.message }}</div>
+{% endif %}
+
+{% if match.status.value == 'live' %}
+<!-- Live stream preview -->
+<div class="card mb-2" style="padding:0;overflow:hidden;position:relative;background:#000;">
+  <div style="display:flex;justify-content:center;align-items:center;">
+    <canvas id="live-canvas" width="320" height="240" style="
+      width:100%;max-width:640px;height:auto;aspect-ratio:4/3;
+      image-rendering:pixelated;image-rendering:crisp-edges;
+      background:#111;
+    "></canvas>
+  </div>
+  <div style="position:absolute;top:8px;right:8px;">
+    <a href="/admin/viewer/{{ match.id }}" class="btn btn-sm btn-accent">Open Full Viewer</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-2 mb-2">
+  <!-- P1 Agent -->
+  <div class="card">
+    <h2>P1 — {{ p1_agent_name }}</h2>
+    <p class="text-dim text-sm">Agent: {{ match.p1_agent }}</p>
+    {% if match.fighter1 %}
+    <p class="text-dim text-sm">{{ match.fighter1.character }}</p>
+    {% endif %}
+    <div class="mt-1">
+      <div class="text-sm">Health: <span id="p1-hp-text">{{ runner.p1_health if runner else '—' }}</span>/160</div>
+      <div class="health-bar"><div class="health-bar-fill health-p1" id="p1-hp-bar" style="width: {{ ((runner.p1_health if runner else 160) / 160 * 100)|int }}%;transition:width 0.15s ease;"></div></div>
+    </div>
+  </div>
+
+  <!-- P2 Agent -->
+  <div class="card">
+    <h2>P2 — {{ p2_agent_name }}</h2>
+    <p class="text-dim text-sm">Agent: {{ match.p2_agent }}</p>
+    {% if match.fighter2 %}
+    <p class="text-dim text-sm">{{ match.fighter2.character }}</p>
+    {% endif %}
+    <div class="mt-1">
+      <div class="text-sm">Health: <span id="p2-hp-text">{{ runner.p2_health if runner else '—' }}</span>/160</div>
+      <div class="health-bar"><div class="health-bar-fill health-p2" id="p2-hp-bar" style="width: {{ ((runner.p2_health if runner else 160) / 160 * 100)|int }}%;transition:width 0.15s ease;"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Match info -->
+<div class="card mb-2">
+  <h2>Match Info</h2>
+  <table>
+    <tr><th style="width:200px;">Label</th><td>{{ match.label }}</td></tr>
+    <tr><th>P1 Agent</th><td>{{ p1_agent_name }} ({{ match.p1_agent }})</td></tr>
+    <tr><th>P2 Agent</th><td>{{ p2_agent_name }} ({{ match.p2_agent }})</td></tr>
+    <tr><th>Format</th><td>Best of {{ match.best_of }}</td></tr>
+    <tr><th>Round Score</th><td id="match-round-score">Round <span id="current-round">{{ match.current_round }}</span>/{{ match.best_of }} — P1: <span id="rounds-p1">{{ match.rounds_won_p1 }}</span> | P2: <span id="rounds-p2">{{ match.rounds_won_p2 }}</span></td></tr>
+    <tr><th>Savestate</th><td class="text-sm">{{ match.savestate_path or '—' }}</td></tr>
+    {% if match.started_at %}
+    <tr><th>Started</th><td>{{ match.started_at.strftime('%b %d, %Y %H:%M UTC') }}</td></tr>
+    {% endif %}
+    {% if match.completed_at %}
+    <tr><th>Completed</th><td>{{ match.completed_at.strftime('%b %d, %Y %H:%M UTC') }}</td></tr>
+    {% endif %}
+    {% if match.winner %}
+    <tr><th>Winner</th><td><strong style="color: var(--green);">{{ match.winner.name }}</strong></td></tr>
+    {% endif %}
+    <tr><th>Timer</th><td id="match-timer">{{ runner.timer if runner else '—' }}</td></tr>
+    <tr><th>Frame</th><td id="match-frame">{{ runner.frame_id if runner else '—' }}</td></tr>
+    <tr><th>Runner State</th><td id="match-runner-state">{{ runner_state or '—' }}</td></tr>
+    <tr><th>Viewers</th><td id="match-viewers">—</td></tr>
+  </table>
+</div>
+
+<!-- Actions -->
+<div class="card">
+  <h2>Actions</h2>
+  <div class="flex gap-1 mt-1">
+    {% if match.status.value == 'upcoming' and match.savestate_path %}
+    <form method="POST" action="/admin/matches/{{ match.id }}/start">
+      <button type="submit" class="btn btn-green">Start Match</button>
+    </form>
+    {% endif %}
+
+    {% if match.status.value == 'live' %}
+    <form method="POST" action="/admin/matches/{{ match.id }}/stop">
+      <button type="submit" class="btn btn-red">Stop Match</button>
+    </form>
+    {% endif %}
+
+    {% if match.status.value in ('upcoming', 'live') %}
+    <form method="POST" action="/admin/matches/{{ match.id }}/cancel">
+      <button type="submit" class="btn">Cancel Match</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if match.status.value == 'live' %}
+  <div class="mt-1" style="border-top:1px solid var(--border);padding-top:0.75rem;">
+    <h3 style="margin-bottom:0.5rem;">Settle Match</h3>
+    <form method="POST" action="/admin/matches/{{ match.id }}/settle" style="display:flex;align-items:center;gap:0.5rem;">
+      <select name="winner_id" required style="padding:0.4rem 0.6rem;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+        <option value="">Select winner...</option>
+        {% if match.fighter1 %}
+        <option value="{{ match.fighter1_id }}">{{ match.fighter1.name }} (P1)</option>
+        {% endif %}
+        {% if match.fighter2 %}
+        <option value="{{ match.fighter2_id }}">{{ match.fighter2.name }} (P2)</option>
+        {% endif %}
+      </select>
+      <button type="submit" class="btn btn-accent">Settle</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Betting info -->
+{% if bets %}
+<div class="card mt-2">
+  <h2>Bets ({{ bets|length }})</h2>
+  <table>
+    <thead><tr><th>User</th><th>Fighter</th><th>Amount</th><th>Odds</th><th>Status</th><th>Payout</th></tr></thead>
+    <tbody>
+      {% for b in bets %}
+      <tr>
+        <td>{{ b.user.display_name or b.user.wallet_address[:8] ~ '...' if b.user.wallet_address else b.user.email or 'anon' }}</td>
+        <td>{{ b.fighter.name }}</td>
+        <td>{{ b.amount }} {{ b.currency }}</td>
+        <td>{{ b.odds_at_placement }}x</td>
+        <td><span class="badge badge-{{ b.status.value }}">{{ b.status.value }}</span></td>
+        <td>{{ b.payout or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if match.status.value == 'live' %}
+<script>
+(function() {
+  const matchId = '{{ match.id }}';
+  const canvas = document.getElementById('live-canvas');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  const HEALTH_MAX = 160;
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/ws/match/${matchId}`);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onmessage = (event) => {
+    if (event.data instanceof ArrayBuffer) {
+      if (ctx) {
+        const blob = new Blob([event.data], { type: 'image/jpeg' });
+        createImageBitmap(blob).then(bitmap => {
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          bitmap.close();
+        }).catch(() => {});
+      }
+    } else {
+      try {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === 'game_state' || msg.type === 'connected') {
+          const state = msg.game_state || msg;
+          const p1hp = state.p1_health || 0;
+          const p2hp = state.p2_health || 0;
+
+          document.getElementById('p1-hp-bar').style.width = ((p1hp / HEALTH_MAX) * 100) + '%';
+          document.getElementById('p2-hp-bar').style.width = ((p2hp / HEALTH_MAX) * 100) + '%';
+          document.getElementById('p1-hp-text').textContent = p1hp;
+          document.getElementById('p2-hp-text').textContent = p2hp;
+
+          document.getElementById('match-timer').textContent = state.timer || '—';
+          document.getElementById('match-frame').textContent = state.frame_id || '—';
+
+          // Update round scores
+          if (state.current_round !== undefined) {
+            document.getElementById('current-round').textContent = state.current_round;
+            document.getElementById('rounds-p1').textContent = state.rounds_won_p1 || 0;
+            document.getElementById('rounds-p2').textContent = state.rounds_won_p2 || 0;
+          }
+        }
+
+        if (msg.type === 'round_end') {
+          document.getElementById('current-round').textContent = msg.current_round || '—';
+          document.getElementById('rounds-p1').textContent = msg.rounds_won_p1 || 0;
+          document.getElementById('rounds-p2').textContent = msg.rounds_won_p2 || 0;
+        }
+
+        if (msg.type === 'connected') {
+          document.getElementById('match-viewers').textContent = msg.viewer_count;
+        }
+        if (msg.type === 'viewer_count') {
+          document.getElementById('match-viewers').textContent = msg.count;
+        }
+
+        if (msg.type === 'match_ended') {
+          setTimeout(() => window.location.reload(), 2000);
+        }
+      } catch (e) {}
+    }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('match-runner-state').textContent = 'disconnected';
+  };
+
+  setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 15000);
+})();
+</script>
+{% endif %}
+{% endblock %}

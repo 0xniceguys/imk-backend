@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}Live Viewer{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-2">
+  <h1>
+    <span id="status-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:8px;"></span>
+    Live Match Viewer
+  </h1>
+  <div class="flex gap-1 items-center">
+    <span class="text-dim text-sm" id="viewer-count">0 viewers</span>
+    <span class="text-dim text-sm" id="fps-counter">0 fps</span>
+    <select id="match-selector" style="width:auto;min-width:200px;">
+      <option value="">Select match...</option>
+    </select>
+    <button onclick="refreshMatches()" class="btn btn-sm">Refresh</button>
+  </div>
+</div>
+
+<!-- Game display area -->
+<div class="card" style="padding:0;overflow:hidden;position:relative;background:#000;">
+  <!-- Canvas for emulator frames -->
+  <div style="display:flex;justify-content:center;align-items:center;min-height:480px;">
+    <canvas id="game-canvas" width="320" height="240" style="
+      width:640px;height:480px;
+      image-rendering:pixelated;
+      image-rendering:crisp-edges;
+      background:#111;
+    "></canvas>
+  </div>
+
+  <!-- No match overlay -->
+  <div id="no-match-overlay" style="
+    position:absolute;top:0;left:0;right:0;bottom:0;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    background:rgba(0,0,0,0.85);
+  ">
+    <div style="font-size:1.5rem;color:var(--text-dim);margin-bottom:1rem;">No Live Match Selected</div>
+    <div class="text-dim text-sm">Select a running match from the dropdown above, or start one from the
+      <a href="/admin/matches">admin panel</a>
+    </div>
+  </div>
+</div>
+
+<!-- HUD: health bars + timer + frame info -->
+<div class="grid grid-3 mt-1" style="gap:1rem;">
+  <!-- P1 health -->
+  <div class="card">
+    <div class="flex justify-between items-center">
+      <h2 id="p1-name" style="margin-bottom:0;">P1</h2>
+      <span id="p1-hp-text" class="text-sm" style="color:var(--blue);">160/160</span>
+    </div>
+    <div class="health-bar mt-1">
+      <div class="health-bar-fill health-p1" id="p1-hp-bar" style="width:100%;transition:width 0.15s ease;"></div>
+    </div>
+  </div>
+
+  <!-- Timer + status -->
+  <div class="card" style="text-align:center;">
+    <div id="match-timer" style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1;">99</div>
+    <div class="flex justify-between items-center mt-1" style="gap:0.5rem;">
+      <span class="text-dim text-sm">Frame: <strong id="frame-counter">0</strong></span>
+      <span id="match-status-badge" class="badge badge-live" style="display:none;">LIVE</span>
+      <span class="text-dim text-sm">Latency: <strong id="latency">—</strong></span>
+    </div>
+  </div>
+
+  <!-- P2 health -->
+  <div class="card">
+    <div class="flex justify-between items-center">
+      <h2 id="p2-name" style="margin-bottom:0;">P2</h2>
+      <span id="p2-hp-text" class="text-sm" style="color:var(--red);">160/160</span>
+    </div>
+    <div class="health-bar mt-1">
+      <div class="health-bar-fill health-p2" id="p2-hp-bar" style="width:100%;transition:width 0.15s ease;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Event log -->
+<div class="card mt-1">
+  <div class="card-header">
+    <h2>Event Log</h2>
+    <button onclick="document.getElementById('event-log').innerHTML=''" class="btn btn-sm">Clear</button>
+  </div>
+  <div id="event-log" style="max-height:200px;overflow-y:auto;font-family:monospace;font-size:0.8rem;color:var(--text-dim);"></div>
+</div>
+
+<!-- Connection info -->
+<div class="card mt-1">
+  <div class="card-header"><h2>Connection</h2></div>
+  <table>
+    <tr><th style="width:150px;">Transport</th><td id="conn-transport">—</td></tr>
+    <tr><th>State</th><td id="conn-state">Disconnected</td></tr>
+    <tr><th>Match ID</th><td id="conn-match-id" class="text-sm" style="font-family:monospace;">—</td></tr>
+    <tr><th>Messages</th><td><span id="msg-count-json">0</span> JSON / <span id="msg-count-binary">0</span> binary</td></tr>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // ── Elements ──
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('no-match-overlay');
+  const selector = document.getElementById('match-selector');
+  const statusDot = document.getElementById('status-dot');
+
+  // HUD elements
+  const p1HpBar = document.getElementById('p1-hp-bar');
+  const p2HpBar = document.getElementById('p2-hp-bar');
+  const p1HpText = document.getElementById('p1-hp-text');
+  const p2HpText = document.getElementById('p2-hp-text');
+  const p1Name = document.getElementById('p1-name');
+  const p2Name = document.getElementById('p2-name');
+  const timerEl = document.getElementById('match-timer');
+  const frameCounter = document.getElementById('frame-counter');
+  const viewerCount = document.getElementById('viewer-count');
+  const fpsCounter = document.getElementById('fps-counter');
+  const latencyEl = document.getElementById('latency');
+  const statusBadge = document.getElementById('match-status-badge');
+  const eventLog = document.getElementById('event-log');
+
+  // Connection info
+  const connTransport = document.getElementById('conn-transport');
+  const connState = document.getElementById('conn-state');
+  const connMatchId = document.getElementById('conn-match-id');
+  const msgCountJson = document.getElementById('msg-count-json');
+  const msgCountBinary = document.getElementById('msg-count-binary');
+
+  // ── State ──
+  let ws = null;
+  let currentMatchId = null;
+  let jsonMsgCount = 0;
+  let binaryMsgCount = 0;
+  let frameTimestamps = [];
+  let pollingInterval = null;
+  let reconnectTimeout = null;
+  let reconnectDelay = 1000;
+  const HEALTH_MAX = 160;
+
+  // ── Match selector ──
+  window.refreshMatches = async function() {
+    try {
+      const resp = await fetch('/api/stream/live');
+      const matches = await resp.json();
+
+      // Also fetch upcoming/live matches from DB for display names
+      const dbResp = await fetch('/api/matches/?status=live,upcoming');
+      const dbMatches = await dbResp.json();
+      const dbMap = {};
+      dbMatches.forEach(m => { dbMap[m.id] = m; });
+
+      // Keep current selection
+      const prev = selector.value;
+      selector.innerHTML = '<option value="">Select match...</option>';
+
+      if (matches.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No live matches — start one from admin panel';
+        opt.disabled = true;
+        selector.appendChild(opt);
+      }
+
+      matches.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.match_id;
+        const db = dbMap[m.match_id];
+        if (db) {
+          opt.textContent = `${db.fighter1.name} vs ${db.fighter2.name} [${m.state}]`;
+        } else {
+          opt.textContent = `${m.match_id.slice(0,8)}... [${m.state}]`;
+        }
+        selector.appendChild(opt);
+      });
+
+      // Restore selection
+      if (prev) selector.value = prev;
+
+      // Auto-select first if none selected
+      if (!selector.value && matches.length > 0) {
+        selector.value = matches[0].match_id;
+        selector.dispatchEvent(new Event('change'));
+      }
+    } catch (e) {
+      logEvent('error', `Failed to refresh matches: ${e.message}`);
+    }
+  };
+
+  selector.addEventListener('change', () => {
+    const matchId = selector.value;
+    if (matchId) {
+      connectToMatch(matchId);
+    } else {
+      disconnect();
+    }
+  });
+
+  // ── WebSocket connection ──
+  function connectToMatch(matchId) {
+    disconnect();
+    currentMatchId = matchId;
+    connMatchId.textContent = matchId;
+    overlay.style.display = 'none';
+    reconnectDelay = 1000;
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${proto}//${location.host}/ws/match/${matchId}`;
+
+    logEvent('info', `Connecting to ${url}`);
+    connState.textContent = 'Connecting...';
+    connTransport.textContent = 'WebSocket';
+    statusDot.style.background = 'var(--yellow)';
+
+    ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = () => {
+      connState.textContent = 'Connected';
+      statusDot.style.background = 'var(--green)';
+      reconnectDelay = 1000;
+      logEvent('info', 'WebSocket connected');
+    };
+
+    ws.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        handleBinaryFrame(event.data);
+      } else {
+        handleJsonMessage(event.data);
+      }
+    };
+
+    ws.onclose = (event) => {
+      connState.textContent = `Closed (${event.code})`;
+      statusDot.style.background = 'var(--red)';
+      logEvent('warn', `WebSocket closed: code=${event.code} reason=${event.reason || 'none'}`);
+
+      // Try polling fallback
+      if (currentMatchId) {
+        startPollingFallback(currentMatchId);
+        // Auto-reconnect with backoff
+        reconnectTimeout = setTimeout(() => {
+          if (currentMatchId === matchId) {
+            logEvent('info', `Reconnecting (delay=${reconnectDelay}ms)...`);
+            connectToMatch(matchId);
+          }
+        }, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+      }
+    };
+
+    ws.onerror = () => {
+      logEvent('error', 'WebSocket error');
+    };
+  }
+
+  function disconnect() {
+    if (ws) {
+      ws.onclose = null; // prevent reconnect
+      ws.close();
+      ws = null;
+    }
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+    currentMatchId = null;
+    jsonMsgCount = 0;
+    binaryMsgCount = 0;
+    msgCountJson.textContent = '0';
+    msgCountBinary.textContent = '0';
+    connState.textContent = 'Disconnected';
+    connTransport.textContent = '—';
+    connMatchId.textContent = '—';
+    statusDot.style.background = 'var(--red)';
+    overlay.style.display = 'flex';
+    statusBadge.style.display = 'none';
+  }
+
+  // ── Handle binary JPEG frames ──
+  function handleBinaryFrame(buffer) {
+    binaryMsgCount++;
+    msgCountBinary.textContent = binaryMsgCount;
+
+    // Track FPS
+    const now = performance.now();
+    frameTimestamps.push(now);
+    frameTimestamps = frameTimestamps.filter(t => now - t < 1000);
+    fpsCounter.textContent = frameTimestamps.length + ' fps';
+
+    // Render JPEG to canvas
+    const blob = new Blob([buffer], { type: 'image/jpeg' });
+    createImageBitmap(blob).then(bitmap => {
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+    }).catch(() => {
+      // Fallback: use Image element
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  }
+
+  // ── Handle JSON messages ──
+  function handleJsonMessage(text) {
+    jsonMsgCount++;
+    msgCountJson.textContent = jsonMsgCount;
+
+    let msg;
+    try {
+      msg = JSON.parse(text);
+    } catch (e) {
+      logEvent('error', `Bad JSON: ${text.slice(0, 100)}`);
+      return;
+    }
+
+    const type = msg.type;
+
+    if (type === 'connected') {
+      logEvent('info', `Joined match ${msg.match_id} (${msg.viewer_count} viewers)`);
+      viewerCount.textContent = msg.viewer_count + ' viewers';
+      if (msg.game_state) updateGameState(msg.game_state);
+      statusBadge.style.display = 'inline-block';
+      statusBadge.textContent = 'LIVE';
+      statusBadge.className = 'badge badge-live';
+    }
+
+    else if (type === 'game_state') {
+      updateGameState(msg);
+    }
+
+    else if (type === 'viewer_count') {
+      viewerCount.textContent = msg.count + ' viewers';
+    }
+
+    else if (type === 'round_end') {
+      const winner = msg.p1_won ? 'P1' : 'P2';
+      logEvent('event', `ROUND OVER! ${winner} wins (P1=${msg.p1_health} P2=${msg.p2_health})`);
+      statusBadge.textContent = 'ROUND OVER';
+      statusBadge.className = 'badge badge-completed';
+    }
+
+    else if (type === 'match_ended') {
+      logEvent('event', 'MATCH ENDED');
+      statusBadge.textContent = 'ENDED';
+      statusBadge.className = 'badge badge-cancelled';
+    }
+
+    else if (type === 'chat') {
+      logEvent('chat', `${msg.user}: ${msg.message}`);
+    }
+
+    else if (type === 'pong') {
+      // ignore
+    }
+
+    else {
+      logEvent('info', `Unknown message type: ${type}`);
+    }
+  }
+
+  function updateGameState(state) {
+    const p1hp = state.p1_health || 0;
+    const p2hp = state.p2_health || 0;
+    const timer = state.timer || 0;
+    const frameId = state.frame_id || 0;
+
+    // Health bars
+    const p1pct = Math.max(0, Math.min(100, (p1hp / HEALTH_MAX) * 100));
+    const p2pct = Math.max(0, Math.min(100, (p2hp / HEALTH_MAX) * 100));
+    p1HpBar.style.width = p1pct + '%';
+    p2HpBar.style.width = p2pct + '%';
+    p1HpText.textContent = p1hp + '/' + HEALTH_MAX;
+    p2HpText.textContent = p2hp + '/' + HEALTH_MAX;
+
+    // Timer
+    timerEl.textContent = timer;
+    if (timer <= 10 && timer > 0) {
+      timerEl.style.color = 'var(--red)';
+    } else {
+      timerEl.style.color = 'var(--text)';
+    }
+
+    // Frame counter
+    frameCounter.textContent = frameId;
+
+    // Latency (time since server timestamp)
+    if (state.timestamp) {
+      const serverTime = state.timestamp * 1000; // server sends seconds
+      const latency = Date.now() - serverTime;
+      latencyEl.textContent = Math.max(0, latency) + 'ms';
+    }
+  }
+
+  // ── HTTP Polling Fallback ──
+  function startPollingFallback(matchId) {
+    if (pollingInterval) return; // already polling
+    connTransport.textContent = 'HTTP Polling (fallback)';
+    logEvent('warn', 'Falling back to HTTP polling');
+
+    pollingInterval = setInterval(async () => {
+      if (!currentMatchId) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        return;
+      }
+      try {
+        // Fetch state
+        const stateResp = await fetch(`/api/stream/${matchId}/state`);
+        if (stateResp.ok) {
+          const state = await stateResp.json();
+          updateGameState(state);
+        }
+        // Fetch frame
+        const frameResp = await fetch(`/api/stream/${matchId}/frame`);
+        if (frameResp.ok) {
+          const blob = await frameResp.blob();
+          const bitmap = await createImageBitmap(blob);
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          bitmap.close();
+          binaryMsgCount++;
+          msgCountBinary.textContent = binaryMsgCount;
+        }
+      } catch (e) {
+        // silently retry
+      }
+    }, 200);
+  }
+
+  // ── Event log ──
+  function logEvent(level, message) {
+    const time = new Date().toLocaleTimeString();
+    const colors = { info: 'var(--blue)', warn: 'var(--yellow)', error: 'var(--red)', event: 'var(--green)', chat: 'var(--accent2)' };
+    const color = colors[level] || 'var(--text-dim)';
+    eventLog.innerHTML += `<div style="color:${color};padding:2px 0;">[${time}] ${message}</div>`;
+    eventLog.scrollTop = eventLog.scrollHeight;
+  }
+
+  // ── Init ──
+  // Check URL for match_id
+  const urlMatchId = '{{ match_id | default("", true) }}';
+  if (urlMatchId) {
+    connectToMatch(urlMatchId);
+  }
+
+  // Auto-refresh match list
+  refreshMatches();
+  setInterval(refreshMatches, 10000);
+
+  // Ping to keep WS alive
+  setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 15000);
+})();
+</script>
+{% endblock %}

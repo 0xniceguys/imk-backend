@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Matches{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-2">
+  <h1>All Matches</h1>
+  <a href="/admin/matches/new" class="btn btn-accent">+ New Match</a>
+</div>
+
+{% if flash %}
+<div class="flash flash-{{ flash.type }}">{{ flash.message }}</div>
+{% endif %}
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Matchup</th>
+        <th>Label</th>
+        <th>Scheduled</th>
+        <th>Winner</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in matches %}
+      <tr>
+        <td><span class="badge badge-{{ m.status.value }}">{{ m.status.value }}</span></td>
+        <td><strong>{{ m.fighter1.name if m.fighter1 else m.p1_agent }}</strong> vs <strong>{{ m.fighter2.name if m.fighter2 else m.p2_agent }}</strong></td>
+        <td class="text-dim">{{ m.label }}</td>
+        <td class="text-dim text-sm">{{ m.scheduled_at.strftime('%b %d, %H:%M') }}</td>
+        <td>
+          {% if m.winner %}
+            <strong style="color: var(--green);">{{ m.winner.name }}</strong>
+          {% else %}
+            <span class="text-dim">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="flex gap-1">
+            {% if m.status.value == 'upcoming' and m.savestate_path %}
+              <form method="POST" action="/admin/matches/{{ m.id }}/start" style="display:inline;">
+                <button type="submit" class="btn btn-green btn-sm">Start</button>
+              </form>
+            {% endif %}
+            {% if m.status.value == 'live' %}
+              <form method="POST" action="/admin/matches/{{ m.id }}/stop" style="display:inline;">
+                <button type="submit" class="btn btn-red btn-sm">Stop</button>
+              </form>
+              <a href="/admin/matches/{{ m.id }}" class="btn btn-sm">Settle</a>
+            {% endif %}
+            {% if m.status.value in ('upcoming', 'live') %}
+              <form method="POST" action="/admin/matches/{{ m.id }}/cancel" style="display:inline;">
+                <button type="submit" class="btn btn-sm">Cancel</button>
+              </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not matches %}
+      <tr><td colspan="6" class="text-dim" style="text-align:center; padding: 2rem;">No matches yet.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
