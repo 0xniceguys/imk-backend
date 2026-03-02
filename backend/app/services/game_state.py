@@ -77,20 +77,14 @@ def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
 def is_round_over(state: FightState) -> bool:
     """True when someone is KO'd or the timer runs out.
 
-    Guards against false triggers from uninitialized RAM.
+    NOTE: This function is only called after the 300-step grace period in
+    match_runner.py (~30s), so we don't need extra guards here.
+    The only safe guard is both-zero which means uninitialized RAM.
     """
     p1, p2, timer = state.p1_health, state.p2_health, state.timer
 
-    # Both zero → uninitialized RAM
+    # Both zero → uninitialized RAM (shouldn't happen after grace period)
     if p1 == 0 and p2 == 0:
-        return False
-
-    # Timer at 99 → fight hasn't started
-    if timer >= 99:
-        return False
-
-    # One at full, other at 0 → savestate just loaded, RAM not populated
-    if (p1 == HEALTH_MAX and p2 == 0) or (p2 == HEALTH_MAX and p1 == 0):
         return False
 
     # KO — one player's health hit zero
