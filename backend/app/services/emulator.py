@@ -47,8 +47,8 @@ if IS_LINUX:
     _LIB_EXT = ".so"
     _PLUGIN_DIR = "/usr/lib/x86_64-linux-gnu/mupen64plus"
     _DATA_DIR = "/usr/share/mupen64plus"
-    # Use rice plugin with Mesa software GL (LIBGL_ALWAYS_SOFTWARE=1).
-    # z64 renders a black frame on headless Xvfb — rice + llvmpipe works.
+    # rice + Xvnc (TigerVNC): Xvnc has built-in Mesa software GLX so rice's
+    # OpenGL renders correctly. Xvfb's GLX is broken for direct GL contexts.
     _GFX_PLUGIN = f"mupen64plus-video-rice{_LIB_EXT}"
     _AUDIO_PLUGIN = f"mupen64plus-audio-sdl{_LIB_EXT}"
     _INPUT_PLUGIN_NAME = f"n64train-input{_LIB_EXT}"
@@ -193,12 +193,15 @@ class EmulatorSession:
         if IS_LINUX:
             env["DISPLAY"] = self.display
             env["SDL_VIDEODRIVER"] = "x11"
-            # Mesa software GL — required for rice plugin on headless Xvfb
+            # Force SDL software path so z64's framebuffer blit reaches Xvfb
+            env["SDL_RENDER_DRIVER"] = "software"
+            env["SDL_FRAMEBUFFER_ACCELERATION"] = "0"
+            # Keep Mesa vars in case any GL path is exercised
+            env["LIBGL_ALWAYS_INDIRECT"] = "1"
             env["LIBGL_ALWAYS_SOFTWARE"] = "1"
             env["MESA_GL_VERSION_OVERRIDE"] = "3.3"
-            env["GALLIUM_DRIVER"] = "llvmpipe"
             logger.info(
-                "Linux emulator env: DISPLAY=%s SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1",
+                "Linux emulator env: DISPLAY=%s SDL_RENDER_DRIVER=software z64",
                 self.display,
             )
 
@@ -284,27 +287,36 @@ class EmulatorSession:
             threading.Thread(target=_resize_window, daemon=True).start()
 
     def _start_xvfb(self) -> None:
-        """Start a virtual X11 display for headless rendering (Linux only)."""
-        if not shutil.which("Xvfb"):
-            raise RuntimeError(
-                "Xvfb not found. Install it: sudo apt install xvfb"
-            )
+        """Start Xvnc (TigerVNC) or fall back to Xvfb for headless rendering."""
+        w, h = self.options.resolution.split("x")
 
         # Find a free display number
         for num in range(99, 199):
-            lock_file = Path(f"/tmp/.X{num}-lock")
-            if not lock_file.exists():
+            if not Path(f"/tmp/.X{num}-lock").exists():
                 self._display_num = num
                 self.display = f":{num}"
                 break
 
-        w, h = self.options.resolution.split("x")
-        cmd = [
-            "Xvfb", self.display,
-            "-screen", "0", f"{w}x{h}x24",
-            "-ac",  # disable access control
-            "+extension", "GLX",
-        ]
+        # Prefer Xvnc (TigerVNC) — has proper Mesa software GLX built-in.
+        # Fall back to Xvfb if Xvnc not installed.
+        if shutil.which("Xvnc"):
+            cmd = [
+                "Xvnc", self.display,
+                "-geometry", f"{w}x{h}",
+                "-depth", "24",
+                "-SecurityTypes", "None",  # no VNC password needed
+                "-ac",
+            ]
+            server_name = "Xvnc"
+        else:
+            logger.warning("Xvnc not found, falling back to Xvfb (GL may not work)")
+            cmd = [
+                "Xvfb", self.display,
+                "-screen", "0", f"{w}x{h}x24",
+                "-ac",
+                "+extension", "GLX",
+            ]
+            server_name = "Xvfb"
 
         self._xvfb_process = subprocess.Popen(
             cmd,
@@ -312,15 +324,15 @@ class EmulatorSession:
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
-        # Give Xvfb time to start
-        time.sleep(0.5)
-
-        if self._xvfb_process.poll() is not None:
-            raise RuntimeError(
-                f"Xvfb failed to start on display {self.display} "
-                f"(rc={self._xvfb_process.returncode})"
-            )
-        logger.info("Xvfb started on display %s (pid=%d)", self.display, self._xvfb_process.pid)
+        # Poll briefly to catch immediate crashes
+        for _ in range(5):
+            if self._xvfb_process.poll() is not None:
+                raise RuntimeError(
+                    f"{server_name} failed to start on display {self.display} "
+                    f"(rc={self._xvfb_process.returncode})"
+                )
+            time.sleep(0.1)
+        logger.info("%s started on display %s (pid=%d)", server_name, self.display, self._xvfb_process.pid)
 
     def wait_for_socket(self, timeout: float = 45.0) -> bool:
         """Wait for the bridge server socket to appear."""
