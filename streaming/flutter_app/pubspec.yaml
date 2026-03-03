@@ -64,3 +64,6 @@ flutter:
     - family: AdelonSerialLight
       fonts:
         - asset: assets/Adelon-Serial-Light Regular.ttf
+
+  shaders:
+    - shaders/texture_distress.frag

@@ -1,6 +1,9 @@
+import 'dart:math' as math;
 import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
@@ -20,12 +23,24 @@ class GetStartedScreen extends ConsumerStatefulWidget {
 
 class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
     with TickerProviderStateMixin {
+  static const _flameConfig = _GetStartedFlameConfig(
+    animationSpeed: 1,
+    noiseScale: 500,
+    spread: 0.05,
+    roughness: 20,
+    flowStrength: 0.0,
+    opacity: 1,
+    brightness: 2,
+    softness: 0
+  );
+
   late final AnimationController _ctrl;
-  late final Animation<double> _bgFade;
+  late final AnimationController _flameCtrl;
   late final Animation<double> _heroSlide;
   late final Animation<double> _logoFade;
   late final Animation<double> _taglineFade;
   late final Animation<double> _ctaFade;
+  late final Future<_GetStartedFlameResources> _flameResourcesFuture;
 
   // Sign-in modal auth state
   bool _showSignInModal = false;
@@ -41,12 +56,13 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
+    _flameCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    )..repeat();
+    _flameResourcesFuture = _loadFlameResources();
 
     // Staggered entrance: bg -> hero -> logo -> tagline -> CTA
-    _bgFade = Tween<double>(
-      begin: 0,
-      end: 0.15,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.3)));
     _heroSlide = Tween<double>(begin: 60, end: 0).animate(
       CurvedAnimation(
         parent: _ctrl,
@@ -72,9 +88,24 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
   @override
   void dispose() {
     _ctrl.dispose();
+    _flameCtrl.dispose();
     _emailCtrl.dispose();
     _otpCtrl.dispose();
     super.dispose();
+  }
+
+  Future<_GetStartedFlameResources> _loadFlameResources() async {
+    final program =
+        await ui.FragmentProgram.fromAsset('shaders/texture_distress.frag');
+    final image = await _loadUiImage(Assets.startHero);
+    return _GetStartedFlameResources(program: program, image: image);
+  }
+
+  Future<ui.Image> _loadUiImage(String assetPath) async {
+    final data = await rootBundle.load(assetPath);
+    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final frame = await codec.getNextFrame();
+    return frame.image;
   }
 
   void _closeSignInModal() {
@@ -171,6 +202,44 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
                 child: Opacity(
                   opacity: 0.5,
                   child: Image.asset(Assets.startBg, fit: BoxFit.cover),
+                ),
+              ),
+              Positioned(
+                left: -heroWidth * 0.0,
+                bottom: -50 + _heroSlide.value,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: (_ctrl.value * 2.5).clamp(0.0, 1.0),
+                    child: SizedBox(
+                      width: heroWidth,
+                      height: heroHeight,
+                      child: AnimatedBuilder(
+                        animation: _flameCtrl,
+                        builder: (context, _) {
+                          return FutureBuilder<_GetStartedFlameResources>(
+                            future: _flameResourcesFuture,
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return CustomPaint(
+                                painter: _GetStartedFlamePainter(
+                                  image: snapshot.data!.image,
+                                  program: snapshot.data!.program,
+                                  time:
+                                      _flameCtrl.value *
+                                      12.0 *
+                                      _flameConfig.animationSpeed,
+                                  config: _flameConfig,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ),
               Positioned(
@@ -318,18 +387,11 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
                                   child: child,
                                 );
                               },
-                              child: Container(
+                              child: CustomPaint(
+                                painter: const _ModalFramePainter(),
+                                child: Container(
                                 width: 299,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 0,
-                                  vertical: 0,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Palette.gold,
-                                    width: 4,
-                                  ),
-                                ),
+                                padding: const EdgeInsets.all(6),
                                 child: Container(
                                   padding: const EdgeInsets.fromLTRB(
                                     12,
@@ -434,6 +496,7 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
                                   ),
                                 ),
                               ),
+                            ),
                             ),
                           ),
                         ),
@@ -555,4 +618,250 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
       ),
     );
   }
+}
+
+class _GetStartedFlameConfig {
+  const _GetStartedFlameConfig({
+    required this.animationSpeed,
+    required this.noiseScale,
+    required this.spread,
+    required this.roughness,
+    required this.flowStrength,
+    required this.opacity,
+    required this.brightness,
+    required this.softness,
+  });
+
+  final double animationSpeed;
+  final double noiseScale;
+  final double spread;
+  final double roughness;
+  final double flowStrength;
+  final double opacity;
+  final double brightness;
+  final double softness;
+}
+
+class _GetStartedFlameResources {
+  const _GetStartedFlameResources({
+    required this.program,
+    required this.image,
+  });
+
+  final ui.FragmentProgram program;
+  final ui.Image image;
+}
+
+class _GetStartedFlamePainter extends CustomPainter {
+  const _GetStartedFlamePainter({
+    required this.image,
+    required this.program,
+    required this.time,
+    required this.config,
+  });
+
+  final ui.Image image;
+  final ui.FragmentProgram program;
+  final double time;
+  final _GetStartedFlameConfig config;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _drawPass(
+      canvas,
+      size,
+      time: time,
+      noiseScale: config.noiseScale,
+      spread: config.spread,
+      roughness: config.roughness,
+      flowStrength: config.flowStrength,
+      opacity: config.opacity,
+      brightness: config.brightness,
+      softness: config.softness,
+    );
+  }
+
+  void _drawPass(
+    Canvas canvas,
+    Size size, {
+    required double time,
+    required double noiseScale,
+    required double spread,
+    required double roughness,
+    required double flowStrength,
+    required double opacity,
+    required double brightness,
+    required double softness,
+  }) {
+    final shader = program.fragmentShader();
+    shader.setFloat(0, size.width);
+    shader.setFloat(1, size.height);
+    shader.setFloat(2, time);
+    shader.setFloat(3, noiseScale);
+    shader.setFloat(4, spread);
+    shader.setFloat(5, roughness);
+    shader.setFloat(6, flowStrength);
+    shader.setFloat(7, opacity);
+    shader.setFloat(8, brightness);
+    shader.setFloat(9, softness);
+    shader.setImageSampler(0, image);
+
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = shader
+        ..blendMode = BlendMode.plus
+        ..filterQuality = FilterQuality.high,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GetStartedFlamePainter oldDelegate) {
+    return oldDelegate.image != image ||
+        oldDelegate.program != program ||
+        oldDelegate.time != time ||
+        oldDelegate.config != config;
+  }
+}
+
+class _ModalFramePainter extends CustomPainter {
+  const _ModalFramePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final baseRect = rect.deflate(2.5);
+
+    final basePaint = Paint()
+      ..color = Palette.gold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawRect(baseRect, basePaint);
+
+    final accentPaint = Paint()
+      ..color = Palette.gold.withValues(alpha: 0.78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.2;
+
+    canvas.drawPath(
+      _edgePath(
+        start: Offset(baseRect.left, baseRect.top + 0.8),
+        end: Offset(baseRect.right, baseRect.top + 0.8),
+        horizontal: true,
+        amplitude: 0.65,
+        frequency: 2.6,
+        phase: 0.3,
+      ),
+      accentPaint,
+    );
+    canvas.drawPath(
+      _edgePath(
+        start: Offset(baseRect.left, baseRect.bottom - 0.6),
+        end: Offset(baseRect.right, baseRect.bottom - 0.6),
+        horizontal: true,
+        amplitude: 5.95,
+        frequency: 1.4,
+        phase: 5.7,
+      ),
+      accentPaint,
+    );
+    canvas.drawPath(
+      _edgePath(
+        start: Offset(baseRect.left + 0.6, baseRect.top),
+        end: Offset(baseRect.left + 0.6, baseRect.bottom),
+        horizontal: false,
+        amplitude: 5.7,
+        frequency: 2.8,
+        phase: 5.9,
+      ),
+      accentPaint,
+    );
+    canvas.drawPath(
+      _edgePath(
+        start: Offset(baseRect.right - 0.7, baseRect.top),
+        end: Offset(baseRect.right - 0.7, baseRect.bottom),
+        horizontal: false,
+        amplitude: 5.45,
+        frequency: 5.0,
+        phase: 10.2,
+      ),
+      accentPaint,
+    );
+
+    final scratchPaint = Paint()
+      ..color = Palette.gold.withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9;
+
+    canvas.drawPath(
+      _scratchPath(
+        origin: Offset(baseRect.left + 1.0, baseRect.bottom - 15),
+        vertical: true,
+        length: 34,
+      ),
+      scratchPaint,
+    );
+    canvas.drawPath(
+      _scratchPath(
+        origin: Offset(baseRect.left + 16, baseRect.bottom - 1.2),
+        vertical: false,
+        length: 28,
+      ),
+      scratchPaint,
+    );
+    canvas.drawPath(
+      _scratchPath(
+        origin: Offset(baseRect.left + 2.4, baseRect.top + 1.6),
+        vertical: false,
+        length: 22,
+      ),
+      scratchPaint,
+    );
+  }
+
+  Path _edgePath({
+    required Offset start,
+    required Offset end,
+    required bool horizontal,
+    required double amplitude,
+    required double frequency,
+    required double phase,
+  }) {
+    final path = Path()..moveTo(start.dx, start.dy);
+    for (int i = 1; i <= 24; i++) {
+      final t = i / 24;
+      final x = ui.lerpDouble(start.dx, end.dx, t)!;
+      final y = ui.lerpDouble(start.dy, end.dy, t)!;
+      final offset =
+          math.sin(t * math.pi * frequency + phase) * amplitude +
+          math.sin(t * math.pi * frequency * 0.5 + phase * 1.7) *
+              amplitude *
+              0.35;
+      path.lineTo(
+        horizontal ? x : x + offset,
+        horizontal ? y + offset : y,
+      );
+    }
+    return path;
+  }
+
+  Path _scratchPath({
+    required Offset origin,
+    required bool vertical,
+    required double length,
+  }) {
+    final path = Path()..moveTo(origin.dx, origin.dy);
+    for (int i = 1; i <= 8; i++) {
+      final t = i / 8;
+      final drift = math.sin(t * math.pi * 1.8) * 1.6;
+      path.lineTo(
+        vertical ? origin.dx + drift : origin.dx + length * t,
+        vertical ? origin.dy + length * t : origin.dy + drift,
+      );
+    }
+    return path;
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
