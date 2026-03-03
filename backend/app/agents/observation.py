@@ -1,5 +1,5 @@
 """
-Observation builder — converts FightState into the 7-float vector
+Observation builder — converts FightState into the 14-float vector
 that trained agents expect.
 
 Matches training/scripts/mk4_train.py:build_obs exactly.
@@ -17,7 +17,11 @@ DIST_NORM = 15.0
 
 
 def build_obs(state: FightState, player: int = 1) -> list[float]:
-    """7-float observation vector: [self_hp, opp_hp, timer, self_x, opp_x, dist, facing]
+    """14-float observation vector with combat signals.
+
+    Layout: [self_hp, opp_hp, timer, self_x, opp_x, dist, facing,
+             self_action, opp_action, self_y_vel, opp_airborne,
+             self_hitstun, opp_hitstun, self_airborne]
 
     All values normalised to roughly [-1, 1] / [0, 1].
 
@@ -27,28 +31,57 @@ def build_obs(state: FightState, player: int = 1) -> list[float]:
     """
     # Raw values — pick which side is "self" vs "opponent"
     if player == 2:
-        self_hp_raw  = state.p2_health or 0
-        opp_hp_raw   = state.p1_health or 0
-        self_x_raw   = state.p2_x or 0.0
-        opp_x_raw    = state.p1_x or 0.0
+        self_hp_raw = state.p2_health or 0
+        opp_hp_raw = state.p1_health or 0
+        self_x_raw = state.p2_x or 0.0
+        opp_x_raw = state.p1_x or 0.0
+        self_action_raw = state.p2_action or 0.0
+        opp_action_raw = state.p1_action or 0.0
+        self_y_vel_raw = 0.0  # P2 Y velocity not tracked yet
+        opp_airborne_raw = state.p1_airborne or 0.0
+        self_hitstun_raw = state.p2_hitstun or 0.0
+        opp_hitstun_raw = state.p1_hitstun or 0.0
+        self_airborne_raw = state.p2_airborne or 0.0
     else:
-        self_hp_raw  = state.p1_health or 0
-        opp_hp_raw   = state.p2_health or 0
-        self_x_raw   = state.p1_x or 0.0
-        opp_x_raw    = state.p2_x or 0.0
+        self_hp_raw = state.p1_health or 0
+        opp_hp_raw = state.p2_health or 0
+        self_x_raw = state.p1_x or 0.0
+        opp_x_raw = state.p2_x or 0.0
+        self_action_raw = state.p1_action or 0.0
+        opp_action_raw = state.p2_action or 0.0
+        self_y_vel_raw = state.p1_y_vel or 0.0
+        opp_airborne_raw = state.p2_airborne or 0.0
+        self_hitstun_raw = state.p1_hitstun or 0.0
+        opp_hitstun_raw = state.p2_hitstun or 0.0
+        self_airborne_raw = state.p1_airborne or 0.0
 
+    # Normalize base signals
     self_hp = self_hp_raw / HEALTH_MAX
-    opp_hp  = opp_hp_raw / HEALTH_MAX
-    timer   = (state.timer or 99) / TIMER_MAX
-    self_x  = max(-1.0, min(1.0, self_x_raw / X_NORM))
-    opp_x   = max(-1.0, min(1.0, opp_x_raw / X_NORM))
-    dist    = min(1.0, abs(opp_x_raw - self_x_raw) / DIST_NORM)
-    facing  = 1.0 if opp_x_raw >= self_x_raw else -1.0
-    return [self_hp, opp_hp, timer, self_x, opp_x, dist, facing]
+    opp_hp = opp_hp_raw / HEALTH_MAX
+    timer = (state.timer or 99) / TIMER_MAX
+    self_x = max(-1.0, min(1.0, self_x_raw / X_NORM))
+    opp_x = max(-1.0, min(1.0, opp_x_raw / X_NORM))
+    dist = min(1.0, abs(opp_x_raw - self_x_raw) / DIST_NORM)
+    facing = 1.0 if opp_x_raw >= self_x_raw else -1.0
+
+    # Combat signals (already normalized in game_state.py)
+    self_action = self_action_raw
+    opp_action = opp_action_raw
+    self_y_vel = self_y_vel_raw
+    opp_airborne = opp_airborne_raw
+    self_hitstun = self_hitstun_raw
+    opp_hitstun = opp_hitstun_raw
+    self_airborne = self_airborne_raw
+
+    return [
+        self_hp, opp_hp, timer, self_x, opp_x, dist, facing,
+        self_action, opp_action, self_y_vel, opp_airborne,
+        self_hitstun, opp_hitstun, self_airborne
+    ]
 
 
 # Constants matching training code
-RAW_OBS_DIM = 7
+RAW_OBS_DIM = 14
 
 
 class FrameStack:
