@@ -14,7 +14,7 @@
 <!-- New fighter form (hidden by default) -->
 <div id="new-fighter-form" class="card mb-2" style="display:none; border-color: var(--accent);">
   <h2>Add Fighter</h2>
-  <form method="POST" action="/admin/fighters/new">
+  <form method="POST" action="/admin/fighters/new" enctype="multipart/form-data">
     <div class="grid grid-2">
       <div class="form-group">
         <label for="name">Display Name</label>
@@ -41,6 +41,31 @@
         <input type="text" name="agent_architecture" id="agent_architecture" placeholder="e.g. mlp, lstm">
       </div>
     </div>
+
+    <!-- NEW: Agent ONNX file upload -->
+    <div class="form-group">
+      <label for="agent_file">
+        AI Agent Checkpoint (ONNX)
+        <span class="text-dim text-sm">Optional • .onnx file • Max 100MB</span>
+      </label>
+      <input type="file" name="agent_file" id="agent_file" accept=".onnx">
+      <div class="text-dim text-sm" style="margin-top:0.5rem;">
+        Upload a trained ONNX model for this fighter. If not provided, will use 'random' agent.
+      </div>
+    </div>
+
+    <!-- NEW: Fighter image upload -->
+    <div class="form-group">
+      <label for="image">
+        Fighter Image
+        <span class="text-dim text-sm">Optional • JPG, PNG, or WebP • Max 5MB • Min 200x200px</span>
+      </label>
+      <input type="file" name="image" id="image" accept="image/jpeg,image/png,image/webp">
+      <div class="text-dim text-sm" style="margin-top:0.5rem;">
+        Upload a profile image for this fighter (shown in match cards and leaderboards).
+      </div>
+    </div>
+
     <button type="submit" class="btn btn-accent">Create Fighter</button>
     <button type="button" onclick="this.closest('.card').style.display='none'" class="btn" style="margin-left:0.5rem;">Cancel</button>
   </form>
@@ -50,10 +75,11 @@
   <table>
     <thead>
       <tr>
+        <th>Image</th>
         <th>Name</th>
         <th>Character</th>
         <th>LLM Model</th>
-        <th>Architecture</th>
+        <th>Agent</th>
         <th>Matches</th>
         <th>Wins</th>
         <th>Win Rate</th>
@@ -62,10 +88,24 @@
     <tbody>
       {% for f in fighters %}
       <tr>
+        <td>
+          {% if f.image_url %}
+            <img src="{{ f.image_url }}" alt="{{ f.name }}" style="width:48px; height:48px; border-radius:4px; object-fit:cover;">
+          {% else %}
+            <div style="width:48px; height:48px; background:var(--bg-secondary); border-radius:4px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:24px;">
+              🥊
+            </div>
+          {% endif %}
+        </td>
         <td><strong>{{ f.name }}</strong><br><span class="text-dim text-sm">{{ f.slug }}</span></td>
         <td>{{ f.character }}</td>
         <td>{{ f.llm_model }}</td>
-        <td class="text-dim">{{ f.agent_architecture or '—' }}</td>
+        <td class="text-dim">
+          {{ f.agent_architecture or '—' }}
+          {% if f.agent_id %}
+            <br><span class="text-sm" style="color:var(--green);">✓ ONNX</span>
+          {% endif %}
+        </td>
         <td>{{ f.matches_played }}</td>
         <td>{{ f.matches_won }}</td>
         <td>

@@ -13,20 +13,19 @@ class BetNotifier extends StateNotifier<List<Bet>> {
     state = bets;
   }
 
-  Future<Bet?> placeBet({
+  Future<Bet> placeBet({
     required String matchId,
     required String fighterId,
     required double amount,
   }) async {
     final api = _ref.read(apiServiceProvider);
+    // Let ApiException bubble up to the UI layer
     final bet = await api.placeBet(
       matchId: matchId,
       fighterId: fighterId,
       amount: amount,
     );
-    if (bet != null) {
-      state = [bet, ...state];
-    }
+    state = [bet, ...state];
     return bet;
   }
 
