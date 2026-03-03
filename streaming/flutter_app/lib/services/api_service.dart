@@ -127,14 +127,18 @@ class ApiService {
 
   // ── Auth ──
 
-  Future<Map<String, dynamic>?> login(String privyToken) async {
+  Future<Map<String, dynamic>?> login(String privyToken,
+      {String? walletAddress}) async {
     final uri = Uri.parse('$kApiBaseUrl/auth/login');
-    _log('POST $uri');
+    _log('POST $uri walletAddress=$walletAddress');
     try {
       final resp = await _client.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'token': privyToken}),
+        body: jsonEncode({
+          'token': privyToken,
+          if (walletAddress != null) 'wallet_address': walletAddress,
+        }),
       );
       if (resp.statusCode != 200) {
         _log('login failed: ${resp.statusCode} ${resp.body}');
@@ -176,6 +180,7 @@ class ApiService {
       headers: _headers,
       body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
     );
+    _log('POST $uri → ${resp.statusCode} ${resp.body}');
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body)['tx_signature'] as String;
     }

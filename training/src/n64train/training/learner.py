@@ -26,6 +26,7 @@ from n64train.experiments.mk4_agent import (
     N_ACTIONS, OBS_DIM,
     LR_POLICY, LR_VALUE, GAMMA, ENTROPY_COEF, GRAD_CLIP, CKPT_DIR,
 )
+from n64train.training.llm_coach import FighterCoach, RoundStats, MacroStats, MACRO_REVIEW_EVERY
 
 LOG_DIR        = N64_ROOT / 'training/data/logs'
 STATS_PATH     = CKPT_DIR / 'mk4_training_stats.jsonl'  # fallback for single-run
@@ -82,6 +83,21 @@ class ParallelLearner:
         self.episode_count = 0
         self.wins          = 0
         self.ep_rewards: list[float] = []
+        self._acc_dealt:  float = 0.0   # running totals for macro coach stats
+        self._acc_taken:  float = 0.0
+        self._acc_steps:  int   = 0
+        self._macro_win_count: int = 0
+        self._macro_ep_count:  int = 0
+
+        # ── LLM Coach ──────────────────────────────────────────────────
+        # dry_run=True if no Ollama available — FighterCoach handles this gracefully
+        self.coach = FighterCoach(
+            agent_type=agent_type,
+            log_dir=LOG_DIR,
+        )
+        # Expose the live reward config so workers can consume it
+        self.reward_config = self.coach.config
+
         print(f'[learner] agent={agent_type}  batch={self.batch_size}')
 
     def run(self) -> None:
@@ -128,10 +144,32 @@ class ParallelLearner:
             self.episode_count += 1
             ep_r = sum(rollout['rewards']) if rollout['rewards'] else 0.0
             self.ep_rewards.append(ep_r)
-            if rollout.get('won'):
+            won = rollout.get('won', False)
+            if won:
                 self.wins += 1
 
-            acc    = rollout.get('acc', {})
+            acc      = rollout.get('acc', {})
+            ep_steps = rollout.get('ep_steps', 0)
+            wr_frac  = self.wins / self.episode_count
+
+            # Fix 4: acc['dealt_hp'] and acc['taken_hp'] store raw HP deltas
+            # (positive values). The old acc['dealt'/'taken'] stored shaped reward
+            # terms which are sign-flipped and scaled — useless as combat stats.
+            raw_dealt = acc.get('dealt_hp', acc.get('dealt', 0.0))   # HP P2 lost
+            raw_taken = acc.get('taken_hp', 0.0)                      # HP P1 lost
+
+            # Accumulate for macro coach
+            self._acc_dealt       += raw_dealt
+            self._acc_taken       += raw_taken
+            self._acc_steps       += ep_steps
+            self._macro_ep_count  += 1
+            if won:
+                self._macro_win_count += 1
+
+            # Reward config is frozen for this entire macro cycle (MACRO_REVIEW_EVERY
+            # episodes) to keep PPO's MDP stationary. Only macro review updates it.
+            # (micro_coach per-episode was removed — too frequent, caused non-stationarity)
+
             avg50  = sum(self.ep_rewards[-50:]) / len(self.ep_rewards[-50:])
             wr     = self.wins / self.episode_count * 100
             print(
@@ -163,7 +201,27 @@ class ParallelLearner:
             if len(pending) >= self.batch_size:
                 metrics = self._update(pending)
                 pending = []
+
+                # ── LLM Macro coach: every MACRO_REVIEW_EVERY episodes ─────────────
+                # Review BEFORE broadcast so the new config ships on the same
+                # _broadcast_weights() call that workers consume at next episode start.
+                if self._macro_ep_count >= MACRO_REVIEW_EVERY:
+                    macro_stats = MacroStats(
+                        episodes=self._macro_ep_count,
+                        win_rate=self._macro_win_count / max(1, self._macro_ep_count),
+                        avg_damage_dealt=self._acc_dealt / max(1, self._macro_ep_count),
+                        avg_damage_taken=self._acc_taken / max(1, self._macro_ep_count),
+                        avg_ep_steps=self._acc_steps / max(1, self._macro_ep_count),
+                        current_config=None,
+                    )
+                    updated = self.coach.review_and_adjust(macro_stats)
+                    self.reward_config = updated
+                    # Reset accumulators
+                    self._acc_dealt = self._acc_taken = 0.0
+                    self._acc_steps = self._macro_win_count = self._macro_ep_count = 0
+
                 self._broadcast_weights()
+
                 if self.update_count % self.save_every == 0:
                     self._save()
                     # Fix 2: refresh heartbeat after save so watchdog doesn't
@@ -216,6 +274,11 @@ class ParallelLearner:
                     self.agent._old_lp_buf = old_lps[:n]
                 if hasattr(self.agent, '_val_buf'):
                     self.agent._val_buf    = vals[:n]
+                # PPO truncation bootstrap: if episode ended by timeout (not genuine
+                # terminal), use the value-network's estimate of the last state instead
+                # of 0.0. Getting this wrong biases returns downward for long fights.
+                if hasattr(self.agent, '_bootstrap_val'):
+                    self.agent._bootstrap_val = float(r.get('bootstrap_val', 0.0))
                 m = self.agent.learn()
                 if m:
                     total_loss_val += m.get('policy_loss', 0.0)
@@ -274,17 +337,29 @@ class ParallelLearner:
                 'episode': self.episode_count, 'batch_steps': len(all_obs)}
 
     def _broadcast_weights(self) -> None:
+        from dataclasses import asdict
         state = {k: v.cpu().clone() for k, v in self.net.state_dict().items()}
+        # Bundle reward_config alongside weights so workers can hot-swap their
+        # reward extractor every episode (None if coach not yet initialised).
+        try:
+            reward_cfg_dict = asdict(self.reward_config) if self.reward_config is not None else None
+        except Exception:
+            reward_cfg_dict = None
+        bundle = {'weights': state, 'reward_config': reward_cfg_dict}
         for q in self.weight_queues:
             # Fix 5: pure get_nowait drain — no racy q.empty() guard
             while True:
                 try: q.get_nowait()
                 except: break
-            q.put(state)
+            q.put(bundle)
 
     def _save(self) -> None:
-        self.agent.save()
-        print(f'  [ckpt] saved at update={self.update_count} ep={self.episode_count}')
+        # Build a run-id-scoped checkpoint path so concurrent same-arch runs
+        # don't clobber each other.  E.g.:  mk4_policy.pt → mk4_policy_run0.pt
+        base = self.agent.CKPT          # e.g. .../checkpoints/mk4_policy.pt
+        scoped = base.parent / f'{base.stem}_{self.run_id}{base.suffix}'
+        self.agent.save(scoped)
+        print(f'  [ckpt] saved → {scoped.name}  update={self.update_count} ep={self.episode_count}')
 
 
 def run_learner(

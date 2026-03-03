@@ -144,9 +144,9 @@ class TestObsBuilder(unittest.TestCase):
         from mk4_train import build_obs
         self.build_obs = build_obs
 
-    def test_obs_length_is_7(self):
+    def test_obs_length_is_14(self):
         obs = self.build_obs(FakeState())
-        self.assertEqual(len(obs), 7)
+        self.assertEqual(len(obs), 14)
 
     def test_full_health_normalises_to_1(self):
         obs = self.build_obs(FakeState(p1_health=160, p2_health=160))
@@ -184,7 +184,7 @@ class TestObsBuilder(unittest.TestCase):
         state.p1_health = None; state.p2_health = None
         state.timer = None; state.p1_x = None; state.p2_x = None
         obs = self.build_obs(state)
-        self.assertEqual(len(obs), 7)
+        self.assertEqual(len(obs), 14)
         self.assertFalse(any(v != v for v in obs), "NaN in obs")  # NaN check
 
 
@@ -296,10 +296,10 @@ class TestMk4TrainRecurrentRewards(unittest.TestCase):
         from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack
         agent = Mk4LstmAgent(device='cpu')
         agent.reset_episode()
-        fs = FrameStack(obs_dim=7, n_frames=4)
+        fs = FrameStack(obs_dim=14, n_frames=4)
         import random
         for _ in range(5):
-            obs = fs.push([random.random() for _ in range(7)])
+            obs = fs.push([random.random() for _ in range(14)])
             agent(obs)
             agent.record(random.random())
         self.assertEqual(len(agent._rewards), 5)
@@ -309,9 +309,9 @@ class TestMk4TrainRecurrentRewards(unittest.TestCase):
         import random
         agent = Mk4LstmAgent(device='cpu')
         agent.reset_episode()
-        fs = FrameStack(obs_dim=7, n_frames=4)
+        fs = FrameStack(obs_dim=14, n_frames=4)
         for _ in range(6):
-            obs = fs.push([random.random() for _ in range(7)])
+            obs = fs.push([random.random() for _ in range(14)])
             agent(obs)
             agent.record(random.random())
         m = agent.learn()
@@ -330,7 +330,7 @@ class TestLearnerPPOInjection(unittest.TestCase):
     def _build_rollout(self, n=6):
         import random
         return {
-            'obs':     [[random.random()] * 28 for _ in range(n)],
+            'obs':     [[random.random()] * 56 for _ in range(n)],
             'acts':    [random.randint(0, 19) for _ in range(n)],
             'rewards': [random.random() for _ in range(n)],
             'old_lps': [random.gauss(0, 1) for _ in range(n)],
@@ -387,40 +387,40 @@ class TestFrameStack(unittest.TestCase):
         from n64train.experiments.mk4_agent import FrameStack
         self.FrameStack = FrameStack
 
-    def test_output_dim_is_28(self):
-        fs = self.FrameStack(obs_dim=7, n_frames=4)
-        out = fs.push([1.0] * 7)
-        self.assertEqual(len(out), 28)
+    def test_output_dim_is_56(self):
+        fs = self.FrameStack(obs_dim=14, n_frames=4)
+        out = fs.push([1.0] * 14)
+        self.assertEqual(len(out), 56)
 
     def test_first_push_pads_with_zeros(self):
-        fs = self.FrameStack(obs_dim=7, n_frames=4)
-        out = fs.push([1.0] * 7)
-        # First 3 frames should be zero-padded
-        self.assertEqual(out[:21], [0.0] * 21)
-        self.assertEqual(out[21:], [1.0] * 7)
+        fs = self.FrameStack(obs_dim=14, n_frames=4)
+        out = fs.push([1.0] * 14)
+        # First 3 frames should be zero-padded (3 × 14 = 42 zeros)
+        self.assertEqual(out[:42], [0.0] * 42)
+        self.assertEqual(out[42:], [1.0] * 14)
 
     def test_four_pushes_fills_completely(self):
-        fs = self.FrameStack(obs_dim=7, n_frames=4)
+        fs = self.FrameStack(obs_dim=14, n_frames=4)
         for i in range(4):
-            out = fs.push([float(i)] * 7)
-        # Should be [0,0,0,0,0,0,0, 1,..., 2,..., 3,...]
-        expected = [float(i) for i in range(4) for _ in range(7)]
+            out = fs.push([float(i)] * 14)
+        # Should be [0,0,...(14), 1,...(14), 2,...(14), 3,...(14)]
+        expected = [float(i) for i in range(4) for _ in range(14)]
         self.assertEqual(out, expected)
 
     def test_oldest_frame_dropped_after_5_pushes(self):
-        fs = self.FrameStack(obs_dim=7, n_frames=4)
+        fs = self.FrameStack(obs_dim=14, n_frames=4)
         for i in range(5):
-            out = fs.push([float(i)] * 7)
+            out = fs.push([float(i)] * 14)
         # After 5 pushes, window = [1,2,3,4]
-        expected = [float(i) for i in range(1, 5) for _ in range(7)]
+        expected = [float(i) for i in range(1, 5) for _ in range(14)]
         self.assertEqual(out, expected)
 
-    def test_opponent_stack_gives_28_float(self):
+    def test_opponent_stack_gives_56_float(self):
         """Reproduce the Bug 2 fix: opponent uses its own FrameStack."""
-        opp_fs = self.FrameStack(obs_dim=7, n_frames=4)
-        raw = [0.5] * 7
+        opp_fs = self.FrameStack(obs_dim=14, n_frames=4)
+        raw = [0.5] * 14
         stacked = opp_fs.push(raw)
-        self.assertEqual(len(stacked), 28)
+        self.assertEqual(len(stacked), 56)
 
 
 if __name__ == '__main__':

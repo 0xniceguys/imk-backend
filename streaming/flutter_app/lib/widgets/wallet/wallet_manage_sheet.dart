@@ -71,8 +71,8 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         toAddress: address,
         amount: amount,
       );
-      if (!mounted) return;
       final short = '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}';
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Sent! TX: $short'),
         backgroundColor: Palette.gold,
@@ -82,8 +82,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       _amountCtrl.clear();
       ref.read(walletProvider.notifier).refreshBalance();
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
       if (!mounted) return;
-      _showError(e.toString().replaceFirst('Exception: ', ''));
+      _showError(msg);
     } finally {
       if (mounted) setState(() => _isSending = false);
     }

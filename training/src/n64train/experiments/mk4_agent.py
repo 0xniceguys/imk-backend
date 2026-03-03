@@ -43,8 +43,8 @@ CKPT_DIR    = N64_ROOT / 'training/data/checkpoints'
 CKPT_PATH   = CKPT_DIR / 'mk4_policy.pt'
 STATS_PATH  = CKPT_DIR / 'mk4_training_stats.jsonl'
 
-OBS_DIM     = 28   # 7 raw floats × 4 stacked frames = 28
-RAW_OBS_DIM = 7    # single-frame obs size (for FrameStack)
+OBS_DIM     = 56   # 14 raw floats × 4 stacked frames
+RAW_OBS_DIM = 14   # single-frame obs size (for FrameStack)
 N_ACTIONS   = len(MacroAction)
 ACTIONS     = list(MacroAction)
 
@@ -104,6 +104,8 @@ class Mk4MlpAgent:
         agent.record(reward, done)    # record step reward
         agent.learn()                 # update at episode end
     """
+    CKPT = CKPT_PATH   # class-level path — learner uses this to build run-scoped saves
+    ARCH = 'mlp'
 
     def __init__(self, device: str = 'cpu') -> None:
         self.device = torch.device(device)
@@ -265,9 +267,9 @@ class FrameStack:
     Gives the policy implicit access to velocity (position delta),
     damage rate (hp delta), and recent temporal context without an RNN.
 
-    obs_dim  : size of a single observation (e.g. 7)
+    obs_dim  : size of a single observation (default 14)
     n_frames : number of frames to stack         (default 4)
-    out_dim  : obs_dim × n_frames                (e.g. 28)
+    out_dim  : obs_dim × n_frames                (default 56)
     """
 
     def __init__(self, obs_dim: int = OBS_DIM, n_frames: int = 4) -> None:
@@ -367,8 +369,10 @@ class Mk4LstmAgent:
     - Hidden state (h, c) persists across EVERY STEP within an episode
     - Resets to zeros at the start of each new episode
     - During learn(): BPTT over the full episode sequence
-    - Obs input: raw 7 floats per step (no frame stacking needed)
+    - Obs input: 14 raw floats per step (no frame stacking — LSTM handles memory)
     """
+    CKPT = LSTM_CKPT_PATH   # class-level path — learner uses this for run-scoped saves
+    ARCH = 'lstm'
 
     def __init__(self, device: str = 'cpu') -> None:
         self.device = torch.device(device)
@@ -404,6 +408,7 @@ class Mk4LstmAgent:
         self._rewards  = []
         self._old_lp_buf: list[float] = []   # old log-probs for PPO ratio
         self._val_buf:    list[float] = []   # value estimates for GAE
+        self._bootstrap_val: float    = 0.0  # V̂(s_T+1): set by learner for truncated eps
 
     def __call__(self, obs: list[float]) -> MacroAction:
         """Select action — maintains LSTM hidden state across calls.
@@ -452,7 +457,8 @@ class Mk4LstmAgent:
         val_t    = torch.tensor(self._val_buf[:n],  dtype=torch.float32, device=self.device)
 
         # GAE advantages + TD-lambda returns (computed once, reused across epochs)
-        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t)
+        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t,
+                                       bootstrap_val=getattr(self, '_bootstrap_val', 0.0))
         adv_t = adv_t.to(self.device)
         ret_t = ret_t.to(self.device)
 

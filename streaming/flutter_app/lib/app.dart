@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/palette.dart';
@@ -77,21 +79,8 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
         return;
       }
 
-      // Returning session restored → arena
-      if (next.status == AuthStatus.authenticated &&
-          prev?.status == AuthStatus.unknown) {
-        ref.read(walletProvider.notifier).loadWallet();
-        nav.pushNamedAndRemoveUntil('/arena-list', (_) => false);
-        return;
-      }
-
-      // Init completed, not logged in → sign-in (always, never get-started)
-      if (prev?.status == AuthStatus.unknown &&
-          next.status == AuthStatus.unauthenticated) {
-        nav.pushNamedAndRemoveUntil('/sign-in-modal', (_) => false);
-        return;
-      }
-
+      // Initial auth resolution is now handled by _SplashPage itself,
+      // so we only handle mid-session transitions here.
       debugPrint('[App] AUTH: no navigation triggered for this transition');
     });
 
@@ -162,15 +151,15 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
 // ──────────────────────────────────────────────────────────────────────────────
 // Splash page (wraps the animated splash content)
 // ──────────────────────────────────────────────────────────────────────────────
-class _SplashPage extends StatefulWidget {
+class _SplashPage extends ConsumerStatefulWidget {
   const _SplashPage({required this.postRoute});
   final String postRoute;
 
   @override
-  State<_SplashPage> createState() => _SplashPageState();
+  ConsumerState<_SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<_SplashPage>
+class _SplashPageState extends ConsumerState<_SplashPage>
     with TickerProviderStateMixin {
   late final AnimationController _logoCtrl;
   late final Animation<double> _logoFade;
@@ -211,15 +200,61 @@ class _SplashPageState extends State<_SplashPage>
     _run();
   }
 
+  /// Wait for auth state to leave [AuthStatus.unknown].
+  /// Returns the resolved [AuthStatus].
+  Future<AuthStatus> _waitForAuth() async {
+    final completer = Completer<AuthStatus>();
+    // Check current state first — may already be resolved
+    final current = ref.read(authProvider).status;
+    if (current != AuthStatus.unknown) return current;
+
+    // Listen for the first non-unknown state
+    late final ProviderSubscription<AuthState> sub;
+    sub = ref.listenManual<AuthState>(authProvider, (prev, next) {
+      if (next.status != AuthStatus.unknown && !completer.isCompleted) {
+        completer.complete(next.status);
+        sub.close();
+      }
+    });
+
+    // Safety timeout — if Privy hangs, fall back to sign-in after 8s
+    return completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        sub.close();
+        return AuthStatus.unauthenticated;
+      },
+    );
+  }
+
   Future<void> _run() async {
+    if (!mounted) return;
+    // Start animation and auth resolution in parallel
+    final authFuture = _waitForAuth();
+
     await _logoCtrl.forward();
+    if (!mounted) return;
     _shimmerCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
     _subtitleCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
     await _glowCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 250));
-    if (mounted) {
+    if (!mounted) return;
+
+    // Wait for auth — animation is done, auth may already be resolved
+    final authStatus = await authFuture;
+    if (!mounted) return;
+
+    if (authStatus == AuthStatus.authenticated) {
+      // Returning user — go straight to arena, no sign-in flash
+      ref.read(walletProvider.notifier).loadWallet();
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil('/arena-list', (_) => false);
+    } else {
+      // New/logged-out user — go to get-started or sign-in
       Navigator.of(context)
           .pushNamedAndRemoveUntil(widget.postRoute, (_) => false);
     }
