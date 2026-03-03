@@ -26,13 +26,20 @@ GRAD_CLIP    = 1.0
 
 
 def gae_advantages(
-    rewards: list[float],
-    values: torch.Tensor,   # (T,) value estimates from network
-    gamma: float = GAE_GAMMA,
-    lam: float   = GAE_LAMBDA,
+    rewards:       list[float],
+    values:        torch.Tensor,   # (T,) value estimates from network
+    gamma:         float = GAE_GAMMA,
+    lam:           float = GAE_LAMBDA,
+    bootstrap_val: float = 0.0,    # V(s_T+1): 0 if true terminal, V̂ if truncated
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Compute GAE advantages and TD-lambda returns.
+
+    bootstrap_val: value-function estimate at the step AFTER the last collected
+    step. Pass 0.0 for true terminal episodes (P2 died, P1 died, round over).
+    Pass the network's V̂(last_obs) for truncated episodes (wall-clock timeout,
+    bridge recovery). Getting this wrong biases value targets downward, causing
+    the agent to underestimate future rewards in long fights.
 
     Returns:
         advantages: (T,) normalised advantage estimates
@@ -42,9 +49,8 @@ def gae_advantages(
     adv = torch.zeros(T, dtype=torch.float32)
     last_gae = 0.0
 
-    # Bootstrap value for the last step is 0 (episode ended)
     for t in reversed(range(T)):
-        next_val = values[t + 1].item() if t < T - 1 else 0.0
+        next_val = values[t + 1].item() if t < T - 1 else bootstrap_val
         delta    = rewards[t] + gamma * next_val - values[t].item()
         last_gae = delta + gamma * lam * last_gae
         adv[t]   = last_gae

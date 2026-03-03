@@ -49,13 +49,26 @@ class _FighterCarouselState extends State<FighterCarousel> {
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (context, index) {
               final isActive = index == _current;
-              String img;
-              if (isActive) {
-                img = Assets.fighterCenter;
-              } else if (index < _current) {
-                img = Assets.fighterLeft;
+              final f = widget.fighters[index];
+              // Use backend image if available, fall back to static assets
+              Widget image;
+              if (f.imageUrl != null && f.imageUrl!.isNotEmpty) {
+                image = Image.network(
+                  f.imageUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      Image.asset(Assets.fighterCenter, fit: BoxFit.contain),
+                );
               } else {
-                img = Assets.fighterRight;
+                String img;
+                if (isActive) {
+                  img = Assets.fighterCenter;
+                } else if (index < _current) {
+                  img = Assets.fighterLeft;
+                } else {
+                  img = Assets.fighterRight;
+                }
+                image = Image.asset(img, fit: BoxFit.contain);
               }
               return AnimatedScale(
                 scale: isActive ? 1.0 : 0.8,
@@ -63,7 +76,7 @@ class _FighterCarouselState extends State<FighterCarousel> {
                 child: AnimatedOpacity(
                   opacity: isActive ? 1.0 : 0.5,
                   duration: const Duration(milliseconds: 250),
-                  child: Image.asset(img, fit: BoxFit.contain),
+                  child: image,
                 ),
               );
             },

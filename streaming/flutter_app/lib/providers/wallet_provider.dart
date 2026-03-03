@@ -76,72 +76,223 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   // ── Price fetch ─────────────────────────────────────────────────────────
 
-  // Jupiter v2 returns `price` as a String or double — handle both.
+  // Cache of last known good prices so we never display zero on transient failures.
+  static double _lastKnownSolPrice = 0;
+  static double _lastKnownSeekerPrice = 0;
+
+  // Jupiter v2 / DexScreener / misc APIs return price as String or double.
   static double _parsePrice(dynamic v) {
     if (v is num) return v.toDouble();
     if (v is String) return double.tryParse(v) ?? 0;
     return 0;
   }
 
+  // ── Individual price sources — all keyless / free ─────────────────────
+
+  /// 1. Jupiter Price v2  (often 401 but keep as first attempt)
+  Future<double> _solPriceJupiter() async {
+    final r = await http.get(Uri.parse(
+      'https://api.jup.ag/price/v2?ids=$_wrappedSolMint',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final d = (body['data'] as Map<String, dynamic>?)?[_wrappedSolMint];
+    return _parsePrice(d?['price']);
+  }
+
+  /// 2. CoinGecko public API (no key, 30 rpm free)
+  Future<double> _solPriceCoinGecko() async {
+    final r = await http.get(Uri.parse(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    return _parsePrice(body['solana']?['usd']);
+  }
+
+  /// 3. Binance public ticker (no key, very reliable)
+  Future<double> _solPriceBinance() async {
+    final r = await http.get(Uri.parse(
+      'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    return _parsePrice(body['price']);
+  }
+
+  /// 4. Kraken public ticker (no key)
+  Future<double> _solPriceKraken() async {
+    final r = await http.get(Uri.parse(
+      'https://api.kraken.com/0/public/Ticker?pair=SOLUSD',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final result = body['result'] as Map<String, dynamic>?;
+    if (result == null || result.isEmpty) return 0;
+    // Kraken nests under the pair key e.g. "SOLUSD"
+    final pairData = result.values.first as Map<String, dynamic>?;
+    final lastTrades = pairData?['c'] as List?;
+    return _parsePrice(lastTrades?.first);
+  }
+
+  /// 5. DexScreener (no key, 300 rpm)  — SOL via wrapped-SOL/USDC pair
+  Future<double> _solPriceDexScreener() async {
+    final r = await http.get(Uri.parse(
+      'https://api.dexscreener.com/tokens/v1/solana/$_wrappedSolMint',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body);
+    final pairs = (body is List ? body : (body as Map)['pairs']) as List?;
+    if (pairs == null || pairs.isEmpty) return 0;
+    // Sort by liquidity and take the best pair
+    pairs.sort((a, b) =>
+        (b['liquidity']?['usd'] as num? ?? 0)
+            .compareTo(a['liquidity']?['usd'] as num? ?? 0));
+    return _parsePrice(pairs.first['priceUsd']);
+  }
+
+  /// 6. CoinPaprika (no key)
+  Future<double> _solPriceCoinPaprika() async {
+    final r = await http.get(Uri.parse(
+      'https://api.coinpaprika.com/v1/tickers/sol-solana?quotes=USD',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    return _parsePrice(body['quotes']?['USD']?['price']);
+  }
+
+  // ── SEEKER price sources ──────────────────────────────────────────────
+
+  /// 1. Jupiter Price v2 for SEEKER
+  Future<double> _seekerPriceJupiter() async {
+    final r = await http.get(Uri.parse(
+      'https://api.jup.ag/price/v2?ids=$_seekerMint',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final d = (body['data'] as Map<String, dynamic>?)?[_seekerMint];
+    return _parsePrice(d?['price']);
+  }
+
+  /// 2. DexScreener — SEEKER by mint address (best liquidity pair)
+  Future<double> _seekerPriceDexScreener() async {
+    final r = await http.get(Uri.parse(
+      'https://api.dexscreener.com/tokens/v1/solana/$_seekerMint',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body);
+    final pairs = (body is List ? body : (body as Map)['pairs']) as List?;
+    if (pairs == null || pairs.isEmpty) return 0;
+    pairs.sort((a, b) =>
+        (b['liquidity']?['usd'] as num? ?? 0)
+            .compareTo(a['liquidity']?['usd'] as num? ?? 0));
+    return _parsePrice(pairs.first['priceUsd']);
+  }
+
+  /// 3. GeckoTerminal on-chain API (no key, Solana network)
+  Future<double> _seekerPriceGeckoTerminal() async {
+    final r = await http.get(Uri.parse(
+      'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$_seekerMint',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    return _parsePrice(
+        body['data']?['attributes']?['price_usd']);
+  }
+
+  /// 4. Raydium price API (no key)
+  Future<double> _seekerPriceRaydium() async {
+    final r = await http.get(Uri.parse(
+      'https://api-v3.raydium.io/mint/price?mints=$_seekerMint',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>?;
+    return _parsePrice(data?[_seekerMint]);
+  }
+
+  /// 5. CoinPaprika — SEEKER (symbol-based search fallback)
+  Future<double> _seekerPriceCoinPaprika() async {
+    // SEEKER is listed on CoinPaprika as skr-seeker
+    final r = await http.get(Uri.parse(
+      'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
+    )).timeout(const Duration(seconds: 6));
+    if (r.statusCode != 200) return 0;
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    return _parsePrice(body['quotes']?['USD']?['price']);
+  }
+
+  // ── Orchestrator ────────────────────────────────────────────────────────
+
   Future<Map<String, double>> _fetchTokenPrices() async {
-    // Always fetch real prices regardless of devnet flag — devnet SOL still
-    // has a real USD value (same token) and USDC is always $1.
     double solPrice = 0;
     double seekerPrice = 0;
 
-    // ── SOL price via Jupiter v2, with CoinGecko fallback ───────────────
-    try {
-      final jupResp = await http.get(Uri.parse(
-        'https://api.jup.ag/price/v2?ids=$_wrappedSolMint',
-      )).timeout(const Duration(seconds: 8));
+    // ── SOL: try each source in order, stop on first non-zero result ──────
+    final solSources = <String, Future<double> Function()>{
+      'Jupiter': _solPriceJupiter,
+      'CoinGecko': _solPriceCoinGecko,
+      'Binance': _solPriceBinance,
+      'Kraken': _solPriceKraken,
+      'DexScreener': _solPriceDexScreener,
+      'CoinPaprika': _solPriceCoinPaprika,
+    };
 
-      if (jupResp.statusCode == 200) {
-        final body = jsonDecode(jupResp.body) as Map<String, dynamic>;
-        final mintData = (body['data'] as Map<String, dynamic>?)?[_wrappedSolMint];
-        solPrice = _parsePrice(mintData?['price']);
-        debugPrint('[Wallet] Jupiter SOL price: $solPrice (raw: ${mintData?['price']})');
-      } else {
-        debugPrint('[Wallet] Jupiter SOL price failed: ${jupResp.statusCode} ${jupResp.body}');
-      }
-    } catch (e) {
-      debugPrint('[Wallet] Jupiter SOL price error: $e');
-    }
-
-    // CoinGecko fallback if Jupiter returned 0
-    if (solPrice == 0) {
+    for (final entry in solSources.entries) {
+      if (solPrice > 0) break;
       try {
-        final cgResp = await http.get(Uri.parse(
-          'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
-        )).timeout(const Duration(seconds: 8));
-        if (cgResp.statusCode == 200) {
-          final body = jsonDecode(cgResp.body) as Map<String, dynamic>;
-          solPrice = _parsePrice(body['solana']?['usd']);
-          debugPrint('[Wallet] CoinGecko SOL price fallback: $solPrice');
-        }
-      } catch (e) {
-        debugPrint('[Wallet] CoinGecko SOL price error: $e');
-      }
-    }
-
-    // ── SEEKER / USDC price ──────────────────────────────────────────────
-    if (kUseDevnet) {
-      // USDC devnet is always $1
-      seekerPrice = 1.0;
-    } else {
-      try {
-        final jupResp = await http.get(Uri.parse(
-          'https://api.jup.ag/price/v2?ids=$_seekerMint',
-        )).timeout(const Duration(seconds: 8));
-        if (jupResp.statusCode == 200) {
-          final body = jsonDecode(jupResp.body) as Map<String, dynamic>;
-          final mintData = (body['data'] as Map<String, dynamic>?)?[_seekerMint];
-          seekerPrice = _parsePrice(mintData?['price']);
-          debugPrint('[Wallet] Jupiter SEEKER price: $seekerPrice');
+        final p = await entry.value();
+        if (p > 0) {
+          solPrice = p;
+          debugPrint('[Wallet] SOL price via ${entry.key}: \$$solPrice');
         } else {
-          debugPrint('[Wallet] Jupiter SEEKER price failed: ${jupResp.statusCode}');
+          debugPrint('[Wallet] SOL price ${entry.key}: no data');
         }
       } catch (e) {
-        debugPrint('[Wallet] Jupiter SEEKER price error: $e');
+        debugPrint('[Wallet] SOL price ${entry.key} error: $e');
+      }
+    }
+
+    // Fall back to last known good price
+    if (solPrice <= 0 && _lastKnownSolPrice > 0) {
+      solPrice = _lastKnownSolPrice;
+      debugPrint('[Wallet] SOL price: using cached \$$solPrice');
+    } else if (solPrice > 0) {
+      _lastKnownSolPrice = solPrice;
+    }
+
+    // ── SEEKER: try each source, stop on first non-zero result ────────────
+    if (kUseDevnet) {
+      seekerPrice = 1.0; // USDC devnet is always $1
+    } else {
+      final seekerSources = <String, Future<double> Function()>{
+        'Jupiter': _seekerPriceJupiter,
+        'DexScreener': _seekerPriceDexScreener,
+        'GeckoTerminal': _seekerPriceGeckoTerminal,
+        'Raydium': _seekerPriceRaydium,
+        'CoinPaprika': _seekerPriceCoinPaprika,
+      };
+
+      for (final entry in seekerSources.entries) {
+        if (seekerPrice > 0) break;
+        try {
+          final p = await entry.value();
+          if (p > 0) {
+            seekerPrice = p;
+            debugPrint('[Wallet] SEEKER price via ${entry.key}: \$$seekerPrice');
+          } else {
+            debugPrint('[Wallet] SEEKER price ${entry.key}: no data');
+          }
+        } catch (e) {
+          debugPrint('[Wallet] SEEKER price ${entry.key} error: $e');
+        }
+      }
+
+      if (seekerPrice <= 0 && _lastKnownSeekerPrice > 0) {
+        seekerPrice = _lastKnownSeekerPrice;
+        debugPrint('[Wallet] SEEKER price: using cached \$$seekerPrice');
+      } else if (seekerPrice > 0) {
+        _lastKnownSeekerPrice = seekerPrice;
       }
     }
 

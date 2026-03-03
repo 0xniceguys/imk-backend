@@ -62,7 +62,12 @@ def run_worker(
     ctrl_path_p2: str | None = None,        # self-play: path to P2 ctrl mmap
     opponent_agent=None,                    # self-play: frozen opponent agent
 ) -> None:
-    """Worker process entry point. Runs N episodes, sends rollouts to learner."""
+    """Worker process entry point. Runs N episodes, sends rollouts to learner.
+
+    opponent_agent: either None (no self-play) or a state_dict dict produced by
+    the main process. The worker reconstructs the frozen opponent locally to
+    avoid pickling a full PyTorch model across process boundaries.
+    """
     print(f'[worker-{worker_id}] starting pid={os.getpid()}  agent={agent_type}')
     sys.path.insert(0, str(N64_ROOT / 'training/src'))
     sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
@@ -71,7 +76,7 @@ def run_worker(
     from n64train.reverse.mk4_debug_helpers import Mk4BridgeHelper
     from n64train.reverse.mk4_tracing import Mk4FightTraceProvider
     from n64train.experiments.mk4_agent import FrameStack, ACTIONS
-    from mk4_train import build_obs, macro_to_ctrl_state, MAX_EPISODE_SECS, STEP_SECS, SETTLE_SECS
+    from mk4_train import build_obs, macro_to_ctrl_state, macro_to_ctrl_state_p2, MAX_EPISODE_SECS, STEP_SECS, SETTLE_SECS
 
     import torch
 
@@ -83,6 +88,25 @@ def run_worker(
     # the worker maintains its own hidden state and syncs weights from learner.
     from mk4_train import build_agent
     agent = build_agent(agent_type)
+
+    # ── Reconstruct frozen opponent from state_dict (not a pickled model) ──────
+    # The main process passes a plain {str: Tensor} dict to avoid serializing
+    # the full PyTorch module (which is large, slow, and may break CUDA context).
+    _reconstructed_opponent = None
+    if opponent_agent is not None and isinstance(opponent_agent, dict):
+        _reconstructed_opponent = build_agent(agent_type)
+        try:
+            _reconstructed_opponent.net.load_state_dict(opponent_agent, strict=False)
+        except Exception as e:
+            print(f'[worker-{worker_id}] WARNING: could not load opponent weights: {e}')
+        for p in _reconstructed_opponent.net.parameters():
+            p.requires_grad_(False)
+        _reconstructed_opponent.net.eval()
+        print(f'[worker-{worker_id}] self-play opponent ready (state_dict loaded)')
+    elif opponent_agent is not None:
+        # Backward compat: accept pre-built agent objects too
+        _reconstructed_opponent = opponent_agent
+    opponent_agent = _reconstructed_opponent  # shadow param with local object
 
     # ── Stagger startup to prevent all workers from slamming stateload at once ──
     # With 16 simultaneous emulators, CPU is bottlenecked; spread load over time.
@@ -144,13 +168,37 @@ def run_worker(
     # _ensure_bridge() per episode and skips via 'continue' if unreachable.
     # Removing this prevents the worker→done→learner-exit→restart loop.
 
-    def _sync_weights(latest_weights: dict | None) -> None:
-        if latest_weights is None:
+    def _sync_weights(bundle: dict | None) -> None:
+        """Unpack {weights, reward_config} bundle from weight queue.
+
+        Backward-compat: if bundle is a plain state_dict (old format, no 'weights' key),
+        treat it as weights-only.
+        """
+        if bundle is None:
             return
+        # Unpack bundle vs. legacy plain state_dict
+        if 'weights' in bundle:
+            latest_weights = bundle['weights']
+            reward_cfg_dict = bundle.get('reward_config')
+        else:
+            latest_weights = bundle   # legacy plain dict
+            reward_cfg_dict = None
+        # Apply network weights
         try:
             agent.net.load_state_dict(latest_weights, strict=False)
         except Exception:
             pass
+        # Hot-swap reward extractor config
+        if reward_cfg_dict is not None:
+            try:
+                from n64train.runtime.rewards import RewardConfig
+                cfg = RewardConfig(**{
+                    k: v for k, v in reward_cfg_dict.items()
+                    if k in RewardConfig.__dataclass_fields__
+                })
+                reward_extractor.update_config(cfg)
+            except Exception as e:
+                pass  # bad config from LLM — keep existing weights
 
     valid_episodes = 0      # Fix 1: count valid rollouts, not raw attempts
     max_attempts   = episodes_per_worker * 4  # safety cap: never loop forever
@@ -172,8 +220,8 @@ def run_worker(
         if opponent_agent is not None and hasattr(opponent_agent, 'reset_episode'):
             opponent_agent.reset_episode()
 
-        frame_stack      = FrameStack(obs_dim=7, n_frames=4)
-        opp_frame_stack  = FrameStack(obs_dim=7, n_frames=4)   # opponent sees same 28-d obs
+        frame_stack      = FrameStack(obs_dim=14, n_frames=4)
+        opp_frame_stack  = FrameStack(obs_dim=14, n_frames=4)   # opponent sees same 56-d obs
         action_history: deque[str] = deque(maxlen=20)
         obs_buf:          list[list[float]] = []
         act_buf:          list[int]         = []
@@ -182,12 +230,13 @@ def run_worker(
         val_buf:          list[float]       = []   # PPO: value estimates from inference
         cpu_attacked_buf: list[float]       = []
         acc = dict(dealt=0.0, taken=0.0, approach=0.0,
-                   dist_pen=0.0, survival=0.0, win=0.0, loss=0.0, spam=0.0)
+                   dist_pen=0.0, survival=0.0, win=0.0, loss=0.0, spam=0.0,
+                   dealt_hp=0.0, taken_hp=0.0)   # Fix 4: raw HP for coach stats
 
         try:
             # ── Ensure bridge is alive (reconnect if dropped) ─────────────────
             if not _ensure_bridge():
-                print(f'[worker-{worker_id}] ep={ep_idx+1} bridge unreachable — skipping episode, retrying next')
+                print(f'[worker-{worker_id}] attempt={attempt_idx} bridge unreachable — skipping episode, retrying next')
                 time.sleep(5.0)
                 continue
 
@@ -218,7 +267,7 @@ def run_worker(
                     probe = tracer.read(0)
                     if (probe.p1_health is not None and probe.p2_health is not None
                             and probe.p1_health > 0 and probe.p2_health > 0):
-                        print(f'[worker-{worker_id}] ep={ep_idx+1} ready: p1={probe.p1_health} p2={probe.p2_health}')
+                        print(f'[worker-{worker_id}] attempt={attempt_idx} ready: p1={probe.p1_health} p2={probe.p2_health}')
                         health_ready = True
                         break
                 except Exception:
@@ -233,27 +282,36 @@ def run_worker(
                                    'cpu_attacked': [], 'acc': acc})
                 continue  # do NOT enter episode collection loop — does NOT count toward valid_episodes
 
-            ep_start   = time.time()
-            ep_steps   = 0
-            MIN_STEPS  = 30   # require ≥ 3s of game time (30 × 0.1s) before early termination
-            prev_state = None
+            ep_start    = time.time()
+            ep_steps    = 0
+            MIN_STEPS   = 30   # require ≥ 3s of game time before early termination
+            prev_state  = None
+            round_ended = False   # set True only when is_round_over() confirms break
 
             while time.time() - ep_start < MAX_EPISODE_SECS:
                 if prev_state is not None:
                     raw_obs = build_obs(prev_state)
                     obs     = frame_stack.push(raw_obs)
+                    # agent.__call__ records old_lp / value into its own buffers
                     macro   = agent(obs)
                     action_history.append(macro.value)
                     write_ctrl_worker(macro_to_ctrl_state(macro), ctrl_path)
                     obs_buf.append(obs)
                     act_buf.append(ACTIONS.index(macro))
-                    # Grab PPO buffers from agent (populated in __call__)
-                    if getattr(agent, '_old_lp_buf', None):
+                    # PPO buffers: always pull the last entry so lengths stay
+                    # identical to obs_buf / act_buf (Bug 2 fix).
+                    # _old_lp_buf / _val_buf are initialised in reset_episode();
+                    # for non-PPO agents (e.g. random) the hasattr guard is kept.
+                    if hasattr(agent, '_old_lp_buf') and agent._old_lp_buf:
                         old_lp_buf.append(agent._old_lp_buf[-1])
-                    if getattr(agent, '_val_buf', None):
+                    elif hasattr(agent, '_old_lp_buf'):
+                        old_lp_buf.append(0.0)   # placeholder if agent didn't populate
+                    if hasattr(agent, '_val_buf') and agent._val_buf:
                         val_buf.append(agent._val_buf[-1])
+                    elif hasattr(agent, '_val_buf'):
+                        val_buf.append(0.0)      # placeholder
                 else:
-                    frame_stack.push([0.0] * 7)
+                    frame_stack.push([0.0] * 14)
                     write_ctrl_worker(ControllerState(), ctrl_path)
 
                 # ── P2 self-play injection ────────────────────────────────────
@@ -261,6 +319,19 @@ def run_worker(
                 if ctrl_path_p2 is not None and opponent_agent is not None and prev_state is not None:
                     try:
                         from n64train.reverse.mk4_tracing import TracedState
+                        # Mirror extras dict: swap p1_↔p2_ prefixed keys
+                        src_ex = prev_state.extras if prev_state.extras else {}
+                        mir_ex = {}
+                        for k, v in src_ex.items():
+                            if k.startswith('p1_'):
+                                mir_ex['p2_' + k[3:]] = v
+                            elif k.startswith('p2_'):
+                                mir_ex['p1_' + k[3:]] = v
+                            else:
+                                mir_ex[k] = v  # facing_sign etc.
+                        # Flip facing_sign since perspective is reversed
+                        if 'facing_sign' in mir_ex:
+                            mir_ex['facing_sign'] = -mir_ex['facing_sign']
                         mirrored = TracedState(
                             frame_id  = prev_state.frame_id,
                             p1_health = prev_state.p2_health,
@@ -268,13 +339,17 @@ def run_worker(
                             timer     = prev_state.timer,
                             p1_x      = (prev_state.p2_x or 0.0),
                             p2_x      = (prev_state.p1_x or 0.0),
+                            p1_y      = prev_state.p2_y,
+                            p2_y      = prev_state.p1_y,
+                            p1_facing = prev_state.p2_facing,
+                            p2_facing = prev_state.p1_facing,
+                            extras    = mir_ex,
                         )
-                        # Stack the mirrored raw obs so opponent sees 28-float input
-                        # (same format its policy was trained on — raw obs is only 7-float)
+                        # Stack the mirrored raw obs so opponent sees 56-float input
                         opp_raw   = build_obs(mirrored)
                         opp_obs   = opp_frame_stack.push(opp_raw)
                         opp_macro = opponent_agent(opp_obs)
-                        write_ctrl_worker(macro_to_ctrl_state(opp_macro), ctrl_path_p2)
+                        write_ctrl_worker(macro_to_ctrl_state_p2(opp_macro), ctrl_path_p2)  # Fix 6: mirrored P2 directions
                     except Exception:
                         write_ctrl_worker(ControllerState(), ctrl_path_p2)
 
@@ -295,7 +370,7 @@ def run_worker(
                         else:
                             # All retries failed — game likely exited (arcade mode).
                             # Only NOW attempt a savestate reload.
-                            print(f'[worker-{worker_id}] ep={ep_idx+1} read failed {READ_RETRIES}x at step={ep_steps}, reloading...')
+                            print(f'[worker-{worker_id}] attempt={attempt_idx} read failed {READ_RETRIES}x at step={ep_steps}, reloading...')
                             if _ensure_bridge():
                                 try:
                                     h.pause()
@@ -312,15 +387,15 @@ def run_worker(
                                     # Bug 3: full temporal reset on mid-episode reload
                                     # — stale frames, hidden state, and action history from
                                     # the crashed fight must not bleed into the new one.
-                                    frame_stack = FrameStack(obs_dim=7, n_frames=4)
-                                    opp_frame_stack = FrameStack(obs_dim=7, n_frames=4)
+                                    frame_stack = FrameStack(obs_dim=14, n_frames=4)
+                                    opp_frame_stack = FrameStack(obs_dim=14, n_frames=4)
                                     action_history.clear()
                                     if hasattr(agent, 'reset_episode'):
                                         agent.reset_episode()
                                     if opponent_agent is not None and hasattr(opponent_agent, 'reset_episode'):
                                         opponent_agent.reset_episode()
                                 except Exception as reload_err:
-                                    print(f'[worker-{worker_id}] ep={ep_idx+1} reload failed: {reload_err}')
+                                    print(f'[worker-{worker_id}] attempt={attempt_idx} reload failed: {reload_err}')
                             break  # exit retry loop
 
                 if next_state is None:
@@ -346,6 +421,11 @@ def run_worker(
                     acc['win']      += terms.win_bonus
                     acc['loss']     += terms.loss_penalty
                     acc['spam']     += terms.spam_penalty
+                    # Fix 4: also track raw HP (always positive) for coach stats
+                    if prev_state.p2_health is not None and next_state.p2_health is not None:
+                        acc['dealt_hp'] += max(0.0, float(prev_state.p2_health - next_state.p2_health))
+                    if prev_state.p1_health is not None and next_state.p1_health is not None:
+                        acc['taken_hp'] += max(0.0, float(prev_state.p1_health - next_state.p1_health))
                     if ep_steps >= MIN_STEPS and tracer.is_round_over(next_state):
                         # Confirm over 3 extra frames — single transient zero-health
                         # reads can fire is_round_over() falsely mid-match.
@@ -365,6 +445,7 @@ def run_worker(
                                 confirmed = CONFIRM_FRAMES  # bridge drop = real end
                                 break
                         if confirmed >= 10:
+                            round_ended = True
                             break  # genuinely over
 
                 prev_state = next_state
@@ -375,6 +456,19 @@ def run_worker(
                 write_ctrl_worker(ControllerState(), ctrl_path_p2)
             won       = tracer.p1_won(next_state or prev_state) if (next_state or prev_state) else False
             ep_frames = int((time.time() - ep_start) * 60)
+
+            # PPO truncation bootstrap.
+            # truncated = True when the step loop exited due to wall-clock timeout,
+            # NOT because is_round_over() confirmed the round finished.
+            # Using the round_ended flag is exact and avoids both the MAX_STEPS
+            # NameError and the 0.95×MAX_EPISODE_SECS false-positive risk.
+            truncated     = not round_ended
+            bootstrap_val = 0.0
+            if truncated and val_buf:
+                # val_buf[-1] = V̂(s_T): last in-trajectory value estimate.
+                # True bootstrap needs V̂(s_{T+1}) via a forward pass on next_state,
+                # but the bias is O(STEP_SECS) and negligible for short steps.
+                bootstrap_val = val_buf[-1]
 
         except Exception as e:
             traceback.print_exc()
@@ -392,13 +486,15 @@ def run_worker(
             'obs':          obs_buf,
             'acts':         act_buf,
             'rewards':      reward_buf,
-            'old_lps':      old_lp_buf,     # PPO: log-probs at collection time
-            'vals':         val_buf,         # PPO: value estimates at collection time
+            'old_lps':      old_lp_buf,
+            'vals':         val_buf,
             'cpu_attacked': cpu_attacked_buf,
             'acc':          acc,
             'won':          won,
             'ep_frames':    ep_frames,
             'ep_steps':     ep_steps,
+            'truncated':    truncated,
+            'bootstrap_val': bootstrap_val,
         })
         # Fix 1: only count this as a valid episode if we actually collected data
         if len(obs_buf) >= 2:

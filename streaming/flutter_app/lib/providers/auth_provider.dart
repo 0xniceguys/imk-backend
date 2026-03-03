@@ -121,7 +121,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
     _log('Got Privy token, sending to backend...');
     _api.setAuthToken(token);
-    final user = await _api.login(token);
+    final user = await _api.login(token, walletAddress: _privy.walletAddress);
     if (user != null) {
       _log('Backend auth OK: ${user['id']}');
     } else {

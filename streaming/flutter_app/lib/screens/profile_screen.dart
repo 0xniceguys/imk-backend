@@ -54,17 +54,28 @@ class ProfileScreen extends ConsumerWidget {
           if (auth.email != null)
             Text(auth.email!,
                 style: bodyStyle(size: 14, color: Palette.secondary)),
-          Text.rich(
-            TextSpan(children: [
-              TextSpan(
-                  text: 'LVL 1',
-                  style: bodyStyle(size: 18, color: Palette.white)),
-              TextSpan(
-                  text: ' - SERIAL GAMBLER',
-                  style:
-                      bodyStyle(size: 18, color: Palette.secondary)),
-            ]),
-          ),
+          // Dynamic tier based on betting history
+          () {
+            final tier = totalBets < 5
+                ? 'ROOKIE'
+                : totalBets < 20
+                    ? 'GAMBLER'
+                    : totalBets < 50
+                        ? 'HIGH ROLLER'
+                        : 'WHALE';
+            final level = (totalBets ~/ 5) + 1;
+            return Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: 'LVL $level',
+                    style: bodyStyle(size: 18, color: Palette.white)),
+                TextSpan(
+                    text: ' - $tier',
+                    style:
+                        bodyStyle(size: 18, color: Palette.secondary)),
+              ]),
+            );
+          }(),
           const SizedBox(height: 24),
           WalletActionWidget(
             onManageTap: () {

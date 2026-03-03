@@ -2,28 +2,23 @@
 """
 mk4_train.py — MK4 Training Loop
 ──────────────────────────────────────────────────────────
-Runs RL training episodes against the MK4 CPU.
+Runs RL training episodes against the MK4 CPU or in self-play.
 
-Agent sees a 7-float observation:
-  [p1_health_norm, p2_health_norm, timer_norm,
-   p1_x_norm, p2_x_norm, dist_norm, facing_sign]
+Agent sees a 14-float observation per frame, stacked × 4 = 56 inputs:
+  [p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing,
+   p1_action, p2_action, p1_y_vel, p2_airborne,
+   p1_hitstun, p2_hitstun, p1_airborne]
 
 Reward: Mk4ShapedRewardExtractor
-  - health delta (asymmetric: taking damage hurts 1.5× more)
-  - approach reward (get close enough to attack)
-  - distance penalty (don't camp far away)
+  - health delta (asymmetric: taking damage hurts 1.5×)
+  - approach/distance signals
   - win bonus / loss penalty
-  - survival per step
+  - anti-air, punish, reckless-jump bonuses (RAM-verified signals)
+  - survival per step, anti-spam
 
 Usage:
-    # Random agent, 50 episodes
     python3 training/scripts/mk4_train.py --episodes 50 --agent random
-
-    # Filter to a specific character savestate
-    python3 training/scripts/mk4_train.py --episodes 10 --savestate sonya
-
-    # Full training with MLP policy
-    python3 training/scripts/mk4_train.py --episodes 1000 --agent mlp
+    python3 training/scripts/mk4_train.py --episodes 1000 --agent lstm
 """
 from __future__ import annotations
 
@@ -35,6 +30,7 @@ import random
 import struct
 import sys
 import time
+from collections import deque
 from pathlib import Path
 
 N64_ROOT = Path(__file__).resolve().parents[2]
@@ -47,8 +43,8 @@ TRAIN_LOG  = LOG_DIR / 'mk4_training_log.jsonl'
 P1_CTRL    = '/tmp/mk4_ctrl'
 
 # Episode tuning
-MAX_EPISODE_SECS = 70      # doubled: gives agents time to finish KOs (~70s ≈ 2 full rounds)
-STEP_SECS        = 0.1     # 100ms per agent decision (~6 frames at 60fps)
+MAX_EPISODE_SECS = 99      # full MK4 round timer — agent has full fight duration
+STEP_SECS        = 0.033   # 33ms per agent decision (~2 frames at 60fps, near human reflex)
 SETTLE_SECS      = 2.0     # let VS splash animation play before agent acts
 X_NORM           = 15.0    # position normalisation ceiling
 DIST_NORM        = 15.0    # distance normalisation ceiling
@@ -117,6 +113,28 @@ def macro_to_ctrl_state(macro: MacroAction) -> ControllerState:
     return _MACRO_MAP.get(macro, ControllerState())
 
 
+# P2 is always on the RIGHT side at round start, so LEFT/RIGHT directions are
+# flipped relative to P1. ADVANCE for P2 means moving LEFT (toward P1).
+# SPECIAL_* and THROW_ATTEMPT use D-LEFT for P1 which becomes D-RIGHT for P2.
+_MACRO_MAP_P2: dict[MacroAction, ControllerState] = {
+    **_MACRO_MAP,   # inherit all non-directional actions unchanged
+    # Override direction-dependent actions (P2 starts on the RIGHT side):
+    MacroAction.ADVANCE:       ControllerState(pressed=frozenset([Button.D_LEFT])),
+    MacroAction.RETREAT:       ControllerState(pressed=frozenset([Button.D_RIGHT])),
+    MacroAction.RUN:           ControllerState(pressed=frozenset([Button.C_DOWN, Button.D_LEFT])),  # P2: forward dash = D_LEFT
+    MacroAction.JUMP_FORWARD:  ControllerState(pressed=frozenset([Button.D_UP, Button.D_LEFT])),
+    MacroAction.JUMP_BACK:     ControllerState(pressed=frozenset([Button.D_UP, Button.D_RIGHT])),
+    MacroAction.SPECIAL_1:     ControllerState(pressed=frozenset([Button.D_RIGHT, Button.A])),
+    MacroAction.SPECIAL_2:     ControllerState(pressed=frozenset([Button.D_DOWN, Button.D_RIGHT, Button.A])),
+    MacroAction.THROW_ATTEMPT: ControllerState(pressed=frozenset([Button.D_LEFT, Button.A])),
+}
+
+
+def macro_to_ctrl_state_p2(macro: MacroAction) -> ControllerState:
+    """Convert macro to controller state for player 2 (right side — directions mirrored)."""
+    return _MACRO_MAP_P2.get(macro, ControllerState())
+
+
 def write_ctrl(ctrl_state: ControllerState, path: str = P1_CTRL) -> None:
     mask = 0
     for btn in ctrl_state.pressed:
@@ -135,22 +153,52 @@ def write_ctrl(ctrl_state: ControllerState, path: str = P1_CTRL) -> None:
 
 
 # ── Observation builder ───────────────────────────────────────────────────────
+# Observation size constants (update these if adding more RAM signals)
+RAW_OBS_DIM = 14    # single-frame; 7 position/health + 7 verified RAM signals
 
 def build_obs(state) -> list[float]:
     """
-    7-float observation vector:
-      [p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing_sign]
-    All values normalised to roughly [-1, 1] / [0, 1].
+    14-float observation vector:
+      Position/health (always available):
+        [0]  p1_hp          normalised health P1  [0,1]
+        [1]  p2_hp          normalised health P2  [0,1]
+        [2]  timer          countdown [0,1]
+        [3]  p1_x           position  [-1,1]
+        [4]  p2_x           position  [-1,1]
+        [5]  dist           distance  [0,1]
+        [6]  facing_sign    +1 normal / -1 crossed over
+
+      Live-scan-verified RAM signals (from TracedState.extras):
+        [7]  p1_action      action state P1  {0,1}
+        [8]  p2_action      action state P2  {0,1}
+        [9]  p1_y_vel       Y velocity P1    [-1,1]  (neg=going up, pos=falling)
+        [10] p2_airborne    airborne flag P2 {0,1}   (P2 y_vel not in struct)
+        [11] p1_hitstun     attack active P1 {0,1}
+        [12] p2_hitstun     attack active P2 {0,1}
+        [13] p1_airborne    airborne flag P1 {0,1}
     """
+    ex = state.extras if hasattr(state, 'extras') and state.extras else {}
+
     p1_hp   = (state.p1_health or 0) / 160.0
     p2_hp   = (state.p2_health or 0) / 160.0
     timer   = (state.timer if state.timer is not None else 99) / 99.0
     p1_x    = max(-1.0, min(1.0, (state.p1_x or 0.0) / X_NORM))
     p2_x    = max(-1.0, min(1.0, (state.p2_x or 0.0) / X_NORM))
     dist    = min(1.0, abs((state.p2_x or 0.0) - (state.p1_x or 0.0)) / DIST_NORM)
-    # +1 if P2 is to the right of P1 (normal start), -1 if they've crossed over
-    facing  = 1.0 if (state.p2_x or 0.0) >= (state.p1_x or 0.0) else -1.0
-    return [p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing]
+    facing  = ex.get('facing_sign', 1.0 if (state.p2_x or 0.0) >= (state.p1_x or 0.0) else -1.0)
+
+    return [
+        # ── 7 position/health signals ─────────────────────────────────────────
+        p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing,
+        # ── 7 live-scan-verified signals ──────────────────────────────────────
+        min(1.0, max(0.0, ex.get('p1_action',  0.0))),   # [7]  P1 animation/action state
+        min(1.0, max(0.0, ex.get('p2_action',  0.0))),   # [8]  P2 animation/action state
+        max(-1.0, min(1.0, ex.get('p1_y_vel',  0.0))),   # [9]  P1 Y velocity (neg=up, pos=down)
+        float(ex.get('p2_airborne', 0.0)),                # [10] P2 airborne (P2 y_vel N/A)
+        float(ex.get('p1_hitstun', 0.0) > 0),            # [11] P1 attack/hitbox active
+        float(ex.get('p2_hitstun', 0.0) > 0),            # [12] P2 attack/hitbox active
+        float(ex.get('p1_airborne', 0.0)),                # [13] P1 airborne
+    ]
 
 
 # ── Agent factory ─────────────────────────────────────────────────────────────
@@ -188,9 +236,14 @@ def run_training(args) -> None:
     from n64train.reverse.mk4_tracing import Mk4FightTraceProvider, ADDRESSES_CONFIRMED
     from n64train.runtime.rewards import Mk4ShapedRewardExtractor
 
-    savestates = [STATE_DIR / 'test.st']
-    if not savestates[0].exists():
-        print(f'ERROR: test.st not found at {savestates[0]}')
+    # Prefer p1p2state.st; fall back to kai_arcade_p1p2.st; error if neither present.
+    savestates = [
+        STATE_DIR / 'p1p2state.st',
+        STATE_DIR / 'kai_arcade_p1p2.st',
+    ]
+    savestates = [s for s in savestates if s.exists()]
+    if not savestates:
+        print(f'ERROR: no savestate found in {STATE_DIR}. Expected p1p2state.st or kai_arcade_p1p2.st')
         sys.exit(1)
 
     if args.savestate:
@@ -202,7 +255,7 @@ def run_training(args) -> None:
     print(f'[train] Agent        : {args.agent}')
     print(f'[train] Addresses    : {"REAL" if ADDRESSES_CONFIRMED else "STUB"}')
     print(f'[train] Episodes     : {args.episodes}')
-    print(f'[train] Obs dims     : 7  (hp×2, timer, p1_x, p2_x, dist, facing)')
+    print(f'[train] Obs dims     : {RAW_OBS_DIM}×4 frames = {RAW_OBS_DIM*4} stacked floats')
     print(f'[train] Actions      : {len(MacroAction)}')
     print(f'[train] Log          : {TRAIN_LOG}')
     print()
@@ -222,7 +275,7 @@ def run_training(args) -> None:
 
         try:
             # ── Open ONE persistent bridge for the whole episode ───────────────
-            b = SocketEmulatorBridge(SOCK, timeout_sec=20)
+            b = SocketEmulatorBridge(SOCK, timeout_sec=120)
             h = Mk4BridgeHelper(b)
             tracer = Mk4FightTraceProvider(helper=h)
 
@@ -238,11 +291,8 @@ def run_training(args) -> None:
             ep_start   = time.time()
             prev_state = None
 
-            # Rolling action history for anti-spam (most recent last)
-            from collections import deque
-            from n64train.experiments.mk4_agent import FrameStack
             action_history: deque[str] = deque(maxlen=20)
-            frame_stack = FrameStack(obs_dim=7, n_frames=4)   # 4 frames → 28 floats
+            frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)  # 4×14 = 56 floats
 
             # Reset LSTM hidden state at episode start
             if hasattr(agent, 'reset_episode'):
@@ -256,12 +306,12 @@ def run_training(args) -> None:
                 # Agent decides action from previous observation
                 if prev_state is not None:
                     obs = build_obs(prev_state)
-                    stacked_obs = frame_stack.push(obs)  # 28-float stacked vector
+                    stacked_obs = frame_stack.push(obs)  # 4×14 = 56-float stacked vector
                     action_macro = agent(stacked_obs)    # feed stacked obs to agent
                     action_history.append(action_macro.value)
                     write_ctrl(macro_to_ctrl_state(action_macro))
                 else:
-                    frame_stack.push([0.0] * 7)          # warm up frame stack with zero obs
+                    frame_stack.push([0.0] * RAW_OBS_DIM)     # warm up with 14-wide zero obs
                     write_ctrl(ControllerState())
 
                 time.sleep(STEP_SECS)
@@ -317,8 +367,8 @@ def run_training(args) -> None:
         except Exception as exc:
             print(f'  [ep {ep_num}] ERROR: {exc}')
             write_ctrl(ControllerState())
-            try: b.close()
-            except: pass
+            try: b.close()  # type: ignore[name-defined]
+            except Exception: pass
             continue
 
         wins += int(won)
