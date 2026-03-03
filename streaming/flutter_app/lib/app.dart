@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/palette.dart';
 import 'core/constants.dart';
+import 'core/typography.dart';
 import 'router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/get_started_screen.dart';
-import 'screens/sign_in_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/arena_list_screen.dart';
 import 'screens/battle_detail_screen.dart';
@@ -18,7 +18,7 @@ import 'screens/live_match_screen.dart';
 import 'screens/post_match_screen.dart';
 
 // Auth-flow routes that should replace the nav stack (no back button)
-const _authRoutes = {'/get-started', '/sign-in-modal', '/onboarding'};
+const _authRoutes = {'/get-started', '/onboarding'};
 
 // Tab-level routes: replace instead of push so back doesn't cycle tabs
 const _tabRoutes = {'/arena-list', '/fighter-overview', '/profile'};
@@ -30,12 +30,7 @@ const _slideRightRoutes = {'/fighter-details'};
 const _zoomRoutes = {'/live-match'};
 
 class ImmortalKombatApp extends ConsumerStatefulWidget {
-  const ImmortalKombatApp({
-    super.key,
-    required this.hasSeenIntro,
-    required this.isDeepLinkStart,
-  });
-  final bool hasSeenIntro;
+  const ImmortalKombatApp({super.key, required this.isDeepLinkStart});
   final bool isDeepLinkStart;
 
   @override
@@ -51,9 +46,7 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
     super.initState();
     // Compute once — never re-evaluate on rebuild to avoid GET_STARTED
     // flashing mid-auth when build() re-runs due to ref.watch(authProvider).
-    _postSplashRoute = (widget.hasSeenIntro || widget.isDeepLinkStart)
-        ? '/sign-in-modal'
-        : '/get-started';
+    _postSplashRoute = '/get-started';
     debugPrint('[App] initState: _postSplashRoute=$_postSplashRoute');
   }
 
@@ -89,6 +82,7 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
       title: 'Immortal Kombat',
       theme: ThemeData(
         brightness: Brightness.dark,
+        fontFamily: kAppFontFamily,
         scaffoldBackgroundColor: Palette.black,
         colorScheme: const ColorScheme.dark(
           primary: Palette.gold,
@@ -282,7 +276,6 @@ class _ScreenPage extends StatelessWidget {
 
     return switch (slug) {
       ScreenSlug.getStarted => GetStartedScreen(onNavigate: onNav),
-      ScreenSlug.signInModal => SignInScreen(onNavigate: onNav),
       ScreenSlug.onboarding => OnboardingScreen(onNavigate: onNav),
       ScreenSlug.arenaList => ArenaListScreen(onNavigate: onNav),
       ScreenSlug.battleDetail => BattleDetailScreen(

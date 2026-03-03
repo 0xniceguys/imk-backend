@@ -1,6 +1,5 @@
 enum ScreenSlug {
   getStarted,
-  signInModal,
   onboarding,
   arenaList,
   battleDetail,
@@ -15,7 +14,6 @@ enum NavTab { arena, fighters, profile }
 
 const _routes = <String, ScreenSlug>{
   '/get-started': ScreenSlug.getStarted,
-  '/sign-in-modal': ScreenSlug.signInModal,
   '/onboarding': ScreenSlug.onboarding,
   '/onboarding-1': ScreenSlug.onboarding, // legacy alias
   '/arena-list': ScreenSlug.arenaList,
