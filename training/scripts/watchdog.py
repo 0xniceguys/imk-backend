@@ -84,9 +84,14 @@ def _heartbeat_stale(agent: str) -> bool:
 def main() -> None:
     print('[watchdog] starting — monitoring 4 agents')
     time.sleep(2)  # let any previous processes settle
-    for agent in AGENTS:
+    for i, agent in enumerate(AGENTS):
         agent_procs[agent] = launch(agent)
-        time.sleep(5)   # stagger launches
+        if i < len(AGENTS) - 1:
+            # Stagger launches: mupen64plus takes 10-30s to boot fully.
+            # 60s gap ensures each emulator is socket-ready before the next starts,
+            # preventing simultaneous boot contention that causes ConnectionRefused.
+            print(f'[watchdog] waiting 60s before next agent launch...')
+            time.sleep(60)
 
     print('[watchdog] all 4 agents running — watching...')
     while True:

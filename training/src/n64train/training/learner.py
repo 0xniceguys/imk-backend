@@ -108,7 +108,7 @@ class ParallelLearner:
         pending: list[dict] = []
         workers_done = 0
         start_time = time.time()
-        ROLLOUT_TIMEOUT = 120.0   # seconds before we consider the learner hung
+        ROLLOUT_TIMEOUT = 300.0   # seconds: max-ep (~99s) + savestate + PPO update overhead
 
         while workers_done < self.n_workers:
             # Bug 4: write heartbeat to per-run-id file
