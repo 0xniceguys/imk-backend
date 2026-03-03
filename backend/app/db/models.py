@@ -8,11 +8,12 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -72,6 +73,34 @@ class User(Base):
     bets: Mapped[list["Bet"]] = relationship(back_populates="user")
 
 
+class Agent(Base):
+    """Uploaded neural network agents (ONNX checkpoints)."""
+
+    __tablename__ = "agents"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    architecture: Mapped[str] = mapped_column(String(50), nullable=False)  # lstm, transformer, etc.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkpoint_path: Mapped[str] = mapped_column(String(500), nullable=False)  # path to .onnx file
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now(), nullable=True
+    )
+
+    uploader: Mapped["User | None"] = relationship(foreign_keys=[uploaded_by])
+
+
 class Fighter(Base):
     __tablename__ = "fighters"
 
@@ -84,13 +113,25 @@ class Fighter(Base):
     character_id: Mapped[int] = mapped_column(Integer, nullable=False)
     llm_model: Mapped[str] = mapped_column(String(100), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Agent can be either:
+    # 1. Built-in agent (agent_architecture = "random", "cpu", etc.)
+    # 2. Custom uploaded agent (agent_id = UUID of Agent record)
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id"), nullable=True
+    )
+    agent_architecture: Mapped[str | None] = mapped_column(String(50), nullable=True)  # fallback for built-ins
+
+    # Deprecated: keeping for backward compatibility, will be removed in migration
     agent_checkpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    agent_architecture: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     matches_played: Mapped[int] = mapped_column(Integer, default=0)
     matches_won: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    agent: Mapped["Agent | None"] = relationship(foreign_keys=[agent_id])
 
     @property
     def win_rate(self) -> float:
@@ -195,7 +236,7 @@ class MatchEvent(Base):
         UUID(as_uuid=True), ForeignKey("matches.id"), nullable=False, index=True
     )
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     frame_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -368,8 +368,13 @@ async def match_detail(request: Request, match_id: UUID):
 @router.post("/matches/{match_id}/start")
 async def match_start(match_id: UUID):
     async for db in _get_db():
+        # ✅ FIX: Eager load fighters and their agents for checkpoint path resolution
         result = await db.execute(
-            select(Match).where(Match.id == match_id).options(selectinload(Match.stream))
+            select(Match).where(Match.id == match_id).options(
+                selectinload(Match.stream),
+                selectinload(Match.fighter1).selectinload(Fighter.agent),
+                selectinload(Match.fighter2).selectinload(Fighter.agent),
+            )
         )
         match = result.scalar_one_or_none()
         if not match or match.status != MatchStatus.UPCOMING:
@@ -377,6 +382,32 @@ async def match_start(match_id: UUID):
 
         if not match.savestate_path:
             return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
+
+        # ✅ FIX: Wire uploaded agents into match execution (same logic as JSON API)
+        p1_agent_id = match.p1_agent
+        p2_agent_id = match.p2_agent
+        p1_checkpoint_path: str | None = None
+        p2_checkpoint_path: str | None = None
+        p1_architecture: str | None = None
+        p2_architecture: str | None = None
+
+        if match.fighter1:
+            if match.fighter1.agent_id and match.fighter1.agent:
+                p1_agent_id = f"custom_{match.fighter1.agent.slug}"
+                p1_checkpoint_path = match.fighter1.agent.checkpoint_path
+                p1_architecture = match.fighter1.agent.architecture
+            elif match.fighter1.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
+                p1_agent_id = match.fighter1.agent_architecture
+            # else: keep default "random"
+
+        if match.fighter2:
+            if match.fighter2.agent_id and match.fighter2.agent:
+                p2_agent_id = f"custom_{match.fighter2.agent.slug}"
+                p2_checkpoint_path = match.fighter2.agent.checkpoint_path
+                p2_architecture = match.fighter2.agent.architecture
+            elif match.fighter2.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
+                p2_agent_id = match.fighter2.agent_architecture
+            # else: keep default "random"
 
         match.status = MatchStatus.LIVE
         match.started_at = datetime.now(timezone.utc)
@@ -389,8 +420,12 @@ async def match_start(match_id: UUID):
             await runner_start(
                 match_id=str(match_id),
                 savestate_path=match.savestate_path,
-                p1_agent_id=match.p1_agent,
-                p2_agent_id=match.p2_agent,
+                p1_agent_id=p1_agent_id,
+                p2_agent_id=p2_agent_id,
+                p1_checkpoint_path=p1_checkpoint_path,
+                p2_checkpoint_path=p2_checkpoint_path,
+                p1_architecture=p1_architecture,
+                p2_architecture=p2_architecture,
                 best_of=match.best_of,
             )
             if match.stream:
@@ -460,6 +495,11 @@ async def match_cancel(match_id: UUID):
 
 @router.post("/matches/{match_id}/settle")
 async def match_settle(match_id: UUID, winner_id: UUID = Form(...)):
+    """Manually settle a live match.
+
+    ✅ FIX: Now calls settlement BEFORE stopping runner to preserve round data.
+    Previously stopped runner first, which lost round counters.
+    """
     async for db in _get_db():
         result = await db.execute(
             select(Match).where(Match.id == match_id)
@@ -468,19 +508,16 @@ async def match_settle(match_id: UUID, winner_id: UUID = Form(...)):
         if not match or match.status != MatchStatus.LIVE:
             return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
-        # Stop runner
-        from app.services.match_runner import stop_match as runner_stop
-        await runner_stop(str(match_id))
+        # Determine winner player number
+        winner_player = 1 if winner_id == match.fighter1_id else 2
 
-    # Determine winner_player from winner_id
-    async for db in _get_db():
-        result = await db.execute(select(Match).where(Match.id == match_id))
-        match = result.scalar_one_or_none()
-        if match:
-            winner_player = 1 if winner_id == match.fighter1_id else 2
-
+    # ✅ FIX: Call settlement BEFORE stopping runner (settlement reads round data from it)
     from app.services.settlement import settle_match
     await settle_match(str(match_id), winner_player)
+
+    # Stop runner AFTER settlement completes
+    from app.services.match_runner import stop_match as runner_stop
+    await runner_stop(str(match_id))
 
     return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 

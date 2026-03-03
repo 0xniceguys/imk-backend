@@ -34,5 +34,14 @@ class FighterCreate(BaseModel):
     character_id: int
     llm_model: str
     image_url: str | None = None
-    agent_checkpoint: str | None = None
+    agent_id: UUID | None = None  # Link to uploaded Agent
+    agent_architecture: str | None = None  # Or use built-in agent
+
+
+class FighterUpdate(BaseModel):
+    """Fighter update schema."""
+
+    name: str | None = None
+    image_url: str | None = None
+    agent_id: UUID | None = None
     agent_architecture: str | None = None

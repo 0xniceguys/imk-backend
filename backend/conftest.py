@@ -1,5 +1,7 @@
 """
-Root conftest — sets up async test client with real Postgres DB.
+Root conftest — sets up async test client with SEPARATE test database.
+
+⚠️ CRITICAL SAFETY: Uses TEST_DATABASE_URL env var to prevent wiping production data.
 
 Uses NullPool so each session gets its own dedicated connection,
 avoiding asyncpg "another operation in progress" errors.
@@ -8,30 +10,72 @@ The app's get_db is also overridden to use the test engine.
 Test data is cleaned up after each test that uses the `cleanup` fixture.
 """
 
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
 from app.db.models import Bet, ChatMessage, Fighter, Match, MatchEvent, Stream, User
 from app.dependencies import get_current_user, get_db, require_admin
 from app.main import app
 
-# Test engine with NullPool — each session gets its own connection.
-_test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+# ⚠️ CRITICAL: Use a separate test database to avoid wiping production data
+# If TEST_DATABASE_URL env var is not set, fall back to in-memory SQLite
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+
+if TEST_DATABASE_URL == settings.database_url:
+    raise RuntimeError(
+        "❌ CRITICAL: Test database URL matches production database URL!\n"
+        f"   Production DB: {settings.database_url}\n"
+        f"   Test DB:       {TEST_DATABASE_URL}\n\n"
+        "Set TEST_DATABASE_URL environment variable to a separate test database:\n"
+        "   export TEST_DATABASE_URL='postgresql+asyncpg://user:pass@localhost/imk_test'\n\n"
+        "Or use in-memory SQLite (default): unset TEST_DATABASE_URL"
+    )
+
+# Test engine - use StaticPool for in-memory SQLite (preserves tables), NullPool for Postgres
+# StaticPool keeps a single connection alive for in-memory databases
+# NullPool creates fresh connections for Postgres (avoids "another operation in progress")
+if "sqlite" in TEST_DATABASE_URL and ":memory:" in TEST_DATABASE_URL:
+    _test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    _test_engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
+
 _test_session = async_sessionmaker(_test_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def _create_tables():
+    """Create all tables in the test database."""
+    from app.db.models import Base
+    async with _test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 async def _override_get_db():
     """Override for app's get_db — uses the test engine with NullPool."""
     async with _test_session() as session:
         yield session
+
+
+# ── Setup fixture to create tables ──
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_database():
+    """Create all database tables before running tests."""
+    import asyncio
+    asyncio.run(_create_tables())
 
 
 # ── Test user fixtures ──
