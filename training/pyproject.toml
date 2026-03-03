@@ -7,6 +7,9 @@ name = "n64train"
 version = "0.1.0"
 description = "Low-level training scaffolding for N64 MK4 experiments"
 requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

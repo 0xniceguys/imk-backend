@@ -21,7 +21,8 @@ BRIDGE_DIR = N64_ROOT / 'training/data/bridge'
 HEARTBEAT_MAX_AGE_SECS = 600.0  # allow up to 10 min for long PPO updates / checkpoint saves on CPU
 
 # pids of currently running agents
-agent_procs: dict[str, subprocess.Popen] = {}
+agent_procs:    dict[str, subprocess.Popen] = {}
+agent_logfiles: dict[str, object] = {}  # track open log file handles to avoid fd leak
 
 
 def kill_stale(agent: str) -> None:
@@ -44,11 +45,21 @@ def launch(agent: str) -> subprocess.Popen:
     log = LOG_DIR / f'arch-{agent}.log'
     env = os.environ.copy()
     env['PYTHONUNBUFFERED'] = '1'
+
+    # Close the previous log handle for this agent (file handle leak fix)
+    old_handle = agent_logfiles.get(agent)
+    if old_handle is not None:
+        try: old_handle.close()
+        except Exception: pass
+
+    log_file = open(log, 'a')
+    agent_logfiles[agent] = log_file
+
     proc = subprocess.Popen(
         ['python3', str(SCRIPT),
          '--agent', agent, '--run-id', agent,
          '--workers', '1', '--episodes', '9999'],
-        stdout=open(log, 'a'),
+        stdout=log_file,
         stderr=subprocess.STDOUT,
         env=env,
     )

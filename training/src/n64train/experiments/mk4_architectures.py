@@ -17,7 +17,7 @@ N64_ROOT   = Path(__file__).resolve().parents[4]   # …/n64train/experiments �
 CKPT_DIR   = N64_ROOT / 'training/data/checkpoints'
 STATS_PATH = CKPT_DIR / 'mk4_training_stats.jsonl'
 
-OBS_DIM    = 28
+OBS_DIM    = 56
 N_ACTIONS  = len(MacroAction)
 ACTIONS    = list(MacroAction)
 
@@ -359,6 +359,7 @@ class Mk4DiscRssmAgent:
         self._obs_buf, self._act_buf, self._rewards = [], [], []
         self._old_lp_buf: list[float] = []
         self._val_buf:    list[float] = []
+        self._bootstrap_val: float    = 0.0   # V̂(s_T+1): set by learner for truncated eps
 
     def __call__(self, obs):
         if self._h is None: self.reset_episode()
@@ -396,7 +397,8 @@ class Mk4DiscRssmAgent:
         act_t    = torch.tensor(self._act_buf[:n],    dtype=torch.long,    device=self.device)
         old_lp_t = torch.tensor(self._old_lp_buf[:n], dtype=torch.float32, device=self.device)
         val_t    = torch.tensor(self._val_buf[:n],    dtype=torch.float32, device=self.device)
-        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t)
+        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t,
+                                       bootstrap_val=self._bootstrap_val)
         adv_t = adv_t.to(self.device); ret_t = ret_t.to(self.device)
         metrics_last = {}; kl_last = torch.tensor(0.0)
         for _ in range(PPO_EPOCHS):
@@ -522,6 +524,7 @@ class Mk4TransformerAgent:
         self._obs_buf, self._act_buf, self._rewards = [], [], []
         self._old_lp_buf: list[float] = []
         self._val_buf:    list[float] = []
+        self._bootstrap_val: float    = 0.0   # V̂(s_T+1): set by learner for truncated eps
 
     def _context(self):
         pad = TRF_SEQ - len(self._buf)
@@ -561,7 +564,8 @@ class Mk4TransformerAgent:
         act_t    = torch.tensor(self._act_buf[:n],     dtype=torch.long,    device=self.device)
         old_lp_t = torch.tensor(self._old_lp_buf[:n], dtype=torch.float32, device=self.device)
         val_t    = torch.tensor(self._val_buf[:n],     dtype=torch.float32, device=self.device)
-        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t)
+        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t,
+                                       bootstrap_val=self._bootstrap_val)
         adv_t = adv_t.to(self.device); ret_t = ret_t.to(self.device)
         metrics_last = {}
         for _ in range(PPO_EPOCHS):
@@ -622,7 +626,9 @@ class Mk4TransformerAgent:
 # Belief head: predicts opponent attacked (auxiliary BCE loss)
 
 SLOT_D = 16
-N_SLOTS = 7   # [p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing]
+# obs(56) = 14 semantic features × 4 frames
+# ObjBelief treats each of the 14 raw features as one 'object slot'
+N_SLOTS = 14   # p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing, p1_y, p2_y, p1_move, p2_move, p1_hstun, p2_hstun, p1_air
 
 
 class _ObjBeliefNet(nn.Module):
@@ -674,6 +680,7 @@ class Mk4ObjBeliefAgent:
         self._obs_buf, self._act_buf, self._rewards, self._cpu_attacked = [], [], [], []
         self._old_lp_buf: list[float] = []
         self._val_buf:    list[float] = []
+        self._bootstrap_val: float    = 0.0   # V̂(s_T+1): set by learner for truncated eps
 
     def __call__(self, obs):
         self.net.eval()
@@ -705,7 +712,8 @@ class Mk4ObjBeliefAgent:
         cpu_t    = torch.tensor(self._cpu_attacked[:n], dtype=torch.float32, device=self.device)
         old_lp_t = torch.tensor(self._old_lp_buf[:n], dtype=torch.float32, device=self.device)
         val_t    = torch.tensor(self._val_buf[:n],     dtype=torch.float32, device=self.device)
-        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t)
+        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t,
+                                       bootstrap_val=self._bootstrap_val)
         adv_t = adv_t.to(self.device); ret_t = ret_t.to(self.device)
         metrics_last = {}; bel_last = torch.tensor(0.0)
         for _ in range(PPO_EPOCHS):
@@ -781,12 +789,20 @@ class Mk4LatentPlannerAgent:
     def __init__(self, device='cpu'):
         self.device = torch.device(device)
         self.net = _WorldModel().to(self.device)
-        pol_params = [p for n,p in self.net.named_parameters() if 'val' not in n]
-        self.opt_pol = torch.optim.Adam(pol_params, LR_POLICY)
+        # ── Optimizer param groups — NO OVERLAP ───────────────────────────────
+        # opt_pol: ONLY the policy head (pol linear layers)
+        # opt_val: ONLY the value head
+        # opt_wm:  world-model components (enc, trans, act_emb, rew_hat)
+        # These three sets are mutually exclusive.
+        self.opt_pol = torch.optim.Adam(self.net.pol.parameters(), LR_POLICY)
         self.opt_val = torch.optim.Adam(self.net.val.parameters(), LR_VALUE)
-        self.opt_wm  = torch.optim.Adam(
-            list(self.net.enc.parameters()) + list(self.net.trans.parameters()) +
-            list(self.net.act_emb.parameters()) + list(self.net.rew_hat.parameters()), LR_AUX)
+        wm_params = (
+            list(self.net.enc.parameters()) +
+            list(self.net.trans.parameters()) +
+            list(self.net.act_emb.parameters()) +
+            list(self.net.rew_hat.parameters())
+        )
+        self.opt_wm  = torch.optim.Adam(wm_params, LR_AUX)
         self._obs, self._act, self._rew, self._lat = [], [], [], []
         self.episode = self.total_updates = 0
         _try_load(self, self.CKPT)
@@ -861,12 +877,18 @@ class Mk4LatentPlannerAgent:
         else:
             wm_total = torch.tensor(0.0)
 
-        self.opt_pol.zero_grad(); self.opt_val.zero_grad()
-        pol_loss.backward(retain_graph=True)
+        # ── Single backward pass — no retain_graph, no double-grad ───────────
+        # Combine all losses and backprop once so each param gets exactly
+        # one gradient from the correct loss term.
+        self.opt_pol.zero_grad()
+        self.opt_val.zero_grad()
         self.opt_wm.zero_grad()
-        wm_total.backward()
+        total_loss = pol_loss + wm_total
+        total_loss.backward()
         nn.utils.clip_grad_norm_(self.net.parameters(), GRAD_CLIP)
-        self.opt_pol.step(); self.opt_val.step(); self.opt_wm.step()
+        self.opt_pol.step()
+        self.opt_val.step()
+        self.opt_wm.step()
         self.total_updates += 1
         m = {'episode': self.episode, 'arch': self.ARCH,
              'wm_loss': round(wm_total.item(),4), 'n_steps': n}
