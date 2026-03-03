@@ -29,7 +29,7 @@ class OrnateButton extends StatelessWidget {
             Image.asset(Assets.ctaTop,
                 width: 250, height: 8, fit: BoxFit.cover),
             const SizedBox(height: 11),
-            Text(label, style: displayStyle(size: 24, color: color)),
+            Text(label, style: displayStyle(size: 20, color: color)),
             const SizedBox(height: 11),
             Image.asset(Assets.ctaBottom,
                 width: 250, height: 8, fit: BoxFit.cover),

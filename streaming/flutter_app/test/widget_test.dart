@@ -8,7 +8,7 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(
         child: ImmortalKombatApp(
-          hasSeenIntro: false,
+          hasSeenIntro: hasSeenIntro,
           isDeepLinkStart: false,
         ),
       ),
