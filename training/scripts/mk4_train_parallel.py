@@ -29,7 +29,7 @@ sys.path.insert(0, str(N64_ROOT / 'training/src'))
 sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
 BRIDGE_DIR  = N64_ROOT / 'training/data/bridge'
-STATE_PATH  = str(N64_ROOT / 'training/data/savestates/mk4_arcade/p1p2state.st')
+STATE_PATH  = str(N64_ROOT / 'training/data/savestates/mk4_arcade/my_state.st')
 ROM_PATH    = str(N64_ROOT / 'Mortal Kombat 4 (USA).z64')
 M64P_BIN    = str(N64_ROOT / 'vendor/mupen64plus-ui-console/projects/unix/mupen64plus')
 CORELIB     = str(N64_ROOT / 'vendor/mupen64plus-core/projects/unix/libmupen64plus.dylib')

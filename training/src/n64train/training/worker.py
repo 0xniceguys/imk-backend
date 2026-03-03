@@ -144,8 +144,8 @@ def run_worker(
                     pass
                 # fall through to reconnect below
 
-        # Reconnect — emulator boots in ~60-90s; retry for up to 100s (20 × 5s)
-        for attempt in range(20):
+        # Reconnect — emulator boots in ~60-90s; retry for up to 200s (40 × 5s)
+        for attempt in range(40):
             try:
                 if b is not None:
                     try: b.close()
