@@ -461,6 +461,8 @@ class MatchRunner:
         except Exception:
             logger.exception("Error in match loop")
             self.state = RunnerState.ERROR
+            # ✅ FIX: Update DB to reflect runner failure
+            await self._mark_match_errored()
 
         # Cleanup emulator
         await self._cleanup_emulator()
@@ -579,6 +581,8 @@ class MatchRunner:
                 if consecutive_errors >= 10:
                     logger.error("Agent brain: %d consecutive errors — aborting", consecutive_errors)
                     self.state = RunnerState.ERROR
+                    # ✅ FIX: Update DB to reflect runner failure
+                    await self._mark_match_errored()
                     break
                 await asyncio.sleep(0.5)
 
@@ -593,6 +597,37 @@ class MatchRunner:
             await settle_match(self.match_id, winner_player)
         except Exception:
             logger.exception("Auto-settle failed for match %s", self.match_id)
+
+    async def _mark_match_errored(self) -> None:
+        """Mark match as cancelled in DB when runner fails."""
+        try:
+            from app.db.engine import async_session
+            from app.db.models import Match, MatchStatus, StreamStatus
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+            from datetime import datetime, timezone
+
+            async with async_session() as db:
+                # ✅ FIX: Eager load stream to avoid lazy-load DetachedInstanceError
+                result = await db.execute(
+                    select(Match)
+                    .where(Match.id == uuid.UUID(self.match_id))
+                    .options(selectinload(Match.stream))
+                )
+                match = result.scalar_one_or_none()
+                if match and match.status == MatchStatus.LIVE:
+                    # Mark as cancelled instead of failed
+                    match.status = MatchStatus.CANCELLED
+                    match.completed_at = datetime.now(timezone.utc)
+
+                    # ✅ FIX: Use ERROR instead of ENDED (ENDED doesn't exist in enum)
+                    if match.stream:
+                        match.stream.status = StreamStatus.ERROR
+
+                    await db.commit()
+                    logger.info(f"Marked match {self.match_id} as CANCELLED due to runner failure")
+        except Exception:
+            logger.exception("Failed to mark match %s as errored in DB", self.match_id)
 
     async def _cleanup_emulator(self) -> None:
         """Clean up emulator resources after match ends."""
@@ -633,14 +668,31 @@ async def start_match(
     savestate_path: str,
     p1_agent_id: str = "random",
     p2_agent_id: str = "random",
+    p1_checkpoint_path: str | None = None,
+    p2_checkpoint_path: str | None = None,
+    p1_architecture: str | None = None,
+    p2_architecture: str | None = None,
     best_of: int = 3,
 ) -> MatchRunner:
-    """Create and start a match runner. Returns the runner."""
+    """Create and start a match runner. Returns the runner.
+
+    Args:
+        match_id: Unique identifier for the match
+        savestate_path: Path to the MK4 savestate file
+        p1_agent_id: Agent identifier for player 1 (e.g., "random", "custom_my_agent")
+        p2_agent_id: Agent identifier for player 2
+        p1_checkpoint_path: Path to ONNX checkpoint for P1 custom agent
+        p2_checkpoint_path: Path to ONNX checkpoint for P2 custom agent
+        p1_architecture: Architecture type for P1 (e.g., "lstm", "disc_rssm") - required for custom agents
+        p2_architecture: Architecture type for P2 (e.g., "lstm", "disc_rssm") - required for custom agents
+        best_of: Number of rounds (best of N)
+    """
     if match_id in _active_runners:
         raise RuntimeError(f"Match {match_id} already has an active runner")
 
-    p1_agent = create_agent(p1_agent_id)
-    p2_agent = create_agent(p2_agent_id)
+    # ✅ FIX: Pass checkpoint paths AND architecture to create_agent for custom uploaded agents
+    p1_agent = create_agent(p1_agent_id, checkpoint_path=p1_checkpoint_path, architecture=p1_architecture)
+    p2_agent = create_agent(p2_agent_id, checkpoint_path=p2_checkpoint_path, architecture=p2_architecture)
 
     runner = MatchRunner(
         match_id=match_id,
@@ -649,9 +701,19 @@ async def start_match(
         p2_agent=p2_agent,
         best_of=best_of,
     )
-    _active_runners[match_id] = runner
-    await runner.start()
-    return runner
+
+    # ✅ CRITICAL FIX: Only add to registry AFTER successful start
+    # Previously: added before start(), so startup failures left zombie runners
+    try:
+        await runner.start()
+        _active_runners[match_id] = runner  # Only register if startup succeeded
+        return runner
+    except Exception:
+        # Startup failed - ensure runner is NOT in registry
+        _active_runners.pop(match_id, None)
+        # Clean up any partial resources
+        await runner._cleanup_emulator()
+        raise
 
 
 async def stop_match(match_id: str) -> None:

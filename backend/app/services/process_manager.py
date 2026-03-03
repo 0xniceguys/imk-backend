@@ -90,67 +90,40 @@ def kill_process_tree(pid: int, timeout: float = 5.0) -> bool:
 
 def cleanup_orphaned_processes() -> int:
     """
-    Find and kill orphaned emulator and bridge processes.
+    Find and kill orphaned emulator and bridge processes OWNED BY THIS APP.
+
+    Only kills processes that are registered in our _managed_pids set.
+    This prevents killing unrelated mupen64plus instances on shared hosts.
 
     Returns number of processes killed.
     """
     killed_count = 0
 
-    # Find orphaned mupen64plus processes
-    try:
-        result = subprocess.run(
-            ["pgrep", "-f", "mupen64plus"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.stdout.strip():
-            pids = [int(pid) for pid in result.stdout.strip().split('\n')]
-            logger.info(f"Found {len(pids)} mupen64plus processes")
-            for pid in pids:
+    # Only clean up processes we explicitly registered
+    registered_pids = list(_managed_pids)
+
+    if not registered_pids:
+        logger.debug("No registered processes to clean up")
+        return 0
+
+    logger.info(f"Checking {len(registered_pids)} registered processes for cleanup")
+
+    for pid in registered_pids:
+        try:
+            # Check if process still exists
+            if _process_exists(pid):
+                logger.warning(f"Cleaning up orphaned registered process: {pid}")
                 if kill_process_tree(pid):
                     killed_count += 1
-    except Exception as e:
-        logger.error(f"Error finding mupen64plus processes: {e}")
+            else:
+                # Process already dead, just unregister
+                unregister_pid(pid)
+        except Exception as e:
+            logger.error(f"Error cleaning up process {pid}: {e}")
 
-    # Find orphaned bridge_server processes
-    try:
-        result = subprocess.run(
-            ["pgrep", "-f", "run_bridge_server.py"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.stdout.strip():
-            pids = [int(pid) for pid in result.stdout.strip().split('\n')]
-            logger.info(f"Found {len(pids)} bridge_server processes")
-            for pid in pids:
-                if kill_process_tree(pid):
-                    killed_count += 1
-    except Exception as e:
-        logger.error(f"Error finding bridge_server processes: {e}")
-
-    # Kill zombie processes
-    try:
-        result = subprocess.run(
-            ["ps", "aux"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        for line in result.stdout.split('\n'):
-            if '<defunct>' in line and 'mupen64plus' in line:
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        pid = int(parts[1])
-                        os.kill(pid, signal.SIGKILL)
-                        killed_count += 1
-                        logger.info(f"Killed zombie process {pid}")
-                    except (ValueError, ProcessLookupError, PermissionError):
-                        pass
-    except Exception as e:
-        logger.error(f"Error cleaning zombies: {e}")
+    # NOTE: We DO NOT search for arbitrary bridge_server or zombie processes.
+    # Only processes explicitly registered via register_pid() are cleaned up.
+    # This prevents killing unrelated processes on shared hosts.
 
     if killed_count > 0:
         logger.info(f"Cleaned up {killed_count} orphaned/zombie processes")
@@ -160,9 +133,26 @@ def cleanup_orphaned_processes() -> int:
 
 def cleanup_orphaned_displays() -> int:
     """
-    Find and kill orphaned Xvfb displays.
+    Clean up Xvfb displays for registered processes only.
+
+    NOTE: We DO NOT kill arbitrary Xvfb processes.
+    Xvfb processes are children of registered emulator processes
+    and will be cleaned up via kill_process_tree().
 
     Returns number of displays killed.
+    """
+    killed_count = 0
+
+    # Xvfb processes are already handled by kill_process_tree()
+    # when we clean up the parent emulator processes.
+    # No additional cleanup needed.
+    logger.debug("Xvfb cleanup handled by process tree cleanup")
+    return killed_count
+
+def _old_cleanup_orphaned_displays_dangerous() -> int:
+    """
+    DEPRECATED: This function is too aggressive and kills ALL Xvfb processes.
+    Kept for reference only - DO NOT USE.
     """
     killed_count = 0
 
@@ -281,5 +271,8 @@ def _startup_cleanup():
         logger.error(f"Startup cleanup failed: {e}")
 
 
-# Run startup cleanup
-_startup_cleanup()
+# REMOVED: Automatic cleanup on module import is dangerous
+# Cleanup is now only run explicitly via lifespan events in main.py
+# This prevents killing unrelated processes on shared hosts.
+#
+# _startup_cleanup()  # DO NOT UNCOMMENT

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../core/api_exception.dart';
 import '../core/constants.dart';
 import '../models/match.dart';
 import '../models/fighter.dart';
@@ -9,6 +12,23 @@ import '../models/bet.dart';
 void _log(String msg) {
   // ignore: avoid_print
   if (kDebugMode) print('[API] $msg');
+}
+
+/// Handle HTTP errors and throw ApiException
+Never _handleError(http.Response resp, String endpoint) {
+  _log('$endpoint failed: ${resp.statusCode} ${resp.body}');
+  try {
+    final json = jsonDecode(resp.body) as Map<String, dynamic>;
+    throw ApiException.fromJson(json, resp.statusCode);
+  } catch (e) {
+    if (e is ApiException) rethrow;
+    // If body is not valid JSON, create generic error
+    throw ApiException(
+      code: 'HttpError',
+      message: 'Request failed with status ${resp.statusCode}',
+      statusCode: resp.statusCode,
+    );
+  }
 }
 
 class ApiService {
@@ -97,7 +117,7 @@ class ApiService {
     }
   }
 
-  Future<Bet?> placeBet({
+  Future<Bet> placeBet({
     required String matchId,
     required String fighterId,
     required double amount,
@@ -113,15 +133,21 @@ class ApiService {
           'fighter_id': fighterId,
           'amount': amount,
         }),
-      );
+      ).timeout(const Duration(seconds: 30));
+
       if (resp.statusCode != 200 && resp.statusCode != 201) {
-        _log('placeBet failed: ${resp.statusCode} ${resp.body}');
-        return null;
+        _handleError(resp, 'placeBet');
       }
       return Bet.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('placeBet error: $e');
-      return null;
+      throw ApiException.unexpected('Failed to place bet: $e');
     }
   }
 
@@ -175,18 +201,30 @@ class ApiService {
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw');
     _log('POST $uri token=$token amount=$amount');
-    final resp = await _client.post(
-      uri,
-      headers: _headers,
-      body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
-    );
-    _log('POST $uri → ${resp.statusCode} ${resp.body}');
-    if (resp.statusCode == 200) {
-      return jsonDecode(resp.body)['tx_signature'] as String;
+    try {
+      final resp = await _client.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
+      ).timeout(const Duration(seconds: 30));
+
+      _log('POST $uri → ${resp.statusCode} ${resp.body}');
+
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body)['tx_signature'] as String;
+      }
+
+      _handleError(resp, 'withdrawFunds');
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('withdrawFunds error: $e');
+      throw ApiException.unexpected('Failed to withdraw: $e');
     }
-    final detail = (jsonDecode(resp.body) as Map<String, dynamic>)['detail']
-        ?? 'Withdraw failed';
-    throw Exception(detail);
   }
 
   /// Get the URL for polling a match frame as PNG.

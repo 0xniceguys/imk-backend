@@ -1,37 +1,20 @@
 import logging
-import logging.handlers
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-# ── Logging: stdout + rotating backend.log ──
-_log_dir = Path(__file__).resolve().parent.parent / "logs"
-_log_dir.mkdir(exist_ok=True)
+# ✅ Configure structured logging
+from app.logging_config import configure_logging, get_logger
 
-_fmt = logging.Formatter(
-    "%(asctime)s %(name)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-_console = logging.StreamHandler()
-_console.setFormatter(_fmt)
-
-_file = logging.handlers.RotatingFileHandler(
-    _log_dir / "backend.log",
-    maxBytes=10 * 1024 * 1024,  # 10 MB
-    backupCount=5,
-)
-_file.setFormatter(_fmt)
-
-logging.root.setLevel(logging.INFO)
-logging.root.addHandler(_console)
-logging.root.addHandler(_file)
+configure_logging(log_level="INFO")
 
 from app.admin_views import router as admin_views_router
 from app.api.router import api_router
 from app.config import settings
+from app.middleware import error_handler_middleware
 from app.ws.game_state import router as ws_router
 
 
@@ -77,6 +60,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ✅ Error handler middleware (must be added FIRST, before CORS)
+app.middleware("http")(error_handler_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Tighten in production
@@ -89,7 +75,62 @@ app.include_router(api_router)
 app.include_router(admin_views_router)
 app.include_router(ws_router)
 
+# ✅ Serve uploaded files (fighter images, etc.)
+UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
 
 @app.get("/health")
 async def health():
+    """Basic health check for load balancer."""
     return {"status": "ok"}
+
+
+@app.get("/health/detailed")
+async def health_detailed():
+    """Detailed health check with DB, runners, and system status."""
+    import psutil
+    from app.db.engine import async_session
+    from app.services.match_runner import get_all_runners
+    from sqlalchemy import text
+
+    health = {
+        "status": "ok",
+        "database": {"status": "unknown"},
+        "runners": {"count": 0, "matches": []},
+        "system": {
+            "cpu_percent": 0.0,
+            "memory_percent": 0.0,
+        },
+    }
+
+    # Check database
+    try:
+        async with async_session() as db:
+            await db.execute(text("SELECT 1"))
+        health["database"]["status"] = "connected"
+    except Exception as e:
+        health["status"] = "degraded"
+        health["database"]["status"] = "error"
+        health["database"]["error"] = str(e)
+
+    # Check runners
+    try:
+        runners = get_all_runners()
+        health["runners"]["count"] = len(runners)
+        health["runners"]["matches"] = [
+            {"match_id": mid, "status": r.status.value if hasattr(r, 'status') else "unknown"}
+            for mid, r in list(runners.items())[:10]  # Limit to 10
+        ]
+    except Exception as e:
+        health["runners"]["error"] = str(e)
+
+    # System metrics
+    try:
+        health["system"]["cpu_percent"] = psutil.cpu_percent(interval=0.1)
+        health["system"]["memory_percent"] = psutil.virtual_memory().percent
+    except Exception:
+        pass
+
+    return health
