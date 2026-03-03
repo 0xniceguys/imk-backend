@@ -29,7 +29,7 @@ sys.path.insert(0, str(N64_ROOT / 'training/src'))
 sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
 BRIDGE_DIR  = N64_ROOT / 'training/data/bridge'
-STATE_PATH  = str(N64_ROOT / 'training/data/savestates/mk4_arcade/test.st')
+STATE_PATH  = str(N64_ROOT / 'training/data/savestates/mk4_arcade/p1p2state.st')
 ROM_PATH    = str(N64_ROOT / 'Mortal Kombat 4 (USA).z64')
 M64P_BIN    = str(N64_ROOT / 'vendor/mupen64plus-ui-console/projects/unix/mupen64plus')
 CORELIB     = str(N64_ROOT / 'vendor/mupen64plus-core/projects/unix/libmupen64plus.dylib')
@@ -210,16 +210,22 @@ def main() -> None:
     from mk4_train import build_agent
 
     # ── Self-play: load frozen opponent from latest checkpoint ───────────────
-    # The opponent uses the PREVIOUS run's saved weights (or fresh weights if
-    # no checkpoint exists). It is frozen — weights do NOT update during training.
-    # Workers fight this frozen version of themselves instead of only arcade CPU.
-    frozen_opponent = build_agent(args.agent)  # loads checkpoint if it exists
-    # Freeze — prevent accidental gradient computation
-    for p in frozen_opponent.net.parameters():
-        p.requires_grad_(False)
-    frozen_opponent.net.eval()
-    opp_ep = getattr(frozen_opponent, "episode", 0)
-    print("[parallel] Self-play opponent: " + args.agent + " ep=" + str(opp_ep) + " frozen")
+    # Pass only the state_dict (plain tensor dict) instead of the full model
+    # object to avoid pickling a PyTorch module into each worker process
+    # (slow, large, and causes CUDA deserialization issues on GPU setups).
+    # Workers rebuild the opponent agent locally from this dict.
+    # ── Self-play: load frozen opponent from run-scoped checkpoint ─────────────
+    # Build scoped path from agent's CKPT: mk4_policy.pt → mk4_policy_{run_id}.pt
+    _tmp_opponent = build_agent(args.agent)
+    _base = _tmp_opponent.CKPT
+    _scoped_ckpt = _base.parent / f'{_base.stem}_{run_id}{_base.suffix}'
+    if _scoped_ckpt.exists():
+        try: _tmp_opponent.load(_scoped_ckpt)
+        except Exception as e: print(f'[parallel] warn: could not load scoped ckpt {_scoped_ckpt.name}: {e}')
+    frozen_opponent_weights = {k: v.cpu().clone() for k, v in _tmp_opponent.net.state_dict().items()}
+    opp_ep = getattr(_tmp_opponent, "episode", 0)
+    del _tmp_opponent
+    print("[parallel] Self-play opponent: " + args.agent + " ep=" + str(opp_ep) + " frozen (state_dict transfer)")
 
 
     worker_procs: list[Process] = []
@@ -230,7 +236,7 @@ def main() -> None:
             args=(i, socket_path(run_id, i), ctrl_path(run_id, i),
                   rollout_queue, weight_queues[i],
                   eps_per_worker, STATE_PATH, args.agent,
-                  p2_path, frozen_opponent),    # self-play args
+                  p2_path, frozen_opponent_weights),    # pass state_dict, not model object
             daemon=False,
             name=f'worker-{run_id}-{i}',
         )

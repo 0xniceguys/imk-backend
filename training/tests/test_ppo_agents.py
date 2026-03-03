@@ -24,7 +24,7 @@ import random
 random.seed(0); torch.manual_seed(0)
 
 N_STEPS = 6
-OBS_DIM = 28
+OBS_DIM = 56   # 14 raw features × 4 stacked frames
 
 
 def _fake_episode(agent, n=N_STEPS):
@@ -103,23 +103,23 @@ class TestObjBelief(unittest.TestCase):
 
 
 class TestSelfPlayObsStacking(unittest.TestCase):
-    def test_opponent_receives_28_float_obs(self):
-        """Bug 2: opponent agent must receive 28-float stacked obs, not raw 7-float."""
+    def test_opponent_receives_56_float_obs(self):
+        """Opponent agent must receive 56-float stacked obs (14 × 4 frames), not raw 14-float."""
         from n64train.experiments.mk4_agent import FrameStack
-        opp_frame_stack = FrameStack(obs_dim=7, n_frames=4)
-        raw_obs = [0.5] * 7
+        opp_frame_stack = FrameStack(obs_dim=14, n_frames=4)
+        raw_obs = [0.5] * 14
         stacked = opp_frame_stack.push(raw_obs)
-        self.assertEqual(len(stacked), 28,
-                         f"Stacked obs should be 28-float, got {len(stacked)}")
+        self.assertEqual(len(stacked), 56,
+                         f"Stacked obs should be 56-float, got {len(stacked)}")
 
-    def test_lstm_accepts_28_float_obs(self):
-        """LSTM agent should not crash when given 28-float stacked obs."""
+    def test_lstm_accepts_56_float_obs(self):
+        """LSTM agent should not crash when given 56-float stacked obs."""
         from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack
         agent = Mk4LstmAgent(device='cpu')
         agent.reset_episode()
-        fs = FrameStack(obs_dim=7, n_frames=4)
-        obs28 = fs.push([random.random() for _ in range(7)])
-        result = agent(obs28)
+        fs = FrameStack(obs_dim=14, n_frames=4)
+        obs56 = fs.push([random.random() for _ in range(14)])
+        result = agent(obs56)
         self.assertIsNotNone(result)
 
 
