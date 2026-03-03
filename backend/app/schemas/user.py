@@ -19,3 +19,4 @@ class UserOut(BaseModel):
 class LoginRequest(BaseModel):
     token: str
     walletAddress: str | None = None
+    email: str | None = None

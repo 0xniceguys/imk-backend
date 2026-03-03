@@ -140,6 +140,31 @@ MACRO_TO_CONTROLLER: dict[MacroAction, ControllerState] = {
     MacroAction.THROW_ATTEMPT: ControllerState(pressed=frozenset({Button.D_RIGHT, Button.A})),
 }
 
+# P2 mirrored button map (right-side player gets reversed directions)
+MACRO_TO_CONTROLLER_P2: dict[MacroAction, ControllerState] = {
+    MacroAction.NEUTRAL: ControllerState(),
+    MacroAction.ADVANCE: ControllerState(pressed=frozenset({Button.D_LEFT})),
+    MacroAction.RETREAT: ControllerState(pressed=frozenset({Button.D_RIGHT})),
+    MacroAction.CROUCH: ControllerState(pressed=frozenset({Button.D_DOWN})),
+    MacroAction.JUMP_FORWARD: ControllerState(pressed=frozenset({Button.D_UP, Button.D_LEFT})),
+    MacroAction.JUMP_BACK: ControllerState(pressed=frozenset({Button.D_UP, Button.D_RIGHT})),
+    MacroAction.JUMP_NEUTRAL: ControllerState(pressed=frozenset({Button.D_UP})),
+    MacroAction.SIDE_STEP_IN: ControllerState(pressed=frozenset({Button.L})),
+    MacroAction.SIDE_STEP_OUT: ControllerState(pressed=frozenset({Button.R})),
+    MacroAction.RUN: ControllerState(pressed=frozenset({Button.C_DOWN, Button.D_LEFT})),
+    MacroAction.STAND_BLOCK: ControllerState(pressed=frozenset({Button.C_LEFT})),
+    MacroAction.CROUCH_BLOCK: ControllerState(pressed=frozenset({Button.D_DOWN, Button.C_LEFT})),
+    MacroAction.LOW_PUNCH: ControllerState(pressed=frozenset({Button.A})),
+    MacroAction.HIGH_PUNCH: ControllerState(pressed=frozenset({Button.B})),
+    MacroAction.LOW_KICK: ControllerState(pressed=frozenset({Button.C_RIGHT})),
+    MacroAction.HIGH_KICK: ControllerState(pressed=frozenset({Button.C_UP})),
+    MacroAction.JAB_COMBO: ControllerState(pressed=frozenset({Button.A, Button.C_RIGHT})),
+    MacroAction.PUNISH: ControllerState(pressed=frozenset({Button.B, Button.A})),
+    MacroAction.SPECIAL_1: ControllerState(pressed=frozenset({Button.D_RIGHT, Button.A})),
+    MacroAction.SPECIAL_2: ControllerState(pressed=frozenset({Button.D_DOWN, Button.D_RIGHT, Button.A})),
+    MacroAction.THROW_ATTEMPT: ControllerState(pressed=frozenset({Button.D_LEFT, Button.A})),
+}
+
 
 def resolve_action(packet: ActionPacket) -> ActionPacket:
     """Resolve a macro action into concrete controller state if needed.
@@ -153,7 +178,8 @@ def resolve_action(packet: ActionPacket) -> ActionPacket:
     if packet.macro_action is None:
         return packet
 
-    ctrl = MACRO_TO_CONTROLLER.get(packet.macro_action, ControllerState())
+    button_map = MACRO_TO_CONTROLLER_P2 if packet.player == 2 else MACRO_TO_CONTROLLER
+    ctrl = button_map.get(packet.macro_action, ControllerState())
     return ActionPacket(
         macro_action=packet.macro_action,
         micro_controller_state=ctrl,

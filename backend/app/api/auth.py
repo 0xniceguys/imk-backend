@@ -31,9 +31,6 @@ async def login(
         from fastapi import HTTPException
         raise HTTPException(401, "Token missing sub claim")
 
-    # Wallet address from request body (preferred) or JWT claims (fallback)
-    wallet_address = body.walletAddress or claims.get("wallet", {}).get("address")
-
     # ✅ FIX: Use upsert pattern to handle concurrent first-login race condition
     # Try to get existing user first
     result = await db.execute(
@@ -42,17 +39,17 @@ async def login(
     user = result.scalar_one_or_none()
 
     if user is None:
-        # Create new user, but handle race condition with retry
+        # Create new user with data from request body (not JWT claims)
         try:
             user = User(
                 privy_user_id=privy_user_id,
-                wallet_address=wallet_address,
-                email=claims.get("email", {}).get("address"),
+                wallet_address=body.walletAddress,
+                email=body.email,
             )
             db.add(user)
             await db.commit()
             await db.refresh(user)
-        except Exception as e:
+        except Exception:
             # If unique constraint violation, another request created the user
             # Roll back and try to fetch again
             await db.rollback()
@@ -63,15 +60,16 @@ async def login(
             if user is None:
                 # Still doesn't exist, re-raise original error
                 raise
-            # User was created by concurrent request, update wallet if needed
-            if wallet_address and user.wallet_address != wallet_address:
-                user.wallet_address = wallet_address
-                await db.commit()
-                await db.refresh(user)
     else:
-        # Update existing user's wallet address if provided
-        if wallet_address and user.wallet_address != wallet_address:
-            user.wallet_address = wallet_address
+        # Update existing user if wallet/email changed
+        changed = False
+        if body.walletAddress and user.wallet_address != body.walletAddress:
+            user.wallet_address = body.walletAddress
+            changed = True
+        if body.email and user.email != body.email:
+            user.email = body.email
+            changed = True
+        if changed:
             await db.commit()
             await db.refresh(user)
 

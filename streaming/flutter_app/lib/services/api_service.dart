@@ -154,16 +154,17 @@ class ApiService {
   // ── Auth ──
 
   Future<Map<String, dynamic>?> login(String privyToken,
-      {String? walletAddress}) async {
+      {String? walletAddress, String? email}) async {
     final uri = Uri.parse('$kApiBaseUrl/auth/login');
-    _log('POST $uri walletAddress=$walletAddress');
+    _log('POST $uri walletAddress=$walletAddress email=$email');
     try {
       final resp = await _client.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'token': privyToken,
-          if (walletAddress != null) 'wallet_address': walletAddress,
+          if (walletAddress != null) 'walletAddress': walletAddress,
+          if (email != null) 'email': email,
         }),
       );
       if (resp.statusCode != 200) {
