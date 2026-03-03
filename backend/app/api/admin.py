@@ -21,6 +21,13 @@ from app.db.models import (
     StreamStatus,
     User,
 )
+from app.exceptions import (
+    FighterNotFoundError,
+    MatchNotFoundError,
+    ValidationError,
+    InvalidMatchStateError,
+    InvalidSavestateError,
+)
 from app.schemas.fighter import FighterCreate, FighterOut
 from app.schemas.match import MatchCreate, MatchOut
 
@@ -37,10 +44,10 @@ async def create_match(
     for fid in (body.fighter1_id, body.fighter2_id):
         result = await db.execute(select(Fighter).where(Fighter.id == fid))
         if result.scalar_one_or_none() is None:
-            raise HTTPException(404, f"Fighter {fid} not found")
+            raise FighterNotFoundError(str(fid))
 
     if body.fighter1_id == body.fighter2_id:
-        raise HTTPException(400, "Fighter 1 and Fighter 2 must be different")
+        raise ValidationError("Fighter 1 and Fighter 2 must be different")
 
     match = Match(
         fighter1_id=body.fighter1_id,
@@ -73,23 +80,70 @@ async def start_match(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Match).where(Match.id == match_id).options(selectinload(Match.stream))
+        select(Match)
+        .where(Match.id == match_id)
+        .options(
+            selectinload(Match.stream),
+            selectinload(Match.fighter1).selectinload(Fighter.agent),
+            selectinload(Match.fighter2).selectinload(Fighter.agent),
+        )
     )
     match = result.scalar_one_or_none()
     if match is None:
-        raise HTTPException(404, "Match not found")
+        raise MatchNotFoundError(str(match_id))
     if match.status != MatchStatus.UPCOMING:
-        raise HTTPException(400, f"Match is {match.status.value}, cannot start")
+        raise InvalidMatchStateError(
+            str(match_id), match.status.value, "upcoming"
+        )
 
     if not match.savestate_path:
-        raise HTTPException(400, "Match has no savestate_path configured")
+        raise InvalidSavestateError("", "Match has no savestate_path configured")
 
     # Snapshot values needed after DB session closes
     savestate_path = match.savestate_path
-    p1_agent = match.p1_agent
-    p2_agent = match.p2_agent
     best_of = match.best_of
     match_id_str = str(match_id)
+
+    # ✅ FIX: Wire uploaded agents into match execution
+    # Determine agent ID, checkpoint path, AND architecture for both fighters
+    p1_agent_id = match.p1_agent  # default from match
+    p2_agent_id = match.p2_agent  # default from match
+    p1_checkpoint_path: str | None = None
+    p2_checkpoint_path: str | None = None
+    p1_architecture: str | None = None
+    p2_architecture: str | None = None
+
+    # P1 agent resolution: custom uploaded agent takes priority over built-in
+    if match.fighter1:
+        if match.fighter1.agent_id and match.fighter1.agent:
+            # Custom uploaded agent
+            p1_agent_id = f"custom_{match.fighter1.agent.slug}"
+            p1_checkpoint_path = match.fighter1.agent.checkpoint_path
+            p1_architecture = match.fighter1.agent.architecture
+            logger.info(f"P1 using custom agent: {p1_agent_id} ({p1_architecture}) from {p1_checkpoint_path}")
+        elif match.fighter1.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
+            # Built-in agent with valid ID
+            p1_agent_id = match.fighter1.agent_architecture
+            logger.info(f"P1 using built-in agent: {p1_agent_id}")
+        else:
+            # Invalid or architecture-only value (like "mlp") - default to random
+            logger.info(f"P1 using built-in agent: {p1_agent_id}")
+
+    # P2 agent resolution: custom uploaded agent takes priority over built-in
+    if match.fighter2:
+        if match.fighter2.agent_id and match.fighter2.agent:
+            # Custom uploaded agent
+            p2_agent_id = f"custom_{match.fighter2.agent.slug}"
+            p2_checkpoint_path = match.fighter2.agent.checkpoint_path
+            p2_architecture = match.fighter2.agent.architecture
+            logger.info(f"P2 using custom agent: {p2_agent_id} ({p2_architecture}) from {p2_checkpoint_path}")
+        elif match.fighter2.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
+            # Built-in agent with valid ID
+            p2_agent_id = match.fighter2.agent_architecture
+            logger.info(f"P2 using built-in agent: {p2_agent_id}")
+        else:
+            # Invalid or architecture-only value (like "mlp") - default to random
+            logger.info(f"P2 using built-in agent: {p2_agent_id}")
 
     # Mark as LIVE and commit — THEN release DB connection before launching emulator.
     # If we hold the session open during the 3-10s emulator launch, the connection
@@ -112,8 +166,12 @@ async def start_match(
             await runner_start(
                 match_id=match_id_str,
                 savestate_path=savestate_path,
-                p1_agent_id=p1_agent,
-                p2_agent_id=p2_agent,
+                p1_agent_id=p1_agent_id,
+                p2_agent_id=p2_agent_id,
+                p1_checkpoint_path=p1_checkpoint_path,
+                p2_checkpoint_path=p2_checkpoint_path,
+                p1_architecture=p1_architecture,
+                p2_architecture=p2_architecture,
                 best_of=best_of,
             )
         except Exception as e:
@@ -211,16 +269,24 @@ async def cancel_match(
 
 
 @router.post("/matches/{match_id}/settle")
-async def settle_match(
+async def settle_match_endpoint(
     match_id: UUID,
     winner_id: UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    """Manually settle a live match.
+
+    ✅ FIX: Now uses shared settlement service to ensure consistency with auto-settlement.
+    Previously this endpoint reimplemented settlement inline, which:
+    - Stopped the runner BEFORE reading round counters (lost data)
+    - Could drift from auto-settlement logic over time
+
+    Now both manual and auto settlement use the same code path.
+    """
+    # Validate match exists and is in correct state
     result = await db.execute(
-        select(Match)
-        .where(Match.id == match_id)
-        .options(selectinload(Match.bets), selectinload(Match.stream))
+        select(Match).where(Match.id == match_id)
     )
     match = result.scalar_one_or_none()
     if match is None:
@@ -230,49 +296,28 @@ async def settle_match(
     if winner_id not in (match.fighter1_id, match.fighter2_id):
         raise HTTPException(400, "Winner must be one of the fighters in this match")
 
-    # Stop runner
+    # Determine winner player number (1 or 2)
+    winner_player = 1 if winner_id == match.fighter1_id else 2
+
+    # Use shared settlement service (reads round counters BEFORE stopping runner)
+    from app.services.settlement import settle_match
+    await settle_match(str(match_id), winner_player)
+
+    # Stop runner after settlement (settlement.py reads round data from it)
     from app.services.match_runner import stop_match as runner_stop
     await runner_stop(str(match_id))
 
-    match.status = MatchStatus.COMPLETED
-    match.winner_id = winner_id
-    match.completed_at = datetime.now(timezone.utc)
-    if match.stream:
-        match.stream.status = StreamStatus.STOPPED
-
-    # Update fighter stats (skip NULL fighter IDs from old matches)
-    for fid in (match.fighter1_id, match.fighter2_id):
-        if fid is None:
-            continue
-        f_result = await db.execute(select(Fighter).where(Fighter.id == fid))
-        fighter = f_result.scalar_one_or_none()
-        if fighter is None:
-            continue
-        fighter.matches_played += 1
-        if fid == winner_id:
-            fighter.matches_won += 1
-
-    # Settle bets — parimutuel payout
-    active_bets = [b for b in match.bets if b.status == BetStatus.ACTIVE]
-    total_pool = sum(float(b.amount) for b in active_bets)
-    winner_pool = sum(
-        float(b.amount) for b in active_bets if b.fighter_id == winner_id
+    # ✅ FIX: Re-fetch match with eager-loaded bets to avoid DetachedInstanceError
+    # The original match object is detached after settle_match() uses its own session
+    result = await db.execute(
+        select(Match)
+        .where(Match.id == match_id)
+        .options(selectinload(Match.bets))
     )
+    match = result.scalar_one_or_none()
+    active_bets = [b for b in match.bets if b.status in (BetStatus.WON, BetStatus.LOST)]
+    total_pool = sum(float(b.amount) for b in active_bets)
 
-    now = datetime.now(timezone.utc)
-    for bet in active_bets:
-        bet.settled_at = now
-        if bet.fighter_id == winner_id:
-            bet.status = BetStatus.WON
-            if winner_pool > 0:
-                bet.payout = round(float(bet.amount) * (total_pool / winner_pool), 6)
-            else:
-                bet.payout = float(bet.amount)
-        else:
-            bet.status = BetStatus.LOST
-            bet.payout = 0.0
-
-    await db.commit()
     return {
         "status": "settled",
         "match_id": str(match_id),

@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db
 from app.db.models import Bet, BetStatus, Match, MatchStatus
+from app.exceptions import MatchNotFoundError
 from app.schemas.match import MatchOut, OddsOut
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -42,9 +43,16 @@ def _compute_odds(bets: list[Bet], fighter1_id: UUID, fighter2_id: UUID) -> Odds
 
 def _match_to_out(match: Match) -> MatchOut:
     odds = _compute_odds(match.bets, match.fighter1_id, match.fighter2_id)
+
+    # ✅ FIX: Populate stream_url for LIVE matches with active runners
+    # Previously only set if hls_path existed, but live streaming uses in-memory frames
     stream_url = None
-    if match.stream and match.stream.hls_path:
-        stream_url = f"/api/stream/{match.id}/frame"
+    if match.status == MatchStatus.LIVE:
+        # Check if there's an active runner for this match
+        from app.services.match_runner import get_runner
+        runner = get_runner(str(match.id))
+        if runner:
+            stream_url = f"/api/stream/{match.id}/frame"
 
     return MatchOut(
         id=match.id,
@@ -106,7 +114,7 @@ async def get_match(match_id: UUID, db: AsyncSession = Depends(get_db)):
     )
     match = result.scalar_one_or_none()
     if match is None:
-        raise HTTPException(404, "Match not found")
+        raise MatchNotFoundError(str(match_id))
     return _match_to_out(match)
 
 
@@ -119,5 +127,5 @@ async def get_odds(match_id: UUID, db: AsyncSession = Depends(get_db)):
     )
     match = result.scalar_one_or_none()
     if match is None:
-        raise HTTPException(404, "Match not found")
+        raise MatchNotFoundError(str(match_id))
     return _compute_odds(match.bets, match.fighter1_id, match.fighter2_id)

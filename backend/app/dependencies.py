@@ -37,15 +37,28 @@ async def get_current_user(
     user = result.scalar_one_or_none()
 
     if user is None:
-        # Auto-create user on first authenticated request
-        user = User(
-            privy_user_id=privy_user_id,
-            wallet_address=claims.get("wallet", {}).get("address"),
-            email=claims.get("email", {}).get("address"),
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        # ✅ FIX: Use upsert pattern to handle concurrent first-login race condition
+        # Auto-create user on first authenticated request with retry on conflict
+        try:
+            user = User(
+                privy_user_id=privy_user_id,
+                wallet_address=claims.get("wallet", {}).get("address"),
+                email=claims.get("email", {}).get("address"),
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        except Exception:
+            # If unique constraint violation, another request created the user
+            # Roll back and try to fetch again
+            await db.rollback()
+            result = await db.execute(
+                select(User).where(User.privy_user_id == privy_user_id)
+            )
+            user = result.scalar_one_or_none()
+            if user is None:
+                # Still doesn't exist, re-raise original error
+                raise
 
     return user
 

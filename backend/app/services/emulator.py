@@ -25,6 +25,8 @@ from pathlib import Path
 from typing import TextIO
 from uuid import uuid4
 
+from .process_manager import register_pid, kill_process_tree
+
 logger = logging.getLogger(__name__)
 
 IS_LINUX = sys.platform.startswith("linux")
@@ -224,6 +226,10 @@ class EmulatorSession:
             cwd=str(REPO_ROOT),
             start_new_session=True,
         )
+
+        # Register PID for tracking and cleanup
+        register_pid(self.process.pid)
+
         logger.info(
             "Bridge server started (pid=%d, instance=%s, socket=%s)",
             self.process.pid, self.instance_id, self.socket_path,
@@ -365,38 +371,29 @@ class EmulatorSession:
         return self.process.poll()
 
     def stop(self) -> None:
-        import signal
-
-        # Stop bridge server + mupen64plus
-        if self.process is not None:
-            if self.process.poll() is None:
-                try:
-                    pgid = os.getpgid(self.process.pid)
-                    os.killpg(pgid, signal.SIGTERM)
-                except (OSError, ProcessLookupError):
-                    self.process.terminate()
-                try:
-                    self.process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    try:
-                        pgid = os.getpgid(self.process.pid)
-                        os.killpg(pgid, signal.SIGKILL)
-                    except (OSError, ProcessLookupError):
-                        self.process.kill()
-                    self.process.wait(timeout=5)
+        """Stop the emulator session and clean up all resources."""
+        # Stop bridge server + mupen64plus using process manager
+        if self.process is not None and self.process.poll() is None:
+            logger.info(f"Stopping emulator session {self.instance_id} (pid={self.process.pid})")
+            kill_process_tree(self.process.pid, timeout=10.0)
+            try:
+                self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+            self.process = None
 
         # Stop Xvfb
         if self._xvfb_process is not None and self._xvfb_process.poll() is None:
-            self._xvfb_process.terminate()
+            logger.info(f"Stopping Xvfb (display={self.display})")
+            kill_process_tree(self._xvfb_process.pid, timeout=5.0)
             try:
-                self._xvfb_process.wait(timeout=5)
+                self._xvfb_process.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                self._xvfb_process.kill()
-            logger.info("Xvfb stopped (display=%s)", self.display)
+                pass
             self._xvfb_process = None
 
         self._cleanup()
-        logger.info("Bridge server stopped (instance=%s)", self.instance_id)
+        logger.info("Emulator session stopped cleanly (instance=%s)", self.instance_id)
 
     def _cleanup(self) -> None:
         self._close_log()

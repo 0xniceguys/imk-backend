@@ -1,0 +1,35 @@
+[Unit]
+Description=IMK Backend API Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/imk/backend
+Environment="PATH=/home/ubuntu/imk/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/home/ubuntu/imk/backend"
+
+# Start the backend
+ExecStart=/home/ubuntu/imk/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=imk-backend
+
+[Install]
+WantedBy=multi-user.target

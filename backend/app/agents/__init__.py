@@ -1,8 +1,10 @@
 """
-Agent registry — discovers available agents from folder structure.
+Agent registry — discovers available agents from folder structure and database.
 
 Built-in agents (random, cpu) are always available.
-Neural agents appear only when their .onnx checkpoint exists in checkpoints/.
+Neural agents appear when:
+  1. Their .onnx checkpoint exists in checkpoints/ (built-in)
+  2. They exist in the Agent table (uploaded)
 
 Usage:
     from app.agents import discover_agents, create_agent
@@ -13,6 +15,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -75,9 +78,38 @@ _AGENT_DEFS: list[dict[str, Any]] = [
 ]
 
 
+async def discover_agents_from_db() -> list[AgentInfo]:
+    """Discover uploaded agents from database."""
+    try:
+        from sqlalchemy import select
+        from app.db.engine import async_session
+        from app.db.models import Agent
+
+        async with async_session() as db:
+            result = await db.execute(select(Agent).where(Agent.is_public == True))  # noqa: E712
+            db_agents = result.scalars().all()
+
+            return [
+                AgentInfo(
+                    id=f"custom_{agent.slug}",  # Prefix with "custom_" to avoid conflicts
+                    name=agent.name,
+                    description=agent.description or f"Uploaded {agent.architecture} agent",
+                    has_checkpoint=True,
+                    checkpoint_path=agent.checkpoint_path,
+                    architecture=agent.architecture,
+                )
+                for agent in db_agents
+            ]
+    except Exception as e:
+        logger.warning(f"Failed to load agents from DB: {e}")
+        return []
+
+
 def discover_agents() -> list[AgentInfo]:
     """Return all available agents. Neural agents only if checkpoint exists."""
     agents: list[AgentInfo] = []
+
+    # Built-in agents from static definitions
     for defn in _AGENT_DEFS:
         if defn["needs_checkpoint"]:
             ckpt_path = CHECKPOINTS_DIR / defn["checkpoint"]
@@ -99,6 +131,21 @@ def discover_agents() -> list[AgentInfo]:
                 checkpoint_path=None,
                 architecture=defn["architecture"],
             ))
+
+    # Add uploaded agents from database
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Can't use asyncio.run() in running loop, skip DB agents
+            logger.warning("Event loop already running, skipping DB agent discovery")
+        else:
+            db_agents = asyncio.run(discover_agents_from_db())
+            agents.extend(db_agents)
+    except RuntimeError:
+        # No event loop, create one
+        db_agents = asyncio.run(discover_agents_from_db())
+        agents.extend(db_agents)
+
     return agents
 
 
@@ -107,12 +154,51 @@ def get_available_agents() -> list[AgentInfo]:
     return [a for a in discover_agents() if a.has_checkpoint]
 
 
-def create_agent(agent_id: str) -> FighterAgent:
+def create_agent(agent_id: str, checkpoint_path: str | None = None, architecture: str | None = None) -> FighterAgent:
     """Instantiate an agent by its ID.
+
+    Args:
+        agent_id: Agent identifier (e.g., "random", "lstm", "custom_my_agent")
+        checkpoint_path: Optional path to checkpoint file (for custom agents)
+        architecture: Neural network architecture (e.g., "lstm", "disc_rssm", "transformer")
 
     Raises ValueError if the agent ID is unknown or checkpoint is missing.
     """
-    # Find definition
+    # Handle custom uploaded agents
+    if agent_id.startswith("custom_"):
+        if checkpoint_path is None:
+            raise ValueError(f"Custom agent {agent_id!r} requires checkpoint_path")
+
+        ckpt_path = Path(checkpoint_path)
+        if not ckpt_path.exists():
+            raise ValueError(f"Checkpoint not found for custom agent {agent_id!r}: {ckpt_path}")
+
+        # ✅ FIX: Use architecture to instantiate correct agent class
+        # Different architectures have different input/output shapes and state management
+        if architecture == "lstm":
+            from app.agents.onnx_agent import OnnxLstmAgent
+            logger.info(f"Loading custom LSTM agent: {agent_id} from {ckpt_path}")
+            return OnnxLstmAgent(ckpt_path)
+        elif architecture == "disc_rssm":
+            from app.agents.onnx_agent import OnnxDiscRssmAgent
+            logger.info(f"Loading custom Discrete RSSM agent: {agent_id} from {ckpt_path}")
+            return OnnxDiscRssmAgent(ckpt_path)
+        elif architecture == "transformer":
+            from app.agents.onnx_agent import OnnxTransformerAgent
+            logger.info(f"Loading custom Transformer agent: {agent_id} from {ckpt_path}")
+            return OnnxTransformerAgent(ckpt_path)
+        elif architecture == "obj_belief" or architecture == "mlp" or architecture is None:
+            # Generic single-input agents (or unknown - try generic)
+            from app.agents.onnx_agent import OnnxAgent
+            logger.info(f"Loading custom generic agent: {agent_id} ({architecture or 'unknown'}) from {ckpt_path}")
+            return OnnxAgent(ckpt_path, use_frame_stack=True)
+        else:
+            # Unknown architecture - try generic and log warning
+            from app.agents.onnx_agent import OnnxAgent
+            logger.warning(f"Unknown architecture {architecture!r} for {agent_id}, using generic OnnxAgent")
+            return OnnxAgent(ckpt_path, use_frame_stack=True)
+
+    # Find definition in built-in agents
     defn = None
     for d in _AGENT_DEFS:
         if d["id"] == agent_id:
