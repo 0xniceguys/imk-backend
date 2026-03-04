@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     vod_archive_dir: str = "./vod_archive"
     host: str = "0.0.0.0"
     port: int = 8000
+    redis_url: str = "redis://localhost:6379"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

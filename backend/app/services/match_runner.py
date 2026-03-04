@@ -181,6 +181,13 @@ class MatchRunner:
 
             self.state = RunnerState.RUNNING
 
+            # Clear any stale Redis cache from previous runs of this match
+            try:
+                from app.services.redis_client import clear_match_cache
+                await clear_match_cache(self.match_id)
+            except Exception:
+                pass
+
             # Let emulator run freely, FFmpeg captures display at 60fps
             await self._start_free_running()
 
@@ -277,10 +284,17 @@ class MatchRunner:
             self._session = None
 
         # Notify viewers
-        await ws_manager.broadcast_json(self.match_id, {
+        stopped_payload = {
             "type": "match_ended",
             "match_id": self.match_id,
-        })
+        }
+        await ws_manager.broadcast_json(self.match_id, stopped_payload)
+        # Cache so reconnecting clients know the match is over
+        try:
+            from app.services.redis_client import cache_match_ended
+            await cache_match_ended(self.match_id, stopped_payload)
+        except Exception:
+            pass
 
     async def _launch_emulator(self) -> None:
         """Launch the bridge server (which manages mupen64plus internally)."""
@@ -422,13 +436,21 @@ class MatchRunner:
                     )
                     self.state = RunnerState.COMPLETED
 
-                    await ws_manager.broadcast_json(self.match_id, {
+                    ended_payload = {
                         "type": "match_ended",
                         "match_id": self.match_id,
                         "winner_player": winner_player,
                         "rounds_won_p1": self.rounds_won_p1,
                         "rounds_won_p2": self.rounds_won_p2,
-                    })
+                    }
+                    await ws_manager.broadcast_json(self.match_id, ended_payload)
+
+                    # Cache terminal event in Redis so cold-start rejoins get it
+                    try:
+                        from app.services.redis_client import cache_match_ended
+                        await cache_match_ended(self.match_id, ended_payload)
+                    except Exception:
+                        pass
 
                     await self._auto_settle(winner_player)
                     break
@@ -554,6 +576,13 @@ class MatchRunner:
                     self.match_id,
                     self.latest_snapshot.to_dict(),
                 )
+
+                # Cache latest state in Redis for late joiners
+                try:
+                    from app.services.redis_client import cache_game_state
+                    await cache_game_state(self.match_id, self.latest_snapshot.to_dict())
+                except Exception:
+                    pass
 
                 if round_done:
                     self.state = RunnerState.ROUND_OVER

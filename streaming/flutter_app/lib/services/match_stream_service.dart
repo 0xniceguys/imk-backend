@@ -39,6 +39,7 @@ class MatchStreamService {
   Stream<bool> get connectionStream => _connectionCtrl.stream;
 
   bool get isConnected => _channel != null;
+  bool get hasGivenUp => _reconnectAttempts >= _maxReconnects;
   String? get matchId => _matchId;
 
   void connect(String matchId) {
@@ -135,9 +136,11 @@ class MatchStreamService {
   static const _maxReconnects = 5;
 
   void _scheduleReconnect(String matchId, {int? closeCode}) {
-    // 4004 = no active runner — pointless to retry until match is started
+    // 4004 = no active runner — the match is over. Emit matchEnd so the
+    // screen navigates to post-match rather than showing "Connecting..." forever.
     if (closeCode == 4004) {
-      _log('Match $matchId has no active runner (4004) — not reconnecting');
+      _log('Match $matchId has no active runner (4004) — emitting matchEnd');
+      _matchEndCtrl.add(null);
       return;
     }
     if (_reconnectAttempts >= _maxReconnects) {
@@ -162,6 +165,14 @@ class MatchStreamService {
 
   void sendPing() {
     _channel?.sink.add(jsonEncode({'type': 'ping'}));
+  }
+
+  /// Resets the reconnect counter and retries the connection manually.
+  /// Call this when the UI shows a "tap to retry" button.
+  void resetAndReconnect(String matchId) {
+    _reconnectAttempts = 0;
+    _matchId = null; // force re-connect even if same matchId
+    connect(matchId);
   }
 
   void disconnect() {
