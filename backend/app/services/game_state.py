@@ -18,9 +18,12 @@ from app.services.bridge import EmulatorBridge, read_u8, read_u32
 # Canonical source: training/src/n64train/reverse/mk4_tracing.py
 
 # Health (u32, 16.16 fixed-point: 0x10000 = 65536 = full, 0 = dead)
-P1_HEALTH_ADDR   = 0x800FE0D8   # u32: internal health, per-hit updates
-P2_HEALTH_ADDR   = 0x80126F54   # u32: internal health, per-hit updates
-FIGHT_TIMER_ADDR = 0x80105118   # u8: counts down from 99
+# Validated live 2026-03-04 via validate_addresses.py:
+#   P1: start=65536, after CPU attacks = 41944 (-36%)  PASS
+#   P2: start=65536, after P1 punches  = 51120 (-22%)  PASS
+P1_HEALTH_ADDR   = 0x800FE0D8   # u32: P1 internal health, confirmed correct
+P2_HEALTH_ADDR   = 0x80126F54   # u32: P2 internal health, confirmed correct
+FIGHT_TIMER_ADDR = 0x80105118   # u8: counts down from ~98, confirmed correct
 
 # Positions: upper 16 bits of u32, interpreted as signed i16
 P1_X_ADDR = 0x800F87F8          # u32: hi-halfword = P1 X position
@@ -122,8 +125,8 @@ def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
         # ── Combat signals (same addresses + normalization as mk4_tracing.py) ──
 
         # P1 attack type: 5-class via attack_type + LK register
-        # P1_LK_IDLE confirmed via live scan 2026-03-03 (was 0x8011E2C0, now 0x80126B20)
-        P1_LK_IDLE = 0x80126B20
+        # P1_LK_IDLE confirmed via validate_addresses.py 2026-03-03: idle=0x8011E2C0
+        P1_LK_IDLE = 0x8011E2C0
         p1_atk_raw = _safe_u32(bridge, P1_ATTACK_TYPE_ADDR)
         p1_lk_raw  = _safe_u32(bridge, P1_LK_ADDR)
         if p1_atk_raw != 0:

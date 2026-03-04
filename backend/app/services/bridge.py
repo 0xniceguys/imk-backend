@@ -159,7 +159,16 @@ _HEX_RE = re.compile(r"\b([0-9A-Fa-f]{2,16})\b")
 
 
 def parse_mem_output(output: str) -> list[int]:
-    """Parse hex values from a `mem` debugger command response."""
+    """Parse hex values from a `mem` debugger command response.
+
+    The `mem /1w 0xADDR` output looks like:
+        800FE0D8:  00010000
+        (dbg)
+    The regex matches BOTH the address token and the data token.
+    We skip the address prefix by ignoring any token that looks like
+    an address (8-char hex on lines that contain ':'), and return
+    only the data values.
+    """
     values: list[list[int]] = []
     for line in output.replace("\r", "\n").splitlines():
         line = line.strip()
@@ -169,6 +178,10 @@ def parse_mem_output(output: str) -> list[int]:
             continue
         tokens = _HEX_RE.findall(line)
         if tokens:
+            # If line has a colon (address prefix like "800FE0D8:  00010000")
+            # skip the first token (the address) and keep the rest (the data)
+            if ":" in line and len(tokens) > 1:
+                tokens = tokens[1:]
             values.append([int(t, 16) for t in tokens])
     if not values:
         raise ValueError(f"No memory values in debugger output: {output!r}")
@@ -183,15 +196,12 @@ def read_u8(bridge: EmulatorBridge, virtual_address: int) -> int:
     dbg_addr = virtual_address ^ 0x3
     resp = bridge.debugger_command(f"mem /1b 0x{dbg_addr:08x}")
     values = parse_mem_output(str(resp.get("output", "")))
-    if len(values) != 1:
-        raise ValueError(f"Expected 1 byte, got {len(values)}")
-    return values[0] & 0xFF
+    return values[-1] & 0xFF
 
 
 def read_u32(bridge: EmulatorBridge, virtual_address: int) -> int:
     """Read a 32-bit word from N64 RDRAM via the debugger."""
     resp = bridge.debugger_command(f"mem /1w 0x{virtual_address:08x}")
     values = parse_mem_output(str(resp.get("output", "")))
-    if len(values) != 1:
-        raise ValueError(f"Expected 1 word, got {len(values)}")
-    return values[0] & 0xFFFFFFFF
+    return values[-1] & 0xFFFFFFFF
+
