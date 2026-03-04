@@ -90,10 +90,21 @@ class FFmpegAudioCapture:
         logger.info("Starting audio capture for match %s: %s", self.match_id, " ".join(cmd))
 
         try:
+            # Ensure the subprocess can find PulseAudio regardless of
+            # how the service was started (env may not have PULSE_SERVER).
+            import os as _os
+            env = dict(_os.environ)
+            uid = _os.getuid()
+            env.setdefault(
+                "PULSE_SERVER",
+                f"unix:/run/user/{uid}/pulse/native",
+            )
+
             self._process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
             )
             self._running = True
             self._stderr_task = asyncio.create_task(
@@ -110,7 +121,8 @@ class FFmpegAudioCapture:
             async for line in self._process.stderr:
                 txt = line.decode(errors="replace").rstrip()
                 if txt and self._running:
-                    logger.debug("FFmpegAudio[%s]: %s", self.match_id, txt)
+                    # Log at WARNING so PulseAudio/FFmpeg errors are visible in journalctl
+                    logger.warning("FFmpegAudio[%s]: %s", self.match_id, txt)
         except Exception:
             pass
 
