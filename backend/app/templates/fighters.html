@@ -539,10 +539,13 @@
           <div style="margin-top:1rem">
             <div class="form-row">
               <div class="fg"><label>Display Name</label><input id="e-name" type="text" oninput="syncPreview()"></div>
-              <div class="fg"><label>LLM Model / Label</label><input id="e-llm" type="text" oninput="syncPreview()">
+              <div class="fg"><label>Character Name</label><input id="e-char" type="text" placeholder="e.g. Sub-Zero"
+                  oninput="syncPreview()">
               </div>
             </div>
             <div class="form-row">
+              <div class="fg"><label>LLM Model / Label</label><input id="e-llm" type="text" oninput="syncPreview()">
+              </div>
               <div class="fg"><label>Agent Architecture</label>
                 <select id="e-arch" onchange="syncPreview()">
                   <option value="">— None —</option>
@@ -577,6 +580,41 @@
             <div class="fg solo"><label>Description / Lore</label><textarea id="e-desc"
                 placeholder="Fighter backstory, personality, fighting style description..."
                 oninput="syncPreview()"></textarea></div>
+
+            <!-- ── Critical game fields ── -->
+            <div style="border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.5rem">
+              <p
+                style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:0.04em">
+                ⚠️ Game Engine Fields</p>
+              <div class="form-row">
+                <div class="fg">
+                  <label>Character ID <span style="color:var(--accent)">*</span></label>
+                  <input id="e-charid" type="number" min="0" max="30" placeholder="MK4 char ID (0–30)">
+                  <small style="color:var(--text-dim);font-size:0.72rem">0=Reiko 1=Scorpion 2=Sub-Zero 3=Sonya 4=Shinnok
+                    5=Liu Kang 6=Jarek 7=Kai 8=Tanya 9=Reptile 10=Baraka...</small>
+                </div>
+                <div class="fg">
+                  <label>Assign Agent</label>
+                  <select id="e-agent">
+                    <option value="">— None —</option>
+                    {% for a in agents %}
+                    <option value="{{ a.id }}">{{ a.name }} ({{ a.architecture }})</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="fg">
+                  <label>Matches Played <span style="color:var(--text-dim)">(correction)</span></label>
+                  <input id="e-played" type="number" min="0" placeholder="leave blank to keep">
+                </div>
+                <div class="fg">
+                  <label>Matches Won <span style="color:var(--text-dim)">(correction)</span></label>
+                  <input id="e-won" type="number" min="0" placeholder="leave blank to keep">
+                </div>
+              </div>
+            </div>
+
             <div style="display:flex; gap:0.5rem; margin-top:0.5rem">
               <button class="btn btn-accent" style="flex:1" onclick="saveEdit()">💾 Save Changes</button>
               <button class="btn" onclick="clearEdit()">Cancel</button>
@@ -793,6 +831,7 @@
     document.getElementById('edit-form-wrap').style.display = 'block';
 
     document.getElementById('e-name').value = f.name || '';
+    document.getElementById('e-char').value = f.character || '';
     document.getElementById('e-llm').value = f.llm_model || '';
     document.getElementById('e-arch').value = f.agent_architecture || '';
     document.getElementById('e-style').value = f.fight_style || '';
@@ -800,6 +839,11 @@
     document.getElementById('e-special').value = f.special_move || '';
     document.getElementById('e-desc').value = f.description || '';
     document.getElementById('e-rank').value = f.rank || '';
+    // Critical game fields
+    document.getElementById('e-charid').value = f.character_id ?? '';
+    document.getElementById('e-agent').value = f.agent_id || '';
+    document.getElementById('e-played').value = '';
+    document.getElementById('e-won').value = '';
 
     // Preview image
     updateEditImagePreview(f.image_url);
@@ -926,16 +970,26 @@
   // ── Save edit ──
   async function saveEdit() {
     if (!selectedFighterId) return;
+    const playedVal = document.getElementById('e-played').value;
+    const wonVal = document.getElementById('e-won').value;
     const body = {
       name: document.getElementById('e-name').value.trim(),
+      character: document.getElementById('e-char').value.trim() || null,
       llm_model: document.getElementById('e-llm').value.trim(),
       agent_architecture: document.getElementById('e-arch').value || null,
       fight_style: document.getElementById('e-style').value || null,
       origin: document.getElementById('e-origin').value.trim() || null,
       special_move: document.getElementById('e-special').value.trim() || null,
       description: document.getElementById('e-desc').value.trim() || null,
-      rank: document.getElementById('e-rank').value || null,
+      rank: document.getElementById('e-rank').value ? parseInt(document.getElementById('e-rank').value) : null,
+      // New fields
+      character_id: document.getElementById('e-charid').value !== '' ? parseInt(document.getElementById('e-charid').value) : undefined,
+      agent_id: document.getElementById('e-agent').value || null,
+      matches_played: playedVal !== '' ? parseInt(playedVal) : undefined,
+      matches_won: wonVal !== '' ? parseInt(wonVal) : undefined,
     };
+    // Remove undefined keys
+    Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
     try {
       const r = await fetch(`/admin/fighters/${selectedFighterId}/edit`, {
         method: 'POST', credentials: 'include',
