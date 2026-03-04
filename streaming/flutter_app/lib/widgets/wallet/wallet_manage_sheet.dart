@@ -97,16 +97,23 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       );
 
       debugPrint('[Withdraw] Success! TX: $sig');
+      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : 'SEEKER';
       final short = '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}';
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Sent! TX: $short'),
+        content: Text('Sent $tokenName! TX: $short'),
         backgroundColor: Palette.gold,
         duration: const Duration(seconds: 4),
       ));
       _addrCtrl.clear();
       _amountCtrl.clear();
-      walletNotifier.refreshBalance();
+
+      // Wait 2 seconds for transaction to confirm on-chain before refreshing
+      debugPrint('[Withdraw] Waiting 2s for confirmation...');
+      await Future.delayed(const Duration(seconds: 2));
+      debugPrint('[Withdraw] Refreshing balances...');
+      await walletNotifier.refreshBalance();
+      debugPrint('[Withdraw] Balance refresh complete');
     } catch (e) {
       debugPrint('[Withdraw] Error: $e');
       final msg = e.toString().replaceFirst('Exception: ', '');
