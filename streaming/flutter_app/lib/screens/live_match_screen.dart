@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +30,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   late final AnimationController _pulseCtrl;
 
   String? _lastConnectedMatchId;
+  // Prevents double-navigation when WS event + REST poll both fire at once
+  bool _navigatedToPostMatch = false;
+  Timer? _fastPollTimer;
 
   // FPS counter — track timestamps of the last N frames in a 1s window
   final List<int> _frameTimes = []; // milliseconds since epoch
@@ -53,9 +57,26 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
 
+    // Speed up match status polling to 3s while on this screen
+    // so a missed WS match_ended event is caught quickly.
+    _fastPollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) ref.read(matchProvider.notifier).refresh();
+    });
+
     // Connect after first frame — at this point providers may already have data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectToMatch();
+    });
+  }
+
+  void _navigateToPostMatch(String matchId) {
+    if (_navigatedToPostMatch || !mounted) return;
+    _navigatedToPostMatch = true;
+    _fastPollTimer?.cancel();
+    ref.read(betProvider.notifier).refresh();
+    ref.read(matchProvider.notifier).refresh();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) widget.onNavigate('/post-match/$matchId');
     });
   }
 
@@ -64,6 +85,20 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     if (matchId == null) return;
     // Don't reconnect if already on the right match
     if (matchId == _lastConnectedMatchId) return;
+
+    // If the match is already completed/cancelled, skip WS and go to post-match
+    final match = ref.read(matchProvider).cast<Match?>().firstWhere(
+      (m) => m?.id == matchId,
+      orElse: () => null,
+    );
+    if (match != null &&
+        (match.status == MatchStatus.completed ||
+            match.status == MatchStatus.cancelled)) {
+      debugPrint('[LiveMatch] Match $matchId already ended — going to post-match');
+      Future.microtask(() => _navigateToPostMatch(matchId));
+      return;
+    }
+
     _lastConnectedMatchId = matchId;
     ref.read(matchStreamServiceProvider).connect(matchId);
   }
@@ -82,6 +117,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   @override
   void dispose() {
+    _fastPollTimer?.cancel();
     _pulseCtrl.dispose();
     super.dispose();
   }
@@ -97,7 +133,23 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
     // Retry connecting when match list loads or updates (handles the race
     // where matchProvider is still empty when initState fires).
+    // Also catches the case where REST polling flips the match to completed
+    // after we missed the WS match_ended event (e.g. cold-start onto ended match).
     ref.listen<List<Match>>(matchProvider, (prev, next) {
+      final id = widget.matchId ?? _findLiveMatchId();
+      if (id != null) {
+        final updated = next.cast<Match?>().firstWhere(
+          (m) => m?.id == id,
+          orElse: () => null,
+        );
+        if (updated != null &&
+            (updated.status == MatchStatus.completed ||
+                updated.status == MatchStatus.cancelled)) {
+          debugPrint('[LiveMatch] Poll detected match $id ended — navigating to post-match');
+          _navigateToPostMatch(id);
+          return;
+        }
+      }
       _connectToMatch();
     });
 
@@ -107,27 +159,34 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             orElse: () => null)
         : null;
 
-    // Listen for match end → refresh data + navigate to post-match
+    // Listen for match end → navigate to post-match (deduped)
     ref.listen<AsyncValue<void>>(matchEndProvider, (_, next) {
       if (next.hasValue) {
-        // Refresh bets + matches so post-match shows updated status
-        ref.read(betProvider.notifier).refresh();
-        ref.read(matchProvider.notifier).refresh();
-        // Navigate to post-match after a brief delay for settlement to propagate
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            widget.onNavigate('/post-match/${matchId ?? ''}');
-          }
-        });
+        _navigateToPostMatch(matchId ?? '');
       }
     });
 
     if (match == null) {
+      final isStillLoading = matches.isEmpty;
       return AppShell(
         activeTab: NavTab.arena,
         onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
         content: Center(
-          child: Text('No match found', style: bodyStyle(color: Palette.muted)),
+          child: isStillLoading
+              ? const IKLoader(size: 44)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Match not found',
+                        style: bodyStyle(color: Palette.muted)),
+                    const SizedBox(height: 16),
+                    OrnateButton(
+                      label: 'Back',
+                      color: Palette.muted,
+                      onTap: () => widget.onNavigate('/arena-list'),
+                    ),
+                  ],
+                ),
         ),
       );
     }
@@ -183,7 +242,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Game frame from WebSocket + FPS badge overlay (debug only)
           Stack(
@@ -205,6 +264,41 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                   ),
                 ),
               ),
+              // Connection-lost banner — shows when WS has given up reconnecting
+              Builder(builder: (ctx) {
+                final svc = ref.watch(matchStreamServiceProvider);
+                if (!svc.hasGivenUp) return const SizedBox.shrink();
+                return Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () {
+                      final id = widget.matchId ?? _lastConnectedMatchId;
+                      if (id != null) {
+                        _lastConnectedMatchId = null;
+                        svc.resetAndReconnect(id);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      color: Palette.red.withValues(alpha: 0.85),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('Connection lost — tap to retry',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
               if (kDebugMode)
                 Positioned(
                   top: 6,
@@ -240,7 +334,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Health bars + timer from game state
           gameStateAsync.when(
@@ -267,7 +361,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             loading: () => const SizedBox.shrink(),
             error: (e, s) => const SizedBox.shrink(),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
 
           // Fighter names
           Text(
@@ -279,11 +373,11 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             '${match.fighter1.llmModel} vs ${match.fighter2.llmModel}',
             style: bodyStyle(size: 14, color: Palette.secondary),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Live odds
           OddsDisplay(odds: match.odds, match: match),
-          const Spacer(),
+          const SizedBox(height: 12),
 
           // Place Bet button (only if betting is open)
           if (match.bettingOpen)

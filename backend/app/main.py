@@ -51,6 +51,14 @@ async def lifespan(app: FastAPI):
     # Final cleanup
     stats = full_cleanup()
     logger.info(f"Shutdown cleanup: {stats}")
+    # Close Redis connection pool
+    try:
+        from app.services.redis_client import close_redis
+        await close_redis()
+        logger.info("Redis connection closed")
+    except Exception:
+        pass
+
     logger.info("IMK backend shutdown complete")
 
 
@@ -114,6 +122,16 @@ async def health_detailed():
         health["status"] = "degraded"
         health["database"]["status"] = "error"
         health["database"]["error"] = str(e)
+
+    # Check Redis
+    health["redis"] = {"status": "unknown"}
+    try:
+        from app.services.redis_client import get_redis
+        await get_redis().ping()
+        health["redis"]["status"] = "connected"
+    except Exception as e:
+        health["redis"]["status"] = "unavailable"
+        health["redis"]["error"] = str(e)
 
     # Check runners
     try:
