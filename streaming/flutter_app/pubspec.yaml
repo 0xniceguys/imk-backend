@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.10.8
+  sdk: ^3.10.0
 
 dependencies:
   flutter:
@@ -32,6 +32,8 @@ dependencies:
   pinenacl: ^0.6.0
   app_links: ^7.0.0
   qr_flutter: ^4.1.0
+  flutter_svg: ^2.2.0
+  flutter_boring_avatars: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -59,3 +61,11 @@ flutter:
     - assets/figma/
     - assets/figma/ui/
     - assets/icon/
+
+  fonts:
+    - family: AdelonSerialLight
+      fonts:
+        - asset: assets/Adelon-Serial-Light Regular.ttf
+
+  shaders:
+    - shaders/texture_distress.frag

@@ -68,7 +68,7 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Pressable(
       onTap: onTap,
-      scaleTo: 0.9,
+      scaleTo: 0.95,
       opacityTo: 0.6,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -78,7 +78,7 @@ class _NavItem extends StatelessWidget {
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 200),
             style: displayStyle(
-              size: 18,
+              size: 20,
               color: active ? Palette.gold : Palette.muted,
             ),
             child: Text(label),

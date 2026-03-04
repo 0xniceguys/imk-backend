@@ -20,7 +20,6 @@ class ProfileStatsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(height: 1, color: Palette.darkGold),
         const SizedBox(height: 22),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -42,8 +41,30 @@ class ProfileStatsWidget extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 22),
-        Container(height: 1, color: Palette.darkGold),
+        const _ProfileDivider(),
       ],
+    );
+  }
+}
+
+class _ProfileDivider extends StatelessWidget {
+  const _ProfileDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      width: 1000,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.transparent,
+            Color(0xFFFFC500),
+            Colors.transparent,
+          ],
+        ),
+      ),
     );
   }
 }
