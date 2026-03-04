@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,15 +20,28 @@
       --blue: #3b82f6;
       --red: #ef4444;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
     }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
 
     /* Nav */
     .nav {
@@ -39,29 +53,50 @@
       height: 56px;
       gap: 2rem;
     }
+
     .nav-brand {
       font-weight: 700;
       font-size: 1.1rem;
       color: var(--accent);
       letter-spacing: 1px;
     }
-    .nav-links { display: flex; gap: 1.5rem; }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
     .nav-links a {
       color: var(--text-dim);
       font-size: 0.9rem;
       padding: 0.4rem 0;
       border-bottom: 2px solid transparent;
     }
-    .nav-links a:hover, .nav-links a.active {
+
+    .nav-links a:hover,
+    .nav-links a.active {
       color: var(--text);
       border-bottom-color: var(--accent);
       text-decoration: none;
     }
 
     /* Layout */
-    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
-    h2 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--text-dim); }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      color: var(--text-dim);
+    }
 
     /* Cards */
     .card {
@@ -71,6 +106,7 @@
       padding: 1.5rem;
       margin-bottom: 1rem;
     }
+
     .card-header {
       display: flex;
       justify-content: space-between;
@@ -79,19 +115,42 @@
     }
 
     /* Grid */
-    .grid { display: grid; gap: 1rem; }
-    .grid-2 { grid-template-columns: 1fr 1fr; }
-    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .grid-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
 
     /* Table */
-    table { width: 100%; border-collapse: collapse; }
-    th, td {
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
       text-align: left;
       padding: 0.75rem 1rem;
       border-bottom: 1px solid var(--border);
     }
-    th { color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
-    tr:hover { background: var(--surface2); }
+
+    th {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tr:hover {
+      background: var(--surface2);
+    }
 
     /* Badges */
     .badge {
@@ -102,13 +161,41 @@
       font-weight: 600;
       text-transform: uppercase;
     }
-    .badge-live { background: var(--red); color: white; }
-    .badge-upcoming { background: var(--blue); color: white; }
-    .badge-completed { background: var(--green); color: white; }
-    .badge-cancelled { background: var(--text-dim); color: var(--bg); }
-    .badge-active { background: var(--blue); color: white; }
-    .badge-won { background: var(--green); color: white; }
-    .badge-lost { background: var(--red); color: white; }
+
+    .badge-live {
+      background: var(--red);
+      color: white;
+    }
+
+    .badge-upcoming {
+      background: var(--blue);
+      color: white;
+    }
+
+    .badge-completed {
+      background: var(--green);
+      color: white;
+    }
+
+    .badge-cancelled {
+      background: var(--text-dim);
+      color: var(--bg);
+    }
+
+    .badge-active {
+      background: var(--blue);
+      color: white;
+    }
+
+    .badge-won {
+      background: var(--green);
+      color: white;
+    }
+
+    .badge-lost {
+      background: var(--red);
+      color: white;
+    }
 
     /* Buttons */
     .btn {
@@ -124,24 +211,62 @@
       cursor: pointer;
       transition: all 0.15s;
     }
-    .btn:hover { background: var(--border); text-decoration: none; }
-    .btn-accent { background: var(--accent); border-color: var(--accent); color: white; }
-    .btn-accent:hover { background: #e03535; }
-    .btn-green { background: var(--green); border-color: var(--green); color: white; }
-    .btn-green:hover { background: #1ea550; }
-    .btn-red { background: var(--red); border-color: var(--red); color: white; }
-    .btn-red:hover { background: #dc2626; }
-    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+
+    .btn:hover {
+      background: var(--border);
+      text-decoration: none;
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn-accent:hover {
+      background: #e03535;
+    }
+
+    .btn-green {
+      background: var(--green);
+      border-color: var(--green);
+      color: white;
+    }
+
+    .btn-green:hover {
+      background: #1ea550;
+    }
+
+    .btn-red {
+      background: var(--red);
+      border-color: var(--red);
+      color: white;
+    }
+
+    .btn-red:hover {
+      background: #dc2626;
+    }
+
+    .btn-sm {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+    }
 
     /* Forms */
-    .form-group { margin-bottom: 1rem; }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
     .form-group label {
       display: block;
       font-size: 0.85rem;
       color: var(--text-dim);
       margin-bottom: 0.4rem;
     }
-    input, select, textarea {
+
+    input,
+    select,
+    textarea {
       width: 100%;
       padding: 0.6rem 0.8rem;
       background: var(--bg);
@@ -150,15 +275,28 @@
       color: var(--text);
       font-size: 0.9rem;
     }
-    input:focus, select:focus, textarea:focus {
+
+    input:focus,
+    select:focus,
+    textarea:focus {
       outline: none;
       border-color: var(--accent);
     }
 
     /* Stats */
-    .stat { text-align: center; }
-    .stat-value { font-size: 2rem; font-weight: 700; }
-    .stat-label { font-size: 0.8rem; color: var(--text-dim); }
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
 
     /* Health bar */
     .health-bar {
@@ -167,13 +305,20 @@
       border-radius: 4px;
       overflow: hidden;
     }
+
     .health-bar-fill {
       height: 100%;
       border-radius: 4px;
       transition: width 0.3s ease;
     }
-    .health-p1 { background: var(--blue); }
-    .health-p2 { background: var(--red); }
+
+    .health-p1 {
+      background: var(--blue);
+    }
+
+    .health-p2 {
+      background: var(--red);
+    }
 
     /* Flash messages */
     .flash {
@@ -182,21 +327,58 @@
       margin-bottom: 1rem;
       font-size: 0.9rem;
     }
-    .flash-success { background: #052e16; border: 1px solid var(--green); color: var(--green); }
-    .flash-error { background: #2a0000; border: 1px solid var(--red); color: var(--red); }
+
+    .flash-success {
+      background: #052e16;
+      border: 1px solid var(--green);
+      color: var(--green);
+    }
+
+    .flash-error {
+      background: #2a0000;
+      border: 1px solid var(--red);
+      color: var(--red);
+    }
 
     /* Utility */
-    .text-dim { color: var(--text-dim); }
-    .text-sm { font-size: 0.85rem; }
-    .mt-1 { margin-top: 0.5rem; }
-    .mt-2 { margin-top: 1rem; }
-    .mb-2 { margin-bottom: 1rem; }
-    .flex { display: flex; }
-    .gap-1 { gap: 0.5rem; }
-    .items-center { align-items: center; }
-    .justify-between { justify-content: space-between; }
+    .text-dim {
+      color: var(--text-dim);
+    }
+
+    .text-sm {
+      font-size: 0.85rem;
+    }
+
+    .mt-1 {
+      margin-top: 0.5rem;
+    }
+
+    .mt-2 {
+      margin-top: 1rem;
+    }
+
+    .mb-2 {
+      margin-bottom: 1rem;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .gap-1 {
+      gap: 0.5rem;
+    }
+
+    .items-center {
+      align-items: center;
+    }
+
+    .justify-between {
+      justify-content: space-between;
+    }
   </style>
 </head>
+
 <body>
   <nav class="nav">
     <span class="nav-brand">IMK ADMIN</span>
@@ -204,9 +386,11 @@
       <a href="/admin/" class="{% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
       <a href="/admin/matches" class="{% if active_page == 'matches' %}active{% endif %}">Matches</a>
       <a href="/admin/fighters" class="{% if active_page == 'fighters' %}active{% endif %}">Fighters</a>
+      <a href="/admin/agents" class="{% if active_page == 'agents' %}active{% endif %}">Agents</a>
       <a href="/admin/viewer" class="{% if active_page == 'viewer' %}active{% endif %}">Viewer</a>
     </div>
-    <div style="margin-left:auto;"><a href="/admin/logout" style="color:var(--text-dim);font-size:0.8rem;">Logout</a></div>
+    <div style="margin-left:auto;"><a href="/admin/logout" style="color:var(--text-dim);font-size:0.8rem;">Logout</a>
+    </div>
   </nav>
 
   <div class="container">
@@ -215,4 +399,5 @@
 
   {% block scripts %}{% endblock %}
 </body>
+
 </html>

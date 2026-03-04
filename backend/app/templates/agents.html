@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+{% block title %}Agents{% endblock %}
+
+{% block content %}
+<style>
+    .agents-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (max-width: 1000px) {
+        .agents-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .agent-row {
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .agent-row:hover {
+        background: rgba(255, 60, 60, 0.06);
+    }
+
+    .agent-row.selected {
+        background: rgba(255, 60, 60, 0.12) !important;
+        border-left: 3px solid var(--accent);
+    }
+
+    .arch-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        background: rgba(255, 60, 60, 0.12);
+        color: var(--accent);
+        border: 1px solid rgba(255, 60, 60, 0.3);
+    }
+
+    .public-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        background: rgba(34, 197, 94, 0.12);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .private-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        background: rgba(148, 163, 184, 0.08);
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+    }
+
+    .right-panel {
+        position: sticky;
+        top: 1.5rem;
+    }
+
+    .panel-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .panel-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .panel-tab {
+        flex: 1;
+        padding: 0.75rem;
+        text-align: center;
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.15s;
+    }
+
+    .panel-tab:hover {
+        color: var(--text);
+    }
+
+    .panel-tab.active {
+        color: var(--accent);
+        border-bottom: 2px solid var(--accent);
+    }
+
+    .panel-body {
+        padding: 1.25rem;
+    }
+
+    .fg {
+        margin-bottom: 0.75rem;
+    }
+
+    .fg label {
+        display: block;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        margin-bottom: 0.3rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .fg input,
+    .fg textarea,
+    .fg select {
+        width: 100%;
+        padding: 0.5rem 0.7rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.88rem;
+    }
+
+    .fg textarea {
+        min-height: 70px;
+        resize: vertical;
+    }
+
+    .fg input:focus,
+    .fg textarea:focus,
+    .fg select:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .action-btns {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-edit {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.78rem;
+        background: rgba(255, 60, 60, 0.1);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-del {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.78rem;
+        background: none;
+        border: 1px solid #ef444460;
+        color: #ef4444;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-edit:hover {
+        background: rgba(255, 60, 60, 0.2);
+    }
+
+    .btn-del:hover {
+        background: rgba(239, 68, 68, 0.15);
+    }
+
+    .file-info {
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        margin-top: 0.3rem;
+    }
+
+    #toast {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        color: var(--text);
+        font-size: 0.88rem;
+        z-index: 9999;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: all 0.25s;
+        pointer-events: none;
+    }
+
+    #toast.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    #toast.success {
+        border-color: var(--green);
+        color: var(--green);
+    }
+
+    #toast.error {
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-overlay.open {
+        display: flex;
+    }
+
+    .modal-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        max-width: 380px;
+        width: 90%;
+    }
+</style>
+
+<div class="flex justify-between items-center mb-2">
+    <h1>AI Agents <span class="text-dim text-sm" id="agent-count"></span></h1>
+    <button onclick="switchTab('new')" class="btn btn-accent btn-sm">+ Upload Agent</button>
+</div>
+
+<div class="agents-layout">
+    <!-- LEFT — agents table -->
+    <div class="card" style="padding:0; overflow:hidden;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Architecture</th>
+                    <th>Size</th>
+                    <th>Visibility</th>
+                    <th>Created</th>
+                    <th>Assigned To</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in agents %}
+                <tr class="agent-row" id="row-{{ a.id }}" onclick="selectAgent('{{ a.id }}')">
+                    <td>
+                        <strong>{{ a.name }}</strong><br>
+                        <span class="text-dim text-sm">{{ a.slug }}</span>
+                    </td>
+                    <td><span class="arch-badge">{{ a.architecture }}</span></td>
+                    <td class="text-dim text-sm">
+                        {% set mb = (a.file_size_bytes / 1048576) | round(1) %}
+                        {{ mb }} MB
+                    </td>
+                    <td>
+                        {% if a.is_public %}
+                        <span class="public-badge">Public</span>
+                        {% else %}
+                        <span class="private-badge">Private</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-dim text-sm">{{ a.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% set assigned = fighters | selectattr('agent_id', 'equalto', a.id) | list %}
+                        {% if assigned %}
+                        {% for f in assigned %}
+                        <span class="text-sm" style="color:var(--green)">{{ f.name }}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-dim">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-btns" onclick="event.stopPropagation()">
+                            <button class="btn-edit" onclick="selectAgent('{{ a.id }}')">Edit</button>
+                            <button class="btn-del" onclick="confirmDelete('{{ a.id }}', '{{ a.name }}')">Del</button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-dim" style="text-align:center; padding:2rem;">No agents uploaded yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- RIGHT — edit / upload panel -->
+    <div class="right-panel">
+        <div class="panel-card">
+            <div class="panel-tabs">
+                <button class="panel-tab active" id="tab-edit" onclick="switchTab('edit')">✏️ Edit</button>
+                <button class="panel-tab" id="tab-new" onclick="switchTab('new')">⬆️ Upload New</button>
+            </div>
+
+            <!-- EDIT pane -->
+            <div class="panel-body" id="pane-edit">
+                <p class="text-dim text-sm" id="edit-hint">← Select an agent from the table to edit</p>
+                <div id="edit-form-wrap" style="display:none">
+                    <div class="fg"><label>Name</label><input id="e-name" type="text"></div>
+                    <div class="fg"><label>Description</label><textarea id="e-desc"></textarea></div>
+                    <div class="form-row">
+                        <div class="fg"><label>Architecture</label>
+                            <select id="e-arch">
+                                <option value="lstm">lstm</option>
+                                <option value="transformer">transformer</option>
+                                <option value="obj_belief">obj_belief</option>
+                                <option value="disc_rssm">disc_rssm</option>
+                                <option value="mlp">mlp</option>
+                                <option value="other">other</option>
+                            </select>
+                        </div>
+                        <div class="fg"><label>Visibility</label>
+                            <select id="e-public">
+                                <option value="true">Public</option>
+                                <option value="false">Private</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="fg"><label>Replace Checkpoint (.onnx)</label>
+                        <input type="file" id="e-onnx" accept=".onnx">
+                        <div class="file-info" id="e-file-info">—</div>
+                    </div>
+                    <div class="fg"><label>Assign to Fighter</label>
+                        <select id="e-fighter">
+                            <option value="">— None —</option>
+                            {% for f in fighters %}
+                            <option value="{{ f.id }}">{{ f.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-top:0.5rem">
+                        <button class="btn btn-accent" style="flex:1" onclick="saveEdit()">💾 Save</button>
+                        <button class="btn" onclick="clearEdit()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEW pane -->
+            <div class="panel-body" id="pane-new" style="display:none">
+                <div class="fg"><label>Name *</label><input id="n-name" type="text" placeholder="e.g. LSTM Champion v3">
+                </div>
+                <div class="fg"><label>Slug *</label><input id="n-slug" type="text" placeholder="e.g. lstm-champion-v3">
+                </div>
+                <div class="fg"><label>Description</label><textarea id="n-desc"
+                        placeholder="What makes this agent special..."></textarea></div>
+                <div class="form-row">
+                    <div class="fg"><label>Architecture *</label>
+                        <select id="n-arch">
+                            <option value="lstm">lstm</option>
+                            <option value="transformer">transformer</option>
+                            <option value="obj_belief">obj_belief</option>
+                            <option value="disc_rssm">disc_rssm</option>
+                            <option value="mlp">mlp</option>
+                            <option value="other">other</option>
+                        </select>
+                    </div>
+                    <div class="fg"><label>Visibility</label>
+                        <select id="n-public">
+                            <option value="true">Public</option>
+                            <option value="false">Private</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="fg"><label>ONNX Checkpoint *</label>
+                    <input type="file" id="n-onnx" accept=".onnx" onchange="showFileSize(this, 'n-size')">
+                    <div class="file-info" id="n-size">No file selected</div>
+                </div>
+                <div class="fg"><label>Assign to Fighter</label>
+                    <select id="n-fighter">
+                        <option value="">— None —</option>
+                        {% for f in fighters %}
+                        <option value="{{ f.id }}">{{ f.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-accent" style="width:100%;margin-top:0.5rem" onclick="uploadAgent()">⬆️ Upload
+                    Agent</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete modal -->
+<div class="modal-overlay" id="del-modal">
+    <div class="modal-box">
+        <h3>🗑️ Delete Agent?</h3>
+        <p style="margin:0.75rem 0;color:var(--text-dim)" id="del-modal-name"></p>
+        <p style="font-size:0.85rem;color:var(--text-dim)">This removes the agent and unlinks it from any fighter.</p>
+        <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+            <button class="btn" onclick="closeDeleteModal()" style="flex:1">Cancel</button>
+            <button class="btn btn-accent" onclick="executeDelete()" style="flex:1">Delete</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    let selectedAgentId = null;
+    let deleteTargetId = null;
+    document.getElementById('agent-count').textContent = '({{ agents | length }})';
+
+    function switchTab(tab) {
+        ['edit', 'new'].forEach(t => {
+            document.getElementById(`pane-${t}`).style.display = t === tab ? 'block' : 'none';
+            document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+        });
+    }
+
+    async function selectAgent(id) {
+        document.querySelectorAll('.agent-row').forEach(r => r.classList.remove('selected'));
+        const row = document.getElementById(`row-${id}`);
+        if (row) row.classList.add('selected');
+        selectedAgentId = id;
+
+        const resp = await fetch(`/admin/agents/${id}/json`, { credentials: 'include' });
+        const a = await resp.json();
+
+        document.getElementById('edit-hint').style.display = 'none';
+        document.getElementById('edit-form-wrap').style.display = 'block';
+        document.getElementById('e-name').value = a.name || '';
+        document.getElementById('e-desc').value = a.description || '';
+        document.getElementById('e-arch').value = a.architecture || 'lstm';
+        document.getElementById('e-public').value = a.is_public ? 'true' : 'false';
+        document.getElementById('e-file-info').textContent = a.checkpoint_path + ' — ' + (a.file_size_bytes / 1048576).toFixed(1) + ' MB';
+        document.getElementById('e-fighter').value = a.assigned_fighter_id || '';
+        switchTab('edit');
+    }
+
+    function clearEdit() {
+        selectedAgentId = null;
+        document.querySelectorAll('.agent-row').forEach(r => r.classList.remove('selected'));
+        document.getElementById('edit-hint').style.display = 'block';
+        document.getElementById('edit-form-wrap').style.display = 'none';
+    }
+
+    async function saveEdit() {
+        if (!selectedAgentId) return;
+        const body = {
+            name: document.getElementById('e-name').value.trim(),
+            description: document.getElementById('e-desc').value.trim() || null,
+            architecture: document.getElementById('e-arch').value,
+            is_public: document.getElementById('e-public').value === 'true',
+            assigned_fighter_id: document.getElementById('e-fighter').value || null,
+        };
+
+        try {
+            const r = await fetch(`/admin/agents/${selectedAgentId}/edit`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (r.ok) { showToast('Agent saved!', 'success'); setTimeout(() => location.reload(), 700); }
+            else { showToast('Save failed', 'error'); }
+        } catch { showToast('Save failed', 'error'); }
+    }
+
+    async function uploadAgent() {
+        const name = document.getElementById('n-name').value.trim();
+        const slug = document.getElementById('n-slug').value.trim();
+        const arch = document.getElementById('n-arch').value;
+        const onnxFile = document.getElementById('n-onnx').files[0];
+        if (!name || !slug || !onnxFile) { showToast('Name, slug, and ONNX file required', 'error'); return; }
+
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('slug', slug);
+        fd.append('description', document.getElementById('n-desc').value.trim());
+        fd.append('architecture', arch);
+        fd.append('is_public', document.getElementById('n-public').value);
+        fd.append('fighter_id', document.getElementById('n-fighter').value || '');
+        fd.append('agent_file', onnxFile);
+
+        try {
+            const r = await fetch('/admin/agents/new', { method: 'POST', credentials: 'include', body: fd });
+            if (r.ok) { showToast('Agent uploaded!', 'success'); setTimeout(() => location.reload(), 700); }
+            else {
+                const err = await r.json().catch(() => ({}));
+                showToast(err.detail || 'Upload failed', 'error');
+            }
+        } catch { showToast('Upload failed', 'error'); }
+    }
+
+    function autoSlug() {
+        const n = document.getElementById('n-name').value;
+        document.getElementById('n-slug').value = n.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+    document.getElementById('n-name').addEventListener('input', autoSlug);
+
+    function showFileSize(input, targetId) {
+        const f = input.files[0];
+        if (!f) return;
+        document.getElementById(targetId).textContent = `${f.name} — ${(f.size / 1048576).toFixed(1)} MB`;
+    }
+
+    function confirmDelete(id, name) {
+        deleteTargetId = id;
+        document.getElementById('del-modal-name').textContent = `"${name}" will be deleted.`;
+        document.getElementById('del-modal').classList.add('open');
+    }
+    function closeDeleteModal() {
+        deleteTargetId = null;
+        document.getElementById('del-modal').classList.remove('open');
+    }
+    async function executeDelete() {
+        if (!deleteTargetId) return;
+        try {
+            const r = await fetch(`/admin/agents/${deleteTargetId}/delete`, { method: 'POST', credentials: 'include' });
+            if (r.ok) { showToast('Agent deleted', 'success'); closeDeleteModal(); setTimeout(() => location.reload(), 600); }
+            else { showToast('Delete failed', 'error'); }
+        } catch { showToast('Delete failed', 'error'); }
+    }
+
+    let toastTimer;
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = `show ${type}`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.className = '', 3000);
+    }
+</script>
+{% endblock %}
