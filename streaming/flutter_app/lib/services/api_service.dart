@@ -121,9 +121,11 @@ class ApiService {
     required String matchId,
     required String fighterId,
     required double amount,
+    required String side,       // "A" or "B"
+    required String privyJwt,   // Privy access token for server-side signing
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/bets/');
-    _log('POST $uri');
+    _log('POST $uri matchId=$matchId side=$side');
     try {
       final resp = await _client.post(
         uri,
@@ -132,8 +134,10 @@ class ApiService {
           'match_id': matchId,
           'fighter_id': fighterId,
           'amount': amount,
+          'side': side,
+          'privy_jwt': privyJwt,
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 45));  // longer for on-chain tx
 
       if (resp.statusCode != 200 && resp.statusCode != 201) {
         _handleError(resp, 'placeBet');
@@ -150,6 +154,39 @@ class ApiService {
       throw ApiException.unexpected('Failed to place bet: $e');
     }
   }
+
+  /// Claim a won bet's SKR payout on-chain via Privy.
+  /// Returns the Solana transaction signature.
+  Future<String> claimBet({
+    required String betId,
+    required String privyJwt,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim');
+    _log('POST $uri betId=$betId');
+    try {
+      final resp = await _client.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'privy_jwt': privyJwt}),
+      ).timeout(const Duration(seconds: 45));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'claimBet');
+      }
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      return data['tx_signature'] as String;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('claimBet error: $e');
+      throw ApiException.unexpected('Failed to claim bet: $e');
+    }
+  }
+
 
   // ── Auth ──
 

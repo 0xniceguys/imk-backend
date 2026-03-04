@@ -121,6 +121,19 @@ def run_worker(
             p.requires_grad_(False)
         _reconstructed_opponent.net.eval()
         print(f'[worker-{worker_id}] self-play opponent ready (state_dict loaded)')
+    elif opponent_agent == 'random_p2':
+        # Random P2 attacker: sends random attacks so P1 takes damage.
+        # Used with p1p2state.st where there's no CPU AI.
+        import random as _rng
+        _p2_actions = list(ACTIONS)
+
+        class _RandomP2:
+            def __call__(self, obs):
+                return _rng.choice(_p2_actions)
+            def reset_episode(self):
+                pass
+        _reconstructed_opponent = _RandomP2()
+        print(f'[worker-{worker_id}] P2 = random attacker')
     elif opponent_agent is not None:
         # Backward compat: accept pre-built agent objects too
         _reconstructed_opponent = opponent_agent
