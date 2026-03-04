@@ -30,6 +30,9 @@ class HistoryCardWidget extends StatelessWidget {
       case BetStatus.cancelled:
         amountColor = Palette.muted;
         statusText = 'Cancelled';
+      case BetStatus.claimed:
+        amountColor = Palette.green;
+        statusText = 'Claimed';
     }
 
     return SizedBox(
