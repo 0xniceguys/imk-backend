@@ -92,8 +92,16 @@ async def list_matches(
     )
 
     if status:
-        statuses = [s.strip() for s in status.split(",")]
-        query = query.where(Match.status.in_(statuses))
+        raw_statuses = [s.strip() for s in status.split(",")]
+        # Convert to MatchStatus enum values, skip any unrecognized strings
+        valid_statuses = []
+        for s in raw_statuses:
+            try:
+                valid_statuses.append(MatchStatus(s))
+            except ValueError:
+                pass  # ignore unknown status values like "running"
+        if valid_statuses:
+            query = query.where(Match.status.in_(valid_statuses))
 
     result = await db.execute(query)
     matches = result.scalars().all()
