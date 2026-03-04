@@ -87,6 +87,11 @@ class Mk4BridgeHelper:
             raise ValueError(f"Expected one byte, got {len(values)} from debugger output")
         return int(values[0]) & 0xFF
 
+    def write_u8(self, virtual_address: int, value: int) -> dict[str, object]:
+        """Write a single byte, applying the same XOR3 byte-lane correction as read_u8."""
+        debugger_byte_address = virtual_address ^ 0x3
+        return self._dbg(f"write 0x{debugger_byte_address:08x} b 0x{value & 0xFF:x}")
+
     def read_u32(self, virtual_address: int) -> int:
         resp = self._dbg(f"mem /1w 0x{virtual_address:08x}")
         values = parse_mem_hex_values(str(resp.get("output", "")))

@@ -349,8 +349,8 @@ class Mk4FightTraceProvider:
             return False
 
         # Fight hasn't started yet — check using health: if BOTH are at full (160),
-        # the fight hasn't started. We no longer check timer >= 99 because we freeze
-        # the timer at 99 every step to prevent CPU timeout wins.
+        # the fight hasn't started. Timer is frozen at 99 by worker.py every step
+        # (h.write_u8(FIGHT_TIMER_ADDR, 99)) so timer>=99 is normal mid-fight.
         if p1 == HEALTH_MAX and p2 == HEALTH_MAX:
             return False
 
