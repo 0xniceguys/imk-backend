@@ -6,6 +6,7 @@ import '../../models/match.dart';
 import '../../models/bet.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bet_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../shared/pressable.dart';
 import 'bet_confirmation.dart';
 
