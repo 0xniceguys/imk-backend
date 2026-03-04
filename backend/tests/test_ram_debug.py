@@ -11,10 +11,10 @@ class ContractBridge:
                 "version": "mk4_core_v1",
                 "available": True,
                 "frame_id": 12,
-                "p1_health_word": 0x00010000,
-                "p2_health_word": 0x0000C000,
-                "p1_health": 160,
-                "p2_health": 120,
+                "p1_health_word": 0x0000C000,
+                "p2_health_word": 0x00010000,
+                "p1_health": 120,
+                "p2_health": 160,
                 "timer": 86,
                 "timer_raw": 86,
                 "p1_x": -2.0,
@@ -85,8 +85,8 @@ def test_read_fight_state_direct_debug_info():
     state = read_fight_state(DirectBridge(), frame_id=9)
 
     assert state.timer == 0x56
-    assert state.p1_health == 160
-    assert state.p2_health == 80
+    assert state.p1_health == 80
+    assert state.p2_health == 160
     assert state.debug_info["state_source"] == "direct"
     assert state.debug_info["direct_probe"]["timer_raw"]["value"] == 0x56
     assert state.debug_info["direct_probe"]["timer_word_u32"]["value"] == 0x56
@@ -98,8 +98,8 @@ def test_read_fight_state_prefers_direct_probe_over_bad_contract():
     state = read_fight_state(MixedBridge(), frame_id=11)
 
     assert state.debug_info["state_source"] == "direct"
-    assert state.p1_health == 160
-    assert state.p2_health == 80
+    assert state.p1_health == 80
+    assert state.p2_health == 160
     assert state.timer == 0x56
     assert state.debug_info["contract_payload"]["p1_health"] == 5
 
