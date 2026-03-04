@@ -6,6 +6,7 @@ class WalletState {
   final double solUsdValue;
   final double seekerUsdValue;
   final bool isLoading;
+  final String? errorMessage;
 
   const WalletState({
     this.solanaAddress,
@@ -15,6 +16,7 @@ class WalletState {
     this.solUsdValue = 0,
     this.seekerUsdValue = 0,
     this.isLoading = false,
+    this.errorMessage,
   });
 
   double get totalUsdValue => solUsdValue + seekerUsdValue + usdcBalance;
@@ -27,6 +29,8 @@ class WalletState {
     double? solUsdValue,
     double? seekerUsdValue,
     bool? isLoading,
+    String? errorMessage,
+    bool clearError = false,
   }) =>
       WalletState(
         solanaAddress: solanaAddress ?? this.solanaAddress,
@@ -36,5 +40,6 @@ class WalletState {
         solUsdValue: solUsdValue ?? this.solUsdValue,
         seekerUsdValue: seekerUsdValue ?? this.seekerUsdValue,
         isLoading: isLoading ?? this.isLoading,
+        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       );
 }

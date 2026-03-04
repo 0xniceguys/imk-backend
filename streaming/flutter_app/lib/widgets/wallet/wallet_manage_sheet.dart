@@ -54,11 +54,31 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
   Future<void> _onSend() async {
     final address = _addrCtrl.text.trim();
     final amountText = _amountCtrl.text.trim();
-    if (address.isEmpty || amountText.isEmpty) return;
+    if (address.isEmpty || amountText.isEmpty) {
+      _showError('Please enter both an address and amount');
+      return;
+    }
 
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       _showError('Enter a valid amount');
+      return;
+    }
+
+    // Validate address length (Solana addresses are 32-44 chars base58)
+    if (address.length < 32 || address.length > 44) {
+      _showError('Invalid Solana address');
+      return;
+    }
+
+    // Check sufficient balance
+    final wallet = ref.read(walletProvider);
+    final maxAmount = _token == _WithdrawToken.sol
+        ? wallet.solBalance
+        : wallet.seekerBalance;
+    if (amount > maxAmount) {
+      _showError('Insufficient balance. You have ${maxAmount.toStringAsFixed(4)} '
+          '${_token == _WithdrawToken.sol ? 'SOL' : 'SEEKER'}');
       return;
     }
 
@@ -108,20 +128,45 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       _addrCtrl.clear();
       _amountCtrl.clear();
 
-      // Wait 2 seconds for transaction to confirm on-chain before refreshing
-      debugPrint('[Withdraw] Waiting 2s for confirmation...');
-      await Future.delayed(const Duration(seconds: 2));
-      debugPrint('[Withdraw] Refreshing balances...');
-      await walletNotifier.refreshBalance();
+      // Poll with exponential backoff until balance reflects the withdrawal
+      debugPrint('[Withdraw] Starting retry-polling for balance update...');
+      await walletNotifier.refreshWithRetry();
       debugPrint('[Withdraw] Balance refresh complete');
     } catch (e) {
       debugPrint('[Withdraw] Error: $e');
-      final msg = e.toString().replaceFirst('Exception: ', '');
       if (!mounted) return;
-      _showError(msg);
+      _showError(_friendlyError(e));
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  /// Parses common Solana / backend errors into user-friendly messages.
+  String _friendlyError(Object e) {
+    final raw = e.toString();
+    if (raw.contains('Insufficient') || raw.contains('insufficient')) {
+      return 'Insufficient balance for this transaction.';
+    }
+    if (raw.contains('Blockhash not found') || raw.contains('blockhash')) {
+      return 'Transaction expired. Please try again.';
+    }
+    if (raw.contains('Invalid') && raw.contains('address')) {
+      return 'Invalid destination address.';
+    }
+    if (raw.contains('401') || raw.contains('403') || raw.contains('Unauthorized')) {
+      return 'Session expired. Please close and reopen this page.';
+    }
+    if (raw.contains('No SEEKER token account')) {
+      return 'Recipient has no SEEKER token account.';
+    }
+    if (raw.contains('sign')) {
+      return 'Failed to sign the transaction. Please try again.';
+    }
+    if (raw.contains('timeout') || raw.contains('Timeout')) {
+      return 'Network timeout. Check your connection and retry.';
+    }
+    // Fallback: strip the "Exception: " prefix
+    return raw.replaceFirst('Exception: ', '');
   }
 
   void _showError(String msg) {
@@ -185,6 +230,43 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
             const SizedBox(height: 24),
 
             // ── Balances ──────────────────────────────────────────────────
+            // ── Error banner ─────────────────────────────────────────────
+            if (wallet.errorMessage != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Palette.red.withValues(alpha: 0.1),
+                  border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, size: 16, color: Palette.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        wallet.errorMessage!,
+                        style: bodyStyle(size: 12, color: Palette.red),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => ref.read(walletProvider.notifier).refreshBalance(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('Retry', style: bodyStyle(size: 11, color: Palette.red)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             if (wallet.isLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
