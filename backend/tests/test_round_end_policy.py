@@ -7,8 +7,8 @@ from app.services.match_runner import apply_round_end_policy
 class _BadContractMissingP1Bridge:
     def __init__(self) -> None:
         self.outputs = {
-            "mem /1w 0x800fe0d8": "run\r\n(dbg)\n",
-            "mem /1w 0x80126f54": "80126F54:  00008000\n(dbg)\n",
+            "mem /1w 0x800fe0d8": "800FE0D8:  00008000\n(dbg)\n",
+            "mem /1w 0x80126f54": "run\r\n(dbg)\n",
             "mem /1b 0x8036e72a": "8036E72A:  A0\n(dbg)\n",
             "mem /1b 0x8036e72d": "8036E72D:  80\n(dbg)\n",
             "mem /1b 0x8010511b": "8010511B:  56\n(dbg)\n",

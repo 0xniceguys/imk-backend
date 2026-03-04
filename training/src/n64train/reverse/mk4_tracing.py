@@ -42,11 +42,17 @@ ADDRESSES_CONFIRMED = True
 # infinite-health cheats. Full health is 0x00010000 (= 1.0). These survive
 # savestate/mode transitions where the animated HUD bytes can transiently read 0.
 #
+# Important live-runtime note:
+# In the active `p1p2state.st` / backend flow, these two internal player structs
+# are labeled opposite to the older reverse-engineering notes. The live mapping is:
+#   in-game P1 / left-side fighter  -> 0x80126F54
+#   in-game P2 / right-side fighter -> 0x800FE0D8
+#
 # HUD display bytes are retained as references for visual debugging only:
 #   P1_DISPLAY_HEALTH_ADDR = 0x8036E729
 #   P2_DISPLAY_HEALTH_ADDR = 0x8036E72E
-P1_HEALTH_ADDR   = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
-P2_HEALTH_ADDR   = 0x80126F54   # u32 fixed-point, full health = 0x00010000
+P1_HEALTH_ADDR   = 0x80126F54   # u32 fixed-point, full health = 0x00010000
+P2_HEALTH_ADDR   = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
 P1_DISPLAY_HEALTH_ADDR = 0x8036E729
 P2_DISPLAY_HEALTH_ADDR = 0x8036E72E
 
