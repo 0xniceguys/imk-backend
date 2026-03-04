@@ -102,6 +102,13 @@ class EmulatorBridge:
         """
         return self._request("STEP_FRAMES", {"action_packet": action_packet})
 
+    def get_ram_features(self, memory_probes: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if memory_probes is not None:
+            payload["memory_probes"] = memory_probes
+        resp = self._request("GET_RAM_FEATURES", payload)
+        return resp.payload
+
     def debugger_command(
         self,
         command: str,
@@ -204,4 +211,3 @@ def read_u32(bridge: EmulatorBridge, virtual_address: int) -> int:
     resp = bridge.debugger_command(f"mem /1w 0x{virtual_address:08x}")
     values = parse_mem_output(str(resp.get("output", "")))
     return values[-1] & 0xFFFFFFFF
-

@@ -8,6 +8,11 @@ from itertools import count
 from pathlib import Path
 from typing import Any
 
+from n64train.reverse.mk4_state_contract import (
+    MK4_STATE_CONTRACT_VERSION,
+    mk4_state_contract_payload,
+    mk4_state_payload,
+)
 from n64train.runtime.actions import ControllerState
 from n64train.runtime.events import EventExtractor, SimpleCombatEventExtractor
 from n64train.runtime.frame_capture import FrameCapture, ScreenshotPollFrameCapture
@@ -40,12 +45,43 @@ class LocalBridgeBackendConfig:
     log_path: Path | None = None
 
 
+class _DebuggerMemoryReaderBridgeAdapter:
+    """Adapts a debugger-capable memory reader to the bridge helper interface."""
+
+    def __init__(self, memory_reader: MemoryReader) -> None:
+        self.memory_reader = memory_reader
+
+    def debugger_command(
+        self,
+        command: str,
+        *,
+        timeout_sec: float | None = None,
+        output_tail_chars: int | None = None,
+    ) -> dict[str, Any]:
+        handler = getattr(self.memory_reader, "debugger_command", None)
+        if not callable(handler):
+            raise NotImplementedError("Memory reader does not support debugger commands")
+
+        raw_output = str(handler(command, timeout_s=timeout_sec))
+        if output_tail_chars is not None:
+            tail_chars = max(256, int(output_tail_chars))
+            output = raw_output[-tail_chars:]
+        else:
+            output = raw_output
+
+        return {
+            "command": command,
+            "output": output,
+        }
+
+
 class LocalBridgeBackend:
     """
     Real bridge backend with deterministic frame counters and wired subsystems.
 
     Until Mupen64Plus is patched, tracing/RAM/frame capture are provider-driven:
-    - tracing defaults to NullTraceProvider
+    - tracing auto-wires the MK4 debugger tracer when the memory reader supports debugger commands
+    - otherwise tracing falls back to NullTraceProvider
     - RAM export defaults to ZeroMemoryReader
     - frame capture defaults to screenshot polling
     """
@@ -63,8 +99,8 @@ class LocalBridgeBackend:
         event_extractor: EventExtractor | None = None,
     ) -> None:
         self.config = config or LocalBridgeBackendConfig()
-        self.trace_provider = trace_provider or NullTraceProvider()
         self.memory_reader = memory_reader or ZeroMemoryReader()
+        self.trace_provider = trace_provider or self._build_default_trace_provider(self.memory_reader)
         self.frame_capture = frame_capture or ScreenshotPollFrameCapture(instance_id=self.config.instance_id)
         self.reward_extractor = reward_extractor or DeltaHealthRewardExtractor()
         self.event_extractor = event_extractor or SimpleCombatEventExtractor()
@@ -79,6 +115,17 @@ class LocalBridgeBackend:
         self.last_action = ActionPacket(micro_controller_state=ControllerState())
         self.last_traced_state: TracedState | None = None
         self.last_observation: ObservationBundle = self._build_observation(None)
+
+    def _build_default_trace_provider(self, memory_reader: MemoryReader) -> TraceProvider:
+        debugger_command = getattr(memory_reader, "debugger_command", None)
+        if not callable(debugger_command):
+            return NullTraceProvider()
+
+        from n64train.reverse.mk4_debug_helpers import Mk4BridgeHelper
+        from n64train.reverse.mk4_tracing import Mk4FightTraceProvider
+
+        helper = Mk4BridgeHelper(_DebuggerMemoryReaderBridgeAdapter(memory_reader))
+        return Mk4FightTraceProvider(helper=helper)
 
     def status_payload(self) -> dict[str, Any]:
         return {
@@ -107,6 +154,8 @@ class LocalBridgeBackend:
                 "deterministic_counter_only": not debugger_command_supported,
                 "debugger_command": debugger_command_supported,
                 "frame_step_mode": "debugger_cli_frame" if debugger_command_supported else "counter_only",
+                "mk4_state_contract": True,
+                "mk4_state_contract_version": MK4_STATE_CONTRACT_VERSION,
             },
             "emulator_launched": self.session is not None and self.session.poll() is None,
         }
@@ -239,6 +288,8 @@ class LocalBridgeBackend:
                 raw = self.memory_reader.read(probe)
                 probe_data[probe.name] = base64.b64encode(raw).decode("ascii")
         traced = self.last_traced_state or self.trace_provider.read(self.frame_id)
+        contract_payload = mk4_state_contract_payload()
+        state_payload = mk4_state_payload(traced)
         return {
             "traced_state": {
                 "frame_id": traced.frame_id,
@@ -253,6 +304,8 @@ class LocalBridgeBackend:
                 "p2_facing": traced.p2_facing,
                 "extras": traced.extras,
             },
+            "mk4_state_contract": contract_payload,
+            "mk4_state_payload": state_payload,
             "probe_bytes_b64": probe_data,
             "memory_reader": self.memory_reader.__class__.__name__,
             "placeholder_ram_export": isinstance(self.memory_reader, ZeroMemoryReader),
@@ -359,6 +412,7 @@ class LocalBridgeBackend:
             scenario_id=self.current_scenario.scenario_id if self.current_scenario else None,
         )
         privileged_features: dict[str, float | int | bool] = {}
+        state_payload = mk4_state_payload(traced_state)
         if traced_state is not None:
             if traced_state.p1_x is not None:
                 privileged_features["p1_x"] = traced_state.p1_x
@@ -374,6 +428,18 @@ class LocalBridgeBackend:
                 privileged_features["p1_facing"] = traced_state.p1_facing
             if traced_state.p2_facing is not None:
                 privileged_features["p2_facing"] = traced_state.p2_facing
+            for key in (
+                "p1_health_word",
+                "p2_health_word",
+                "p1_airborne",
+                "p2_airborne",
+                "p1_y_vel",
+                "p1_y_vel_raw",
+                "facing_sign",
+            ):
+                value = state_payload.get(key)
+                if isinstance(value, (int, float, bool)):
+                    privileged_features[key] = value
         return ObservationBundle(
             timing=timing,
             traced_state=traced_state,
@@ -389,5 +455,7 @@ class LocalBridgeBackend:
                 "match_setup_notes": self.match_setup.notes if self.match_setup else "",
                 "pending_reset_savestate_path": self.pending_reset_savestate_path,
                 "placeholder_bridge": True,
+                "mk4_state_contract_version": MK4_STATE_CONTRACT_VERSION,
+                "mk4_state_payload": state_payload,
             },
         )
