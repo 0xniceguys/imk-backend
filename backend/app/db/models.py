@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
@@ -35,6 +36,7 @@ class BetStatus(str, enum.Enum):
     WON = "won"
     LOST = "lost"
     CANCELLED = "cancelled"
+    CLAIMED = "claimed"  # winner claimed payout on-chain
 
 
 class StreamStatus(str, enum.Enum):
@@ -179,6 +181,9 @@ class Match(Base):
     current_round: Mapped[int] = mapped_column(Integer, default=1, nullable=False, server_default="1")
     rounds_won_p1: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
     rounds_won_p2: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
+    # On-chain parimutuel contract state
+    on_chain_match_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    on_chain_match_pda: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -213,7 +218,9 @@ class Bet(Base):
         Enum(BetStatus), default=BetStatus.ACTIVE, nullable=False
     )
     payout: Mapped[float | None] = mapped_column(Numeric(18, 6), nullable=True)
-    tx_signature: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    tx_signature: Mapped[str | None] = mapped_column(String(128), nullable=True)  # place_bet tx sig
+    on_chain_side: Mapped[str | None] = mapped_column(String(1), nullable=True)  # "A" or "B"
+    claim_tx_signature: Mapped[str | None] = mapped_column(String(128), nullable=True)  # claim tx sig
     placed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
