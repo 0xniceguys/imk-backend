@@ -14,9 +14,16 @@ from typing import Any
 from app.services.bridge import EmulatorBridge, read_u8, read_u32
 
 # ── Canonical MK4 memory addresses (N64 virtual RDRAM) ──────────────────────
-
-P1_HEALTH_ADDR = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
-P2_HEALTH_ADDR = 0x80126F54   # u32 fixed-point, same scale
+#
+# Health-note:
+# The active runtime/savestate labels these two internal health words opposite
+# to the older reverse-engineering notes. Live backend validation showed:
+# - when the in-game P2/right-side fighter takes damage, 0x800FE0D8 drops
+# - when the in-game P1/left-side fighter takes damage, 0x80126F54 drops
+#
+# So the user-facing P1/P2 labels below follow the live match/backend flow.
+P1_HEALTH_ADDR = 0x80126F54   # u32 fixed-point, full health = 0x00010000
+P2_HEALTH_ADDR = 0x800FE0D8   # u32 fixed-point, same scale
 FIGHT_TIMER_ADDR = 0x80105118  # u8, counts down from 99
 P1_HEALTH_HUD_ADDR = 0x8036E729  # u8 animated HUD byte, debug-only
 P2_HEALTH_HUD_ADDR = 0x8036E72E  # u8 animated HUD byte, debug-only
