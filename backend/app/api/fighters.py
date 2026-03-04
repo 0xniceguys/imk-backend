@@ -1,14 +1,15 @@
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db, require_admin
-from app.db.models import Agent, Fighter, User
+from app.db.models import Agent, Bet, BetStatus, Fighter, Match, MatchStatus, User
 from app.exceptions import FighterNotFoundError, AgentNotFoundError, DuplicateFighterError, ValidationError
 from app.schemas.fighter import FighterCreate, FighterOut, FighterUpdate
 from app.services.image_validator import validate_image_file
@@ -159,3 +160,179 @@ async def upload_fighter_image(
     await db.refresh(fighter, attribute_names=["agent"])
 
     return fighter
+
+
+# ── Fighter Stats (computed from match/bet data) ──
+
+@router.get("/{fighter_id}/stats")
+async def get_fighter_stats(fighter_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Return comprehensive computed stats for a fighter."""
+    # Verify fighter exists
+    result = await db.execute(select(Fighter).where(Fighter.id == fighter_id))
+    fighter = result.scalar_one_or_none()
+    if not fighter:
+        raise FighterNotFoundError(str(fighter_id))
+
+    fid = fighter_id
+
+    # All completed matches involving this fighter
+    matches_q = await db.execute(
+        select(Match)
+        .where(
+            Match.status == MatchStatus.COMPLETED,
+            or_(Match.fighter1_id == fid, Match.fighter2_id == fid),
+        )
+    )
+    all_matches = matches_q.scalars().all()
+
+    # Basic counts
+    total_played = len(all_matches)
+    total_won = sum(1 for m in all_matches if m.winner_id == fid)
+
+    # Side analysis: matches as P1 (fighter1) vs P2 (fighter2)
+    as_p1 = [m for m in all_matches if m.fighter1_id == fid]
+    as_p2 = [m for m in all_matches if m.fighter2_id == fid]
+    p1_wins = sum(1 for m in as_p1 if m.winner_id == fid)
+    p2_wins = sum(1 for m in as_p2 if m.winner_id == fid)
+    p1_win_rate = round(p1_wins / len(as_p1), 4) if as_p1 else 0.0
+    p2_win_rate = round(p2_wins / len(as_p2), 4) if as_p2 else 0.0
+
+    # Flawless matches — won without the opponent winning a single round
+    flawless = 0
+    for m in all_matches:
+        if m.winner_id != fid:
+            continue
+        if m.fighter1_id == fid and m.rounds_won_p2 == 0:
+            flawless += 1
+        elif m.fighter2_id == fid and m.rounds_won_p1 == 0:
+            flawless += 1
+
+    # Last match date
+    completed_dates = [m.completed_at for m in all_matches if m.completed_at]
+    last_match_date = max(completed_dates).isoformat() if completed_dates else None
+
+    # Bet stats — total volume and total bets won on this fighter winning
+    match_ids = [m.id for m in all_matches]
+    bet_volume = 0.0
+    bets_won_count = 0
+    if match_ids:
+        bets_q = await db.execute(
+            select(Bet).where(Bet.match_id.in_(match_ids))
+        )
+        bets = bets_q.scalars().all()
+        # Total volume = all bets on matches this fighter was in
+        bet_volume = float(sum(b.amount for b in bets))
+        # Bets won = bets placed ON this fighter that were won
+        bets_won_count = sum(
+            1 for b in bets
+            if b.fighter_id == fid and b.status == BetStatus.WON
+        )
+
+    return {
+        "fighter_id": str(fid),
+        "matches_played": total_played,
+        "matches_won": total_won,
+        "win_rate": round(total_won / total_played, 4) if total_played else 0.0,
+        "p1_matches": len(as_p1),
+        "p1_wins": p1_wins,
+        "p1_win_rate": p1_win_rate,
+        "p2_matches": len(as_p2),
+        "p2_wins": p2_wins,
+        "p2_win_rate": p2_win_rate,
+        "flawless_matches": flawless,
+        "total_bet_volume": round(bet_volume, 4),
+        "total_bets_won": bets_won_count,
+        "fighting_since": fighter.created_at.isoformat() if fighter.created_at else None,
+        "last_match_date": last_match_date,
+    }
+
+
+@router.get("/{fighter_id}/matches")
+async def get_fighter_matches(
+    fighter_id: UUID,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return recent match history for a fighter."""
+    result = await db.execute(select(Fighter).where(Fighter.id == fighter_id))
+    if not result.scalar_one_or_none():
+        raise FighterNotFoundError(str(fighter_id))
+
+    q = await db.execute(
+        select(Match)
+        .where(
+            Match.status == MatchStatus.COMPLETED,
+            or_(Match.fighter1_id == fighter_id, Match.fighter2_id == fighter_id),
+        )
+        .options(
+            selectinload(Match.fighter1),
+            selectinload(Match.fighter2),
+            selectinload(Match.winner),
+        )
+        .order_by(Match.completed_at.desc())
+        .limit(limit)
+    )
+    matches = q.scalars().all()
+
+    out = []
+    for m in matches:
+        is_p1 = m.fighter1_id == fighter_id
+        opponent = m.fighter2 if is_p1 else m.fighter1
+        won = m.winner_id == fighter_id
+        rounds_for = m.rounds_won_p1 if is_p1 else m.rounds_won_p2
+        rounds_against = m.rounds_won_p2 if is_p1 else m.rounds_won_p1
+        out.append({
+            "match_id": str(m.id),
+            "opponent_id": str(opponent.id) if opponent else None,
+            "opponent_name": opponent.name if opponent else "Unknown",
+            "result": "WIN" if won else "LOSS",
+            "rounds_won": rounds_for,
+            "rounds_lost": rounds_against,
+            "side": "P1" if is_p1 else "P2",
+            "label": m.label,
+            "completed_at": m.completed_at.isoformat() if m.completed_at else None,
+        })
+    return out
+
+
+@router.get("/{fighter_id}/vs/{opponent_id}")
+async def get_fighter_vs(
+    fighter_id: UUID,
+    opponent_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Head-to-head stats between two fighters."""
+    q = await db.execute(
+        select(Match)
+        .where(
+            Match.status == MatchStatus.COMPLETED,
+            or_(
+                (Match.fighter1_id == fighter_id) & (Match.fighter2_id == opponent_id),
+                (Match.fighter1_id == opponent_id) & (Match.fighter2_id == fighter_id),
+            ),
+        )
+        .options(selectinload(Match.fighter1), selectinload(Match.fighter2))
+        .order_by(Match.completed_at.desc())
+    )
+    matches = q.scalars().all()
+
+    total = len(matches)
+    wins = sum(1 for m in matches if m.winner_id == fighter_id)
+    losses = total - wins
+
+    return {
+        "fighter_id": str(fighter_id),
+        "opponent_id": str(opponent_id),
+        "total_matches": total,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": round(wins / total, 4) if total else 0.0,
+        "matches": [
+            {
+                "match_id": str(m.id),
+                "result": "WIN" if m.winner_id == fighter_id else "LOSS",
+                "completed_at": m.completed_at.isoformat() if m.completed_at else None,
+            }
+            for m in matches[:10]
+        ],
+    }

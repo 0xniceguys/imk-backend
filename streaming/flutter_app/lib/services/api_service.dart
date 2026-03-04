@@ -99,7 +99,51 @@ class ApiService {
     }
   }
 
-  // ── Bets ──
+  Future<Map<String, dynamic>?> fetchFighterStats(String fighterId) async {
+    final uri = Uri.parse('$kApiBaseUrl/fighters/$fighterId/stats');
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return null;
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (e) {
+      _log('fetchFighterStats error: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchFighterMatches(
+      String fighterId, {int limit = 10}) async {
+    final uri = Uri.parse('$kApiBaseUrl/fighters/$fighterId/matches')
+        .replace(queryParameters: {'limit': '$limit'});
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return [];
+      final list = jsonDecode(resp.body) as List;
+      return list.cast<Map<String, dynamic>>();
+    } catch (e) {
+      _log('fetchFighterMatches error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchFighterVs(
+      String fighterId, String opponentId) async {
+    final uri =
+        Uri.parse('$kApiBaseUrl/fighters/$fighterId/vs/$opponentId');
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return null;
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (e) {
+      _log('fetchFighterVs error: $e');
+      return null;
+    }
+  }
+
+
 
   Future<List<Bet>> fetchMyBets() async {
     final uri = Uri.parse('$kApiBaseUrl/bets/mine');
