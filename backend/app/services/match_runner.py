@@ -69,6 +69,14 @@ class GameSnapshot:
     rounds_won_p2: int = 0
     best_of: int = 3
     timestamp: float = field(default_factory=time.time)
+    # Combat signals (from training update 2026-03-04)
+    p1_action: float = 0.0
+    p2_action: float = 0.0
+    p1_y_vel: float = 0.0
+    p1_hitstun: float = 0.0
+    p2_hitstun: float = 0.0
+    p1_airborne: float = 0.0
+    p2_airborne: float = 0.0
 
     def to_dict(self) -> dict:
         return {
@@ -88,6 +96,14 @@ class GameSnapshot:
             "rounds_won_p2": self.rounds_won_p2,
             "best_of": self.best_of,
             "timestamp": self.timestamp,
+            # Combat signals
+            "p1_action": self.p1_action,
+            "p2_action": self.p2_action,
+            "p1_y_vel": self.p1_y_vel,
+            "p1_hitstun": self.p1_hitstun,
+            "p2_hitstun": self.p2_hitstun,
+            "p1_airborne": self.p1_airborne,
+            "p2_airborne": self.p2_airborne,
         }
 
 
@@ -570,6 +586,14 @@ class MatchRunner:
                     rounds_won_p1=self.rounds_won_p1,
                     rounds_won_p2=self.rounds_won_p2,
                     best_of=self.best_of,
+                    # Combat signals from training update
+                    p1_action=state.p1_action,
+                    p2_action=state.p2_action,
+                    p1_y_vel=state.p1_y_vel,
+                    p1_hitstun=state.p1_hitstun,
+                    p2_hitstun=state.p2_hitstun,
+                    p1_airborne=state.p1_airborne,
+                    p2_airborne=state.p2_airborne,
                 )
 
                 await ws_manager.broadcast_json(
