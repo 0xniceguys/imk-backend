@@ -32,19 +32,23 @@ class DebugReaderLike(Protocol):
 # Address format: N64 virtual address (0x80xxxxxx)
 #
 # To verify an address manually:
-#   h.read_u8(ADDR)  at round start (should be 0xA0 = 160 for health, ~99 for timer)
-#   after taking damage: h.read_u8(P1_HEALTH_ADDR) should be < 0xA0
+#   h.read_u32(ADDR)  at round start (should be 0x10000 = 65536 for health, ~99 for timer)
+#   after taking damage: h.read_u32(P1_HEALTH_ADDR) should be < 0x10000
 #
 # Placeholder until scan confirms real values.
 # Set ADDRESSES_CONFIRMED = True once find_fight_addrs.py results are verified.
 
 ADDRESSES_CONFIRMED = True
 
-# Note on addresses: scanner outputs  BASE + (dump_offset ^ 3).
-# read_u8() applies ^3 internally, so we store (scanner_addr ^ 3) = BASE + dump_offset.
-# Health: byte in [0x00, 0xA0] (0=dead, 160=full)
-P1_HEALTH_ADDR   = 0x8036E729  # scan found 0x8036E72A → XOR3 → 0x8036E729
-P2_HEALTH_ADDR   = 0x8036E72E  # scan found 0x8036E72D → XOR3 → 0x8036E72E
+# Health: stored as u32 in 16.16 fixed-point format at the GameShark-documented
+# addresses. Full health = 0x10000 (65536), dead = 0. Decreases per-hit in
+# real-time (NOT the display-bar animation at 0x8036E729/2E which only updates
+# at round end).
+# Verified via frame-accurate pause/step/read with arcade savestate (2026-03-04):
+#   P1: 65536 → 56361 → 45876 → 36701 → 27526 → 15730 → 6555 (monotonic decrease)
+#   P2: 65536 → 55706 (one punch landed, then stable)
+P1_HEALTH_ADDR   = 0x800FE0D8   # u32: internal health, 0x10000=full, 0=dead
+P2_HEALTH_ADDR   = 0x80126F54   # u32: internal health, 0x10000=full, 0=dead
 
 # Timer: counts down from 99
 FIGHT_TIMER_ADDR = 0x80105118  # confirmed: reads 97 at round start (0x8010511B XOR3)
@@ -156,7 +160,8 @@ P2_LK_ADDR          = P2_BASE + 0x130   # 0x80126F30 - all attacks change this; 
 P1_CHAR_WORD_ADDR = 0x800FE290   # u32: LSB = char (0x0B=Kai)
 P2_CHAR_WORD_ADDR = 0x80126E8C   # u32: LSB = char (0x0A=Reptile)
 
-HEALTH_MAX = 0xA0       # 160 — full health
+HEALTH_RAW_MAX = 0x10000  # 65536 — full health in u32 16.16 fixed-point
+HEALTH_MAX = 160          # normalized display scale (0-160), used by rewards/round logic
 Y_VEL_NORM = 100000.0   # normalise Y velocity (typical range ~±0x10000)
 ANIM_NORM  = 255.0      # action state IDs are small integers
 
@@ -207,8 +212,12 @@ class Mk4FightTraceProvider:
             )
 
         try:
-            p1_hp  = self.helper.read_u8(P1_HEALTH_ADDR)
-            p2_hp  = self.helper.read_u8(P2_HEALTH_ADDR)
+            # Health: u32 read — 16.16 fixed-point, 0x10000 = full, 0 = dead
+            # Normalize to 0-160 scale to keep reward magnitudes consistent
+            p1_hp_raw = self.helper.read_u32(P1_HEALTH_ADDR)
+            p2_hp_raw = self.helper.read_u32(P2_HEALTH_ADDR)
+            p1_hp = int(p1_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX)
+            p2_hp = int(p2_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX)
             timer  = self.helper.read_u8(FIGHT_TIMER_ADDR)
             # Positions are in the upper 16-bit halfword of the 32-bit word.
             # Extract and interpret as signed int16.
@@ -345,9 +354,8 @@ class Mk4FightTraceProvider:
         if p1 == HEALTH_MAX and p2 == HEALTH_MAX:
             return False
 
-        # Timer == 0: round timed out — this IS a real round end.
-        # (The fight-not-started guard above only fires when BOTH are at max health;
-        # if one player has taken damage by timeout that guard won't trigger.)
+        # Timer check — verified via frame-by-frame scan:
+        # counts 97→84 smoothly, resets to 99 at new round.
         if timer is not None and timer == 0:
             return True
 
@@ -372,11 +380,9 @@ class Mk4FightTraceProvider:
             return False
         if p2 is not None and p2 <= 0:
             return True
+        # Timer-based win check — timer verified working (counts down, resets to 99)
         if (ADDRESSES_CONFIRMED and state.timer is not None and state.timer <= 0
                 and p1 is not None and p2 is not None):
-            # Fix 4: strict > so equal-health timer-out is NOT labelled P1 win.
-            # Equal health at timeout = draw in MK4; giving win_bonus here biases
-            # the agent to think surviving with tied health = victory.
             return p1 > p2
         return False
 
