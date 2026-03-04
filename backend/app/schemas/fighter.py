@@ -16,6 +16,12 @@ class FighterOut(BaseModel):
     matches_played: int = 0
     matches_won: int = 0
     created_at: datetime
+    # Rich display data
+    description: str | None = None
+    origin: str | None = None
+    special_move: str | None = None
+    fight_style: str | None = None
+    rank: int | None = None
 
     @computed_field
     @property
@@ -34,14 +40,24 @@ class FighterCreate(BaseModel):
     character_id: int
     llm_model: str
     image_url: str | None = None
-    agent_id: UUID | None = None  # Link to uploaded Agent
-    agent_architecture: str | None = None  # Or use built-in agent
+    agent_id: UUID | None = None
+    agent_architecture: str | None = None
+    description: str | None = None
+    origin: str | None = None
+    special_move: str | None = None
+    fight_style: str | None = None
+    rank: int | None = None
 
 
 class FighterUpdate(BaseModel):
-    """Fighter update schema."""
-
+    """Fighter update schema — all fields optional."""
     name: str | None = None
     image_url: str | None = None
+    llm_model: str | None = None
     agent_id: UUID | None = None
     agent_architecture: str | None = None
+    description: str | None = None
+    origin: str | None = None
+    special_move: str | None = None
+    fight_style: str | None = None
+    rank: int | None = None

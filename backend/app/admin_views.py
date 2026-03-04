@@ -623,36 +623,198 @@ async def match_settle(match_id: UUID, winner_id: UUID = Form(...)):
 async def fighters_list(request: Request):
     if r := _require_admin(request): return r
     async for db in _get_db():
-        result = await db.execute(select(Fighter).order_by(Fighter.name))
+        from sqlalchemy.orm import selectinload as _sli
+        result = await db.execute(
+            select(Fighter).options(_sli(Fighter.agent)).order_by(Fighter.name)
+        )
         fighters = list(result.scalars().all())
+
+        # Serialize to plain dicts for tojson in the template
+        fighters_data = [
+            {
+                "id": str(f.id),
+                "name": f.name,
+                "slug": f.slug,
+                "character": f.character,
+                "character_id": f.character_id,
+                "llm_model": f.llm_model,
+                "image_url": f.image_url,
+                "agent_architecture": f.agent_architecture,
+                "matches_played": f.matches_played,
+                "matches_won": f.matches_won,
+                "win_rate": round(f.matches_won / f.matches_played, 4) if f.matches_played else 0.0,
+                "description": f.description,
+                "origin": f.origin,
+                "special_move": f.special_move,
+                "fight_style": f.fight_style,
+                "rank": f.rank,
+            }
+            for f in fighters
+        ]
 
         return templates.TemplateResponse("fighters.html", {
             "request": request,
             "active_page": "fighters",
             "fighters": fighters,
+            "fighters_json": fighters_data,
             "flash": None,
         })
 
 
+
+@router.get("/fighters/{fighter_id}/json")
+async def fighter_json(request: Request, fighter_id: UUID):
+    """Return a single fighter as JSON — used by the JS edit panel."""
+    _require_admin_api(request)
+    async for db in _get_db():
+        from sqlalchemy.orm import selectinload as _sli
+        result = await db.execute(
+            select(Fighter).where(Fighter.id == fighter_id).options(_sli(Fighter.agent))
+        )
+        f = result.scalar_one_or_none()
+        if not f:
+            raise HTTPException(404, "Fighter not found")
+        return JSONResponse({
+            "id": str(f.id),
+            "name": f.name,
+            "slug": f.slug,
+            "character": f.character,
+            "character_id": f.character_id,
+            "llm_model": f.llm_model,
+            "image_url": f.image_url,
+            "agent_architecture": f.agent_architecture,
+            "matches_played": f.matches_played,
+            "matches_won": f.matches_won,
+            "win_rate": round(f.matches_won / f.matches_played, 4) if f.matches_played else 0.0,
+            "description": f.description,
+            "origin": f.origin,
+            "special_move": f.special_move,
+            "fight_style": f.fight_style,
+            "rank": f.rank,
+            "agent_name": f.agent.name if f.agent else None,
+        })
+
+
 @router.post("/fighters/new")
-async def fighter_new(
-    name: str = Form(...),
-    slug: str = Form(...),
-    character: str = Form(...),
-    character_id: int = Form(...),
-    llm_model: str = Form(...),
-    agent_architecture: str = Form(""),
-):
+async def fighter_new(request: Request):
+    """Create a new fighter from multipart form (supports image upload)."""
+    _require_admin_api(request)
+    import shutil
+    from pathlib import Path
+    form = await request.form()
+
+    name = str(form.get("name", "")).strip()
+    slug = str(form.get("slug", "")).strip()
+    character = str(form.get("character", "")).strip()
+    character_id = int(form.get("character_id", 0) or 0)
+    llm_model = str(form.get("llm_model", "")).strip()
+    agent_architecture = str(form.get("agent_architecture", "")).strip() or None
+    description = str(form.get("description", "")).strip() or None
+    origin = str(form.get("origin", "")).strip() or None
+    special_move = str(form.get("special_move", "")).strip() or None
+    fight_style = str(form.get("fight_style", "")).strip() or None
+    rank_raw = form.get("rank", "")
+    rank = int(rank_raw) if rank_raw and str(rank_raw).strip().isdigit() else None
+
+    if not all([name, slug, character, llm_model]):
+        raise HTTPException(400, "name, slug, character, llm_model are required")
+
     async for db in _get_db():
         fighter = Fighter(
-            name=name,
-            slug=slug,
-            character=character,
-            character_id=character_id,
-            llm_model=llm_model,
-            agent_architecture=agent_architecture or None,
+            name=name, slug=slug, character=character, character_id=character_id,
+            llm_model=llm_model, agent_architecture=agent_architecture,
+            description=description, origin=origin, special_move=special_move,
+            fight_style=fight_style, rank=rank,
         )
         db.add(fighter)
         await db.commit()
+        await db.refresh(fighter)
 
-    return RedirectResponse(url="/admin/fighters", status_code=303)
+        # Handle optional image upload
+        image_file = form.get("image")
+        if image_file and hasattr(image_file, "filename") and image_file.filename:
+            IMAGE_DIR = Path(__file__).resolve().parent.parent / "uploads" / "fighters"
+            IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+            ext = Path(image_file.filename).suffix.lower() or ".jpg"
+            filename = f"{fighter.slug}{ext}"
+            file_path = IMAGE_DIR / filename
+            with file_path.open("wb") as f:
+                shutil.copyfileobj(image_file.file, f)
+            fighter.image_url = f"/uploads/fighters/{filename}"
+            await db.commit()
+
+        return JSONResponse({"id": str(fighter.id), "name": fighter.name})
+
+
+@router.post("/fighters/{fighter_id}/edit")
+async def fighter_edit(request: Request, fighter_id: UUID):
+    """Edit a fighter — accepts JSON body with any updatable fields."""
+    _require_admin_api(request)
+    data = await request.json()
+
+    async for db in _get_db():
+        from sqlalchemy.orm import selectinload as _sli
+        result = await db.execute(
+            select(Fighter).where(Fighter.id == fighter_id).options(_sli(Fighter.agent))
+        )
+        f = result.scalar_one_or_none()
+        if not f:
+            raise HTTPException(404, "Fighter not found")
+
+        for field in ("name", "llm_model", "agent_architecture", "description",
+                      "origin", "special_move", "fight_style"):
+            if field in data and data[field] is not None:
+                setattr(f, field, data[field] or None if field != "name" and field != "llm_model" else data[field])
+
+        if "rank" in data:
+            f.rank = int(data["rank"]) if data["rank"] not in (None, "", "null") else None
+
+        await db.commit()
+        return JSONResponse({"ok": True})
+
+
+@router.post("/fighters/{fighter_id}/image")
+async def fighter_image_upload(request: Request, fighter_id: UUID):
+    """Upload / replace fighter image from admin panel."""
+    _require_admin_api(request)
+    import shutil
+    from pathlib import Path
+
+    form = await request.form()
+    image_file = form.get("image")
+    if not image_file or not hasattr(image_file, "filename") or not image_file.filename:
+        raise HTTPException(400, "No image file provided")
+
+    async for db in _get_db():
+        result = await db.execute(select(Fighter).where(Fighter.id == fighter_id))
+        f = result.scalar_one_or_none()
+        if not f:
+            raise HTTPException(404, "Fighter not found")
+
+        IMAGE_DIR = Path(__file__).resolve().parent.parent / "uploads" / "fighters"
+        IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+        ext = Path(image_file.filename).suffix.lower() or ".jpg"
+        filename = f"{f.slug}{ext}"
+        file_path = IMAGE_DIR / filename
+        with file_path.open("wb") as fp:
+            shutil.copyfileobj(image_file.file, fp)
+
+        f.image_url = f"/uploads/fighters/{filename}"
+        await db.commit()
+
+        return JSONResponse({"ok": True, "image_url": f.image_url})
+
+
+@router.post("/fighters/{fighter_id}/delete")
+async def fighter_delete(request: Request, fighter_id: UUID):
+    """Delete a fighter."""
+    _require_admin_api(request)
+    async for db in _get_db():
+        result = await db.execute(select(Fighter).where(Fighter.id == fighter_id))
+        f = result.scalar_one_or_none()
+        if not f:
+            raise HTTPException(404, "Fighter not found")
+        await db.delete(f)
+        await db.commit()
+        return JSONResponse({"ok": True})
+
