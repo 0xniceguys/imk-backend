@@ -29,6 +29,7 @@ from app.db.models import (
     MatchStatus,
     Stream,
     StreamStatus,
+    Agent,
 )
 from app.services.emulator import M64P_ROOT
 from app.services.actions import decode_controller_state
@@ -818,3 +819,219 @@ async def fighter_delete(request: Request, fighter_id: UUID):
         await db.commit()
         return JSONResponse({"ok": True})
 
+
+
+# ── Agents ──
+
+@router.get("/agents", response_class=HTMLResponse)
+async def agents_list(request: Request):
+    if r := _require_admin(request): return r
+    async for db in _get_db():
+        agents_q = await db.execute(select(Agent).order_by(Agent.created_at.desc()))
+        agents = list(agents_q.scalars().all())
+        fighters_q = await db.execute(select(Fighter).order_by(Fighter.name))
+        fighters = list(fighters_q.scalars().all())
+        return templates.TemplateResponse("agents.html", {
+            "request": request, "active_page": "agents",
+            "agents": agents, "fighters": fighters,
+        })
+
+@router.get("/agents/{agent_id}/json")
+async def agent_json(request: Request, agent_id: UUID):
+    _require_admin_api(request)
+    async for db in _get_db():
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        a = result.scalar_one_or_none()
+        if not a: raise HTTPException(404, "Agent not found")
+        fq = await db.execute(select(Fighter).where(Fighter.agent_id == agent_id))
+        assigned = fq.scalar_one_or_none()
+        return JSONResponse({"id": str(a.id), "name": a.name, "slug": a.slug,
+            "architecture": a.architecture, "description": a.description,
+            "checkpoint_path": a.checkpoint_path, "file_size_bytes": a.file_size_bytes,
+            "is_public": a.is_public, "created_at": a.created_at.isoformat(),
+            "assigned_fighter_id": str(assigned.id) if assigned else None,
+            "assigned_fighter_name": assigned.name if assigned else None,
+        })
+
+@router.post("/agents/{agent_id}/edit")
+async def agent_edit(request: Request, agent_id: UUID):
+    _require_admin_api(request)
+    data = await request.json()
+    async for db in _get_db():
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        a = result.scalar_one_or_none()
+        if not a: raise HTTPException(404, "Agent not found")
+        if data.get("name"): a.name = data["name"]
+        if "description" in data: a.description = data["description"] or None
+        if data.get("architecture"): a.architecture = data["architecture"]
+        if "is_public" in data: a.is_public = bool(data["is_public"])
+        await db.commit()
+        fq = await db.execute(select(Fighter).where(Fighter.agent_id == agent_id))
+        for f in fq.scalars().all(): f.agent_id = None
+        new_fid = data.get("assigned_fighter_id")
+        if new_fid:
+            try:
+                fr = await db.execute(select(Fighter).where(Fighter.id == UUID(new_fid)))
+                ff = fr.scalar_one_or_none()
+                if ff: ff.agent_id = agent_id
+            except Exception: pass
+        await db.commit()
+        return JSONResponse({"ok": True})
+
+@router.post("/agents/new")
+async def agent_new(request: Request):
+    _require_admin_api(request)
+    form = await request.form()
+    name = str(form.get("name", "")).strip()
+    slug = str(form.get("slug", "")).strip()
+    architecture = str(form.get("architecture", "lstm")).strip()
+    description = str(form.get("description", "")).strip() or None
+    is_public = str(form.get("is_public", "true")).lower() == "true"
+    fighter_id_str = str(form.get("fighter_id", "")).strip()
+    agent_file = form.get("agent_file")
+    if not name or not slug: raise HTTPException(400, "name and slug required")
+    if not agent_file or not hasattr(agent_file, "filename") or not agent_file.filename:
+        raise HTTPException(400, "ONNX file required")
+    AGENT_DIR = Path(__file__).resolve().parent.parent / "uploads" / "agents"
+    AGENT_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = AGENT_DIR / f"{slug}.onnx"
+    content = await agent_file.read()
+    with file_path.open("wb") as fp: fp.write(content)
+    async for db in _get_db():
+        agent = Agent(name=name, slug=slug, architecture=architecture, description=description,
+            checkpoint_path=str(file_path), file_size_bytes=len(content), is_public=is_public)
+        db.add(agent)
+        await db.commit()
+        await db.refresh(agent)
+        if fighter_id_str:
+            try:
+                fr = await db.execute(select(Fighter).where(Fighter.id == UUID(fighter_id_str)))
+                ff = fr.scalar_one_or_none()
+                if ff: ff.agent_id = agent.id; await db.commit()
+            except Exception: pass
+        return JSONResponse({"id": str(agent.id), "name": agent.name})
+
+@router.post("/agents/{agent_id}/delete")
+async def agent_delete(request: Request, agent_id: UUID):
+    _require_admin_api(request)
+    async for db in _get_db():
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        a = result.scalar_one_or_none()
+        if not a: raise HTTPException(404, "Agent not found")
+        fq = await db.execute(select(Fighter).where(Fighter.agent_id == agent_id))
+        for f in fq.scalars().all(): f.agent_id = None
+        await db.commit()
+        await db.delete(a)
+        await db.commit()
+        return JSONResponse({"ok": True})
+
+
+# ── Agents ──
+
+@router.get("/agents", response_class=HTMLResponse)
+async def agents_list(request: Request):
+    if r := _require_admin(request): return r
+    async for db in _get_db():
+        agents_q = await db.execute(select(Agent).order_by(Agent.created_at.desc()))
+        agents = list(agents_q.scalars().all())
+        fighters_q = await db.execute(select(Fighter).order_by(Fighter.name))
+        fighters = list(fighters_q.scalars().all())
+        return templates.TemplateResponse("agents.html", {
+            "request": request, "active_page": "agents",
+            "agents": agents, "fighters": fighters,
+        })
+
+
+@router.get("/agents/{agent_id}/json")
+async def agent_json(request: Request, agent_id: UUID):
+    _require_admin_api(request)
+    async for db in _get_db():
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        a = result.scalar_one_or_none()
+        if not a: raise HTTPException(404, "Agent not found")
+        fq = await db.execute(select(Fighter).where(Fighter.agent_id == agent_id))
+        assigned = fq.scalar_one_or_none()
+        return JSONResponse({"id": str(a.id), "name": a.name, "slug": a.slug,
+            "architecture": a.architecture, "description": a.description,
+            "checkpoint_path": a.checkpoint_path, "file_size_bytes": a.file_size_bytes,
+            "is_public": a.is_public, "created_at": a.created_at.isoformat(),
+            "assigned_fighter_id": str(assigned.id) if assigned else None,
+            "assigned_fighter_name": assigned.name if assigned else None,
+        })
+
+
+@router.post("/agents/{agent_id}/edit")
+async def agent_edit(request: Request, agent_id: UUID):
+    _require_admin_api(request)
+    data = await request.json()
+    async for db in _get_db():
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        a = result.scalar_one_or_none()
+        if not a: raise HTTPException(404, "Agent not found")
+        if data.get("name"): a.name = data["name"]
+        if "description" in data: a.description = data["description"] or None
+        if data.get("architecture"): a.architecture = data["architecture"]
+        if "is_public" in data: a.is_public = bool(data["is_public"])
+        await db.commit()
+        fq = await db.execute(select(Fighter).where(Fighter.agent_id == agent_id))
+        for f in fq.scalars().all(): f.agent_id = None
+        new_fid = data.get("assigned_fighter_id")
+        if new_fid:
+            try:
+                from uuid import UUID as _UUID
+                fr = await db.execute(select(Fighter).where(Fighter.id == _UUID(new_fid)))
+                ff = fr.scalar_one_or_none()
+                if ff: ff.agent_id = agent_id
+            except Exception: pass
+        await db.commit()
+        return JSONResponse({"ok": True})
+
+
+@router.post("/agents/new")
+async def agent_new(request: Request):
+    _require_admin_api(request)
+    form = await request.form()
+    name = str(form.get("name", "")).strip()
+    slug = str(form.get("slug", "")).strip()
+    architecture = str(form.get("architecture", "lstm")).strip()
+    description = str(form.get("description", "")).strip() or None
+    is_public = str(form.get("is_public", "true")).lower() == "true"
+    fighter_id_str = str(form.get("fighter_id", "")).strip()
+    agent_file = form.get("agent_file")
+    if not name or not slug: raise HTTPException(400, "name and slug required")
+    if not agent_file or not hasattr(agent_file, "filename") or not agent_file.filename:
+        raise HTTPException(400, "ONNX file required")
+    AGENT_DIR = Path(__file__).resolve().parent.parent / "uploads" / "agents"
+    AGENT_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = AGENT_DIR / f"{slug}.onnx"
+    content = await agent_file.read()
+    with file_path.open("wb") as fp: fp.write(content)
+    async for db in _get_db():
+        agent = Agent(name=name, slug=slug, architecture=architecture, description=description,
+            checkpoint_path=str(file_path), file_size_bytes=len(content), is_public=is_public)
+        db.add(agent)
+        await db.commit()
+        await db.refresh(agent)
+        if fighter_id_str:
+            try:
+                from uuid import UUID as _UUID
+                fr = await db.execute(select(Fighter).where(Fighter.id == _UUID(fighter_id_str)))
+                ff = fr.scalar_one_or_none()
+                if ff: ff.agent_id = agent.id; await db.commit()
+            except Exception: pass
+        return JSONResponse({"id": str(agent.id), "name": agent.name})
+
+
+@router.post("/agents/{agent_id}/delete")
+async def agent_delete(request: Request, agent_id: UUID):
+    _require_admin_api(request)
+    async for db in _get_db():
+        result = await db.execute(select(Agent).where(Agent.id == agent_id))
+        a = result.scalar_one_or_none()
+        if not a: raise HTTPException(404, "Agent not found")
+        fq = await db.execute(select(Fighter).where(Fighter.agent_id == agent_id))
+        for f in fq.scalars().all(): f.agent_id = None
+        await db.commit()
+        await db.delete(a)
+        await db.commit()
+        return JSONResponse({"ok": True})
