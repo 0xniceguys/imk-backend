@@ -122,6 +122,17 @@ def _serialize_direct_probe(probe: dict[str, object] | None) -> dict[str, object
     return out
 
 
+def _probe_value(probe: dict[str, object] | None, key: str) -> int | None:
+    if probe is None:
+        return None
+    value = probe.get(key)
+    if not isinstance(value, _DebugRead):
+        return None
+    if value.value is None:
+        return None
+    return int(value.value)
+
+
 def _require_probe_value(probe: dict[str, object], key: str) -> int:
     value = probe[key]
     if not isinstance(value, _DebugRead):
@@ -149,6 +160,24 @@ def _read_contract_state(bridge: EmulatorBridge) -> dict | None:
     if not bool(state_payload.get("available", False)):
         return None
     return state_payload
+
+
+def _contract_core_trusted(contract: dict[str, object] | None) -> bool:
+    if not isinstance(contract, dict):
+        return False
+    p1_health = _coerce_int(contract.get("p1_health"), HEALTH_MAX)
+    p2_health = _coerce_int(contract.get("p2_health"), HEALTH_MAX)
+    timer = _coerce_int(contract.get("timer"), 99)
+
+    if p1_health < 0 or p1_health > HEALTH_MAX:
+        return False
+    if p2_health < 0 or p2_health > HEALTH_MAX:
+        return False
+    if timer < 0 or timer > 99:
+        return False
+    if timer == 0 and p1_health > 0 and p2_health > 0:
+        return False
+    return True
 
 
 @dataclass
@@ -260,36 +289,186 @@ def _state_from_direct_reads(probe: dict[str, object], frame_id: int) -> FightSt
     )
 
 
-def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
+def _merge_state_sources(
+    contract: dict[str, object] | None,
+    probe: dict[str, object] | None,
+    frame_id: int,
+    previous_state: FightState | None,
+) -> FightState:
+    contract_trusted = _contract_core_trusted(contract)
+    base_state = previous_state or FightState(frame_id=frame_id)
+    source_map: dict[str, str] = {}
+
+    def pick_int_field(
+        field_name: str,
+        *,
+        direct_value: int | None = None,
+        contract_key: str | None = None,
+        default: int,
+        previous_value: int | None = None,
+    ) -> int:
+        if direct_value is not None:
+            source_map[field_name] = "direct"
+            return int(direct_value)
+        if previous_value is not None:
+            source_map[field_name] = "previous"
+            return int(previous_value)
+        if contract_trusted and contract_key is not None and isinstance(contract, dict):
+            source_map[field_name] = "contract"
+            return _coerce_int(contract.get(contract_key), default)
+        source_map[field_name] = "default"
+        return int(default)
+
+    def pick_float_field(
+        field_name: str,
+        *,
+        direct_value: float | None = None,
+        contract_key: str | None = None,
+        default: float,
+        previous_value: float | None = None,
+    ) -> float:
+        if direct_value is not None:
+            source_map[field_name] = "direct"
+            return float(direct_value)
+        if previous_value is not None:
+            source_map[field_name] = "previous"
+            return float(previous_value)
+        if contract_trusted and contract_key is not None and isinstance(contract, dict):
+            source_map[field_name] = "contract"
+            return _coerce_float(contract.get(contract_key), default)
+        source_map[field_name] = "default"
+        return float(default)
+
+    p1_health_word = _probe_value(probe, "p1_health_word")
+    p2_health_word = _probe_value(probe, "p2_health_word")
+    timer_word = _probe_value(probe, "timer_word_u32")
+    p1_x_word = _probe_value(probe, "p1_x_word")
+    p2_x_word = _probe_value(probe, "p2_x_word")
+    p1_ground_word = _probe_value(probe, "p1_ground_flag_raw")
+    p2_air_word = _probe_value(probe, "p2_air_flag_word")
+    p1_y_vel_raw = _probe_value(probe, "p1_y_vel_raw")
+
+    p1_health = pick_int_field(
+        "p1_health",
+        direct_value=_decode_health_word(p1_health_word) if p1_health_word is not None else None,
+        contract_key="p1_health",
+        default=HEALTH_MAX,
+        previous_value=previous_state.p1_health if previous_state is not None else None,
+    )
+    p2_health = pick_int_field(
+        "p2_health",
+        direct_value=_decode_health_word(p2_health_word) if p2_health_word is not None else None,
+        contract_key="p2_health",
+        default=HEALTH_MAX,
+        previous_value=previous_state.p2_health if previous_state is not None else None,
+    )
+    timer = pick_int_field(
+        "timer",
+        direct_value=(timer_word & 0xFF) if timer_word is not None else None,
+        contract_key="timer",
+        default=99,
+        previous_value=previous_state.timer if previous_state is not None else None,
+    )
+    p1_x = pick_float_field(
+        "p1_x",
+        direct_value=_decode_s16hi(p1_x_word) if p1_x_word is not None else None,
+        contract_key="p1_x",
+        default=0.0,
+        previous_value=previous_state.p1_x if previous_state is not None else None,
+    )
+    p2_x = pick_float_field(
+        "p2_x",
+        direct_value=_decode_s16hi(p2_x_word) if p2_x_word is not None else None,
+        contract_key="p2_x",
+        default=0.0,
+        previous_value=previous_state.p2_x if previous_state is not None else None,
+    )
+    p1_airborne = pick_float_field(
+        "p1_airborne",
+        direct_value=(1.0 if p1_ground_word == 1 else 0.0) if p1_ground_word is not None else None,
+        contract_key="p1_airborne",
+        default=0.0,
+        previous_value=previous_state.p1_airborne if previous_state is not None else None,
+    )
+    p2_airborne = pick_float_field(
+        "p2_airborne",
+        direct_value=(1.0 if (((p2_air_word >> 16) & 0xFFFF) != 0) else 0.0) if p2_air_word is not None else None,
+        contract_key="p2_airborne",
+        default=0.0,
+        previous_value=previous_state.p2_airborne if previous_state is not None else None,
+    )
+    p1_y_vel = pick_float_field(
+        "p1_y_vel",
+        direct_value=max(-1.0, min(1.0, _decode_s32(p1_y_vel_raw) / Y_VEL_NORM)) if p1_y_vel_raw is not None else None,
+        contract_key="p1_y_vel",
+        default=0.0,
+        previous_value=previous_state.p1_y_vel if previous_state is not None else None,
+    )
+
+    if all(source == "direct" for source in source_map.values()):
+        state_source = "direct"
+    elif any(source == "direct" for source in source_map.values()):
+        state_source = "merged"
+    elif contract_trusted:
+        state_source = "contract"
+    else:
+        state_source = "fallback"
+
+    debug_info: dict[str, Any] = {
+        "state_source": state_source,
+        "selected_frame_id": frame_id,
+        "timer_decode_source": "timer_word_lsb",
+        "source_map": source_map,
+        "contract_core_trusted": contract_trusted,
+        "direct_probe": _serialize_direct_probe(probe),
+        "contract_payload": dict(contract) if isinstance(contract, dict) else None,
+    }
+
+    if p1_health_word is not None:
+        debug_info["p1_health_word_used"] = p1_health_word
+    elif isinstance(contract, dict):
+        debug_info["p1_health_word_used"] = contract.get("p1_health_word")
+    if p2_health_word is not None:
+        debug_info["p2_health_word_used"] = p2_health_word
+    elif isinstance(contract, dict):
+        debug_info["p2_health_word_used"] = contract.get("p2_health_word")
+
+    return FightState(
+        frame_id=frame_id,
+        p1_health=p1_health,
+        p2_health=p2_health,
+        timer=timer,
+        p1_x=p1_x,
+        p2_x=p2_x,
+        p1_action=0.0,
+        p2_action=0.0,
+        p1_y_vel=p1_y_vel,
+        p2_airborne=p2_airborne,
+        p1_hitstun=0.0,
+        p2_hitstun=0.0,
+        p1_airborne=p1_airborne,
+        debug_info=debug_info,
+    )
+
+
+def read_fight_state(
+    bridge: EmulatorBridge,
+    frame_id: int,
+    previous_state: FightState | None = None,
+) -> FightState:
     """Read the current fight state from the bridge."""
     contract_state: dict[str, object] | None = None
     direct_probe: dict[str, object] | None = None
-    direct_error: str | None = None
     try:
         direct_probe = _read_direct_probe(bridge)
         contract_state = _read_contract_state(bridge)
-        if direct_probe is not None:
-            try:
-                state = _state_from_direct_reads(direct_probe, frame_id)
-                if contract_state is not None:
-                    state.debug_info["contract_payload"] = dict(contract_state)
-                return state
-            except Exception as exc:
-                direct_error = f"{type(exc).__name__}: {exc}"
-        if contract_state is not None:
-            state = _state_from_contract(contract_state, frame_id)
-            state.debug_info["direct_probe"] = _serialize_direct_probe(direct_probe)
-            if direct_error:
-                state.debug_info["direct_error"] = direct_error
-            return state
-        raise RuntimeError(direct_error or "no valid RAM state source available")
+        return _merge_state_sources(contract_state, direct_probe, frame_id, previous_state)
     except Exception as exc:
         return FightState(
             frame_id=frame_id,
             debug_info={
                 "state_source": "fallback",
                 "error": f"{type(exc).__name__}: {exc}",
-                "direct_error": direct_error,
                 "contract_payload": dict(contract_state) if isinstance(contract_state, dict) else None,
                 "direct_probe": _serialize_direct_probe(direct_probe),
             },
