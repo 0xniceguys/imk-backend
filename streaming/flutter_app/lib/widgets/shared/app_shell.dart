@@ -9,12 +9,14 @@ class AppShell extends StatelessWidget {
     required this.activeTab,
     required this.content,
     this.scrollable = false,
+    this.contentBottomPadding = 0,
     required this.onNavigate,
   });
 
   final NavTab activeTab;
   final Widget content;
   final bool scrollable;
+  final double contentBottomPadding;
   final void Function(ScreenSlug) onNavigate;
   static const _navBottomInset = 30.0;
   static const _navGradientHeight = 200.0;
@@ -35,8 +37,14 @@ class AppShell extends StatelessWidget {
             const SizedBox(height: 20),
             Expanded(
               child: scrollable
-                  ? SingleChildScrollView(child: content)
-                  : content,
+                  ? SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: contentBottomPadding),
+                      child: content,
+                    )
+                  : Padding(
+                      padding: EdgeInsets.only(bottom: contentBottomPadding),
+                      child: content,
+                    ),
             ),
           ],
         ),
