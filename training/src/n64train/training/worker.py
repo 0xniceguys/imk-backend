@@ -29,6 +29,7 @@ sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
 from n64train.runtime.actions import Button, ControllerState, MacroAction
 from n64train.runtime.rewards import Mk4ShapedRewardExtractor
+from n64train.reverse.mk4_tracing import FIGHT_TIMER_ADDR
 
 
 def write_ctrl_worker(ctrl_state: ControllerState, path: str) -> None:
@@ -385,6 +386,14 @@ def run_worker(
                         write_ctrl_worker(ControllerState(), ctrl_path_p2)
 
                 _step_frames(action_frames)
+
+                # Freeze fight timer at 99 every step to prevent timeout-based
+                # round endings. Without this, rounds end at timer=0 before the
+                # CPU deals meaningful damage to P1, causing taken=+0.0.
+                try:
+                    h.write_u8(FIGHT_TIMER_ADDR, 99)
+                except Exception:
+                    pass  # non-fatal — round will just have a ticking timer
 
                 # Retry read before concluding bridge dropped.
                 # A single transient failure (socket hiccup, read timeout) should
