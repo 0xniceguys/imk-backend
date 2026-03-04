@@ -19,6 +19,7 @@ dependencies = [
     "structlog>=24.1.0",
     "solders>=0.21.0",
     "privy-client>=0.5.0",
+    "redis[asyncio]>=5.0",
 ]
 
 [project.optional-dependencies]
