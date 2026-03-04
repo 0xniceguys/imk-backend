@@ -22,11 +22,13 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from app.agents import create_agent
 from app.agents.base import FighterAgent
 from app.services.actions import (
     ControllerState,
+    encode_controller_state,
     resolve_action,
 )
 from app.services.bridge import EmulatorBridge
@@ -102,6 +104,7 @@ class GameSnapshot:
     p2_hitstun: float = 0.0
     p1_airborne: float = 0.0
     p2_airborne: float = 0.0
+    debug: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -129,7 +132,24 @@ class GameSnapshot:
             "p2_hitstun": self.p2_hitstun,
             "p1_airborne": self.p1_airborne,
             "p2_airborne": self.p2_airborne,
+            "debug": self.debug,
         }
+
+
+@dataclass
+class ManualOverrideState:
+    """Per-player manual controller override used by the admin viewer."""
+    enabled: bool = False
+    controller_state: ControllerState = field(default_factory=ControllerState)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_payload(self) -> dict[str, Any]:
+        payload = encode_controller_state(self.controller_state)
+        payload.update({
+            "enabled": self.enabled,
+            "updated_at": self.updated_at,
+        })
+        return payload
 
 
 class MatchRunner:
@@ -179,10 +199,189 @@ class MatchRunner:
         self._agent_loop_task: asyncio.Task | None = None
         self._frame_capture: FFmpegCapture | None = None
         self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
+        self._manual_overrides: dict[int, ManualOverrideState] = {
+            1: ManualOverrideState(),
+            2: ManualOverrideState(),
+        }
+        self._bridge_lock = asyncio.Lock()
+        self._round_context_reset_requested = False
 
     @property
     def rounds_to_win(self) -> int:
         return (self.best_of // 2) + 1
+
+    def manual_control_payload(self) -> dict[str, Any]:
+        return {
+            "p1": self._manual_overrides[1].to_payload(),
+            "p2": self._manual_overrides[2].to_payload(),
+        }
+
+    def _ctrl_path_for_player(self, player: int) -> str | None:
+        if player == 1:
+            return self._ctrl_p1_path
+        if player == 2:
+            return self._ctrl_p2_path
+        raise ValueError("player must be 1 or 2")
+
+    async def _write_player_state(self, player: int, controller_state: ControllerState) -> None:
+        ctrl_path = self._ctrl_path_for_player(player)
+        if not ctrl_path:
+            return
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, write_ctrl, controller_state.clipped(), ctrl_path)
+
+    async def set_manual_mode(self, player: int, enabled: bool) -> dict[str, Any]:
+        override = self._manual_overrides[player]
+        override.enabled = bool(enabled)
+        override.updated_at = time.time()
+        if not override.enabled:
+            override.controller_state = ControllerState()
+        await self._write_player_state(
+            player,
+            override.controller_state if override.enabled else ControllerState(),
+        )
+        self._ram_debug.record_event(
+            "manual_mode_updated",
+            player=player,
+            enabled=override.enabled,
+        )
+        return self.manual_control_payload()
+
+    async def set_manual_controller_state(
+        self,
+        player: int,
+        controller_state: ControllerState,
+        *,
+        enable: bool = True,
+    ) -> dict[str, Any]:
+        override = self._manual_overrides[player]
+        override.enabled = bool(enable)
+        override.controller_state = controller_state.clipped()
+        override.updated_at = time.time()
+        await self._write_player_state(player, override.controller_state)
+        self._ram_debug.record_event(
+            "manual_controller_updated",
+            player=player,
+            enabled=override.enabled,
+            controller_state=override.to_payload(),
+        )
+        return self.manual_control_payload()
+
+    async def release_manual_controls(
+        self,
+        player: int | None = None,
+        *,
+        disable: bool = False,
+    ) -> dict[str, Any]:
+        players = (player,) if player in (1, 2) else (1, 2)
+        for current in players:
+            override = self._manual_overrides[current]
+            override.controller_state = ControllerState()
+            if disable:
+                override.enabled = False
+            override.updated_at = time.time()
+            await self._write_player_state(current, ControllerState())
+        self._ram_debug.record_event(
+            "manual_controls_released",
+            player=player,
+            disable=disable,
+        )
+        return self.manual_control_payload()
+
+    async def debug_load_savestate(self, savestate_path: str | None = None) -> dict[str, Any]:
+        if not self._bridge:
+            raise RuntimeError("Bridge not connected")
+        if savestate_path:
+            self.savestate_path = savestate_path
+        async with self._bridge_lock:
+            await self._load_savestate()
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._bridge.debugger_command, "run")
+        self._round_context_reset_requested = True
+        self._ram_debug.record_event(
+            "manual_savestate_reload",
+            savestate_path=self.savestate_path,
+        )
+        return {
+            "ok": True,
+            "savestate_path": self.savestate_path,
+            "manual_control": self.manual_control_payload(),
+        }
+
+    def _control_source_label(self, player: int, macro_action: Any) -> str:
+        if self._manual_overrides[player].enabled:
+            return "MANUAL"
+        return str(macro_action)
+
+    def _build_snapshot_debug(
+        self,
+        state: FightState,
+        *,
+        sample_flags: list[str],
+        raw_round_done: bool,
+        raw_round_over_reason: str | None,
+        round_done: bool,
+        round_over_reason: str | None,
+        ko_streaks: dict[str, int],
+    ) -> dict[str, Any]:
+        debug_info = state.debug_info or {}
+        direct_probe = debug_info.get("direct_probe")
+        contract_payload = debug_info.get("contract_payload")
+
+        def _compact_probe_field(name: str) -> dict[str, Any] | None:
+            if not isinstance(direct_probe, dict):
+                return None
+            field = direct_probe.get(name)
+            if not isinstance(field, dict):
+                return None
+            return {
+                "value": field.get("value"),
+                "error": field.get("error"),
+            }
+
+        compact_contract: dict[str, Any] | None = None
+        if isinstance(contract_payload, dict):
+            compact_contract = {
+                "frame_id": contract_payload.get("frame_id"),
+                "p1_health": contract_payload.get("p1_health"),
+                "p2_health": contract_payload.get("p2_health"),
+                "timer": contract_payload.get("timer"),
+                "timer_raw": contract_payload.get("timer_raw"),
+                "p1_health_word": contract_payload.get("p1_health_word"),
+                "p2_health_word": contract_payload.get("p2_health_word"),
+                "p1_x": contract_payload.get("p1_x"),
+                "p2_x": contract_payload.get("p2_x"),
+            }
+
+        return {
+            "state_source": debug_info.get("state_source"),
+            "selected_frame_id": debug_info.get("selected_frame_id"),
+            "timer_decode_source": debug_info.get("timer_decode_source"),
+            "contract_core_trusted": debug_info.get("contract_core_trusted"),
+            "logic_trusted": not sample_flags,
+            "sample_flags": list(sample_flags),
+            "source_map": dict(debug_info.get("source_map", {})) if isinstance(debug_info.get("source_map"), dict) else {},
+            "p1_health_word_used": debug_info.get("p1_health_word_used"),
+            "p2_health_word_used": debug_info.get("p2_health_word_used"),
+            "raw_round_done": raw_round_done,
+            "raw_round_over_reason": raw_round_over_reason,
+            "round_done": round_done,
+            "round_over_reason": round_over_reason,
+            "ko_streaks": dict(ko_streaks),
+            "ram_debug_log_path": str(self._ram_debug.file_path),
+            "manual_control": self.manual_control_payload(),
+            "direct_probe": {
+                "p1_health_word": _compact_probe_field("p1_health_word"),
+                "p2_health_word": _compact_probe_field("p2_health_word"),
+                "p1_health_hud": _compact_probe_field("p1_health_hud"),
+                "p2_health_hud": _compact_probe_field("p2_health_hud"),
+                "timer_raw": _compact_probe_field("timer_raw"),
+                "timer_word_u32": _compact_probe_field("timer_word_u32"),
+                "p1_x_word": _compact_probe_field("p1_x_word"),
+                "p2_x_word": _compact_probe_field("p2_x_word"),
+            },
+            "contract_payload": compact_contract,
+        }
 
     async def start(self) -> None:
         """Launch emulator, connect bridge, load savestate, start loops."""
@@ -432,11 +631,7 @@ class MatchRunner:
         await asyncio.sleep(0.3)
 
         # Load via bridge LOAD_SAVESTATE protocol (checks for M64P_STATELOAD_OK)
-        result = await loop.run_in_executor(
-            None,
-            self._bridge.load_savestate,
-            self.savestate_path,
-        )
+        result = await loop.run_in_executor(None, self._bridge.load_savestate, self.savestate_path)
         logger.info("Savestate loaded: %s → %s", self.savestate_path, result)
         self._ram_debug.record_event(
             "savestate_loaded",
@@ -606,24 +801,36 @@ class MatchRunner:
         while self.state == RunnerState.RUNNING:
             step_start = time.monotonic()
             try:
+                if self._round_context_reset_requested:
+                    previous_state = None
+                    ko_streaks = {"p1_ko": 0, "p2_ko": 0, "double_ko": 0}
+                    step_count = 0
+                    self._round_context_reset_requested = False
 
-                loop = asyncio.get_running_loop()
 
                 # 1. Read game state from RAM (free-running — parse fix handles correct values)
-                state: FightState = await loop.run_in_executor(
-                    None, read_fight_state, self._bridge, step_count, previous_state
-                )
+                async with self._bridge_lock:
+                    loop = asyncio.get_running_loop()
+                    state = await loop.run_in_executor(
+                        None, read_fight_state, self._bridge, step_count, previous_state
+                    )
                 previous_state = state
 
-                # 3. Agent decisions
-                p1_action = self.p1_agent.choose_action(state, player=1)
-                p2_action = self.p2_agent.choose_action(state, player=2)
+                # 3. Agent decisions, unless a player is under manual control.
+                p1_action = None if self._manual_overrides[1].enabled else self.p1_agent.choose_action(state, player=1)
+                p2_action = None if self._manual_overrides[2].enabled else self.p2_agent.choose_action(state, player=2)
 
                 # 3. Write controller states to mmap
-                p1_resolved = resolve_action(p1_action)
-                p2_resolved = resolve_action(p2_action)
-                write_ctrl(p1_resolved.micro_controller_state, ctrl_p1)
-                write_ctrl(p2_resolved.micro_controller_state, ctrl_p2)
+                if self._manual_overrides[1].enabled:
+                    p1_controller = self._manual_overrides[1].controller_state.clipped()
+                else:
+                    p1_controller = resolve_action(p1_action).micro_controller_state
+                if self._manual_overrides[2].enabled:
+                    p2_controller = self._manual_overrides[2].controller_state.clipped()
+                else:
+                    p2_controller = resolve_action(p2_action).micro_controller_state
+                write_ctrl(p1_controller, ctrl_p1)
+                write_ctrl(p2_controller, ctrl_p2)
 
                 step_count += 1
 
@@ -632,7 +839,8 @@ class MatchRunner:
                     logger.info(
                         "R%d Brain step %d: P1=%s P2=%s | HP %d-%d T=%d",
                         self.current_round, step_count,
-                        p1_resolved.macro_action, p2_resolved.macro_action,
+                        self._control_source_label(1, getattr(p1_action, "macro_action", None)),
+                        self._control_source_label(2, getattr(p2_action, "macro_action", None)),
                         state.p1_health, state.p2_health, state.timer,
                     )
 
@@ -674,6 +882,15 @@ class MatchRunner:
                     p2_hitstun=state.p2_hitstun,
                     p1_airborne=state.p1_airborne,
                     p2_airborne=state.p2_airborne,
+                    debug=self._build_snapshot_debug(
+                        state,
+                        sample_flags=sample_flags,
+                        raw_round_done=raw_round_done,
+                        raw_round_over_reason=raw_round_over_reason,
+                        round_done=round_done,
+                        round_over_reason=round_over_reason,
+                        ko_streaks=ko_streaks,
+                    ),
                 )
                 self._ram_debug.record(
                     {
@@ -694,8 +911,8 @@ class MatchRunner:
                             "p1_y_vel": state.p1_y_vel,
                         },
                         "actions": {
-                            "p1": str(p1_resolved.macro_action),
-                            "p2": str(p2_resolved.macro_action),
+                            "p1": self._control_source_label(1, getattr(p1_action, "macro_action", None)),
+                            "p2": self._control_source_label(2, getattr(p2_action, "macro_action", None)),
                         },
                         "round_done": round_done,
                         "winner_p1": winner_p1,

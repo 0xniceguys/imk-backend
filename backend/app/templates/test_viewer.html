@@ -29,6 +29,23 @@
     "></canvas>
   </div>
 
+  <div id="ram-overlay" style="
+    position:absolute;left:8px;bottom:8px;z-index:3;
+    min-width:260px;max-width:360px;
+    background:rgba(0,0,0,0.78);border:1px solid rgba(255,255,255,0.12);
+    border-radius:6px;padding:8px 10px;
+    font-family:monospace;font-size:0.75rem;line-height:1.4;color:#e5e7eb;
+  ">
+    <div style="display:flex;justify-content:space-between;gap:1rem;">
+      <span>src <strong id="dbg-source">—</strong></span>
+      <span>trusted <strong id="dbg-trusted">—</strong></span>
+    </div>
+    <div>P1W <span id="dbg-p1-word">—</span> | P2W <span id="dbg-p2-word">—</span></div>
+    <div>HUD P1 <span id="dbg-p1-hud">—</span> | HUD P2 <span id="dbg-p2-hud">—</span></div>
+    <div>T raw <span id="dbg-timer-raw">—</span> | T word <span id="dbg-timer-word">—</span></div>
+    <div>Flags <span id="dbg-flags">—</span></div>
+  </div>
+
   <!-- No match overlay -->
   <div id="no-match-overlay" style="
     position:absolute;top:0;left:0;right:0;bottom:0;
@@ -77,6 +94,73 @@
   </div>
 </div>
 
+<div class="card mt-1">
+  <div class="card-header">
+    <h2>Debug Controls</h2>
+    <div class="text-dim text-sm" id="debug-match-status">Select an upcoming or live match</div>
+  </div>
+
+  <div class="grid grid-3" style="gap:1rem;align-items:end;">
+    <div>
+      <label for="savestate-select" class="text-dim text-sm">Savestate</label>
+      <select id="savestate-select">
+        {% for savestate in savestates %}
+        <option value="{{ savestate.path }}">{{ savestate.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex gap-1" style="flex-wrap:wrap;">
+      <button id="start-match-btn" class="btn btn-sm">Start Selected</button>
+      <button id="stop-match-btn" class="btn btn-sm">Stop Match</button>
+      <button id="load-savestate-btn" class="btn btn-sm">Load Savestate</button>
+    </div>
+    <div class="text-dim text-sm" id="debug-control-hint">
+      Manual override holds controller input until you release it.
+    </div>
+  </div>
+
+  <div class="grid grid-2 mt-1" style="gap:1rem;">
+    {% for player in [1, 2] %}
+    <div style="border:1px solid var(--border);border-radius:8px;padding:0.9rem;background:var(--surface2);">
+      <div class="flex justify-between items-center">
+        <h3 style="margin:0;">P{{ player }} Controller</h3>
+        <label class="text-sm" style="display:flex;align-items:center;gap:0.45rem;">
+          <input type="checkbox" id="manual-p{{ player }}-enabled">
+          Manual Override
+        </label>
+      </div>
+      <div class="text-dim text-sm mt-1">
+        Pressed: <span id="manual-p{{ player }}-pressed">none</span>
+      </div>
+      <div class="grid mt-1" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:0.45rem;">
+        {% for button in ["D_UP", "D_DOWN", "D_LEFT", "D_RIGHT", "A", "B", "START", "Z", "L", "R", "C_UP", "C_DOWN", "C_LEFT", "C_RIGHT"] %}
+        <button
+          class="btn btn-sm ctrl-btn"
+          data-player="{{ player }}"
+          data-button="{{ button }}"
+          type="button"
+        >{{ button }}</button>
+        {% endfor %}
+      </div>
+      <div class="grid mt-1" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:0.75rem;">
+        <label class="text-sm">
+          Stick X
+          <input type="range" min="-100" max="100" value="0" id="manual-p{{ player }}-analog-x">
+        </label>
+        <label class="text-sm">
+          Stick Y
+          <input type="range" min="-100" max="100" value="0" id="manual-p{{ player }}-analog-y">
+        </label>
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button id="manual-p{{ player }}-stick-reset" class="btn btn-sm" type="button">Reset Stick</button>
+        <button id="manual-p{{ player }}-release" class="btn btn-sm" type="button">Release All</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
 <!-- Event log -->
 <div class="card mt-1">
   <div class="card-header">
@@ -96,17 +180,37 @@
     <tr><th>Messages</th><td><span id="msg-count-json">0</span> JSON / <span id="msg-count-binary">0</span> binary</td></tr>
   </table>
 </div>
+
+<div class="card mt-1">
+  <div class="card-header"><h2>RAM Debug</h2></div>
+  <table>
+    <tr><th style="width:180px;">Source</th><td id="dbg-source-map">—</td></tr>
+    <tr><th>Used Words</th><td id="dbg-used-words">—</td></tr>
+    <tr><th>Round Logic</th><td id="dbg-round-state">—</td></tr>
+    <tr><th>Log Path</th><td id="dbg-log-path" class="text-sm" style="font-family:monospace;">—</td></tr>
+  </table>
+  <pre id="dbg-json" style="margin-top:0.75rem;max-height:260px;overflow:auto;background:var(--surface2);padding:0.75rem;border-radius:6px;font-size:0.75rem;color:var(--text-dim);">—</pre>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function() {
+  const SAVESTATES = {{ savestates | tojson }};
+  const HEALTH_MAX = 160;
+
   // ── Elements ──
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
   const overlay = document.getElementById('no-match-overlay');
   const selector = document.getElementById('match-selector');
   const statusDot = document.getElementById('status-dot');
+  const savestateSelect = document.getElementById('savestate-select');
+  const startMatchBtn = document.getElementById('start-match-btn');
+  const stopMatchBtn = document.getElementById('stop-match-btn');
+  const loadSavestateBtn = document.getElementById('load-savestate-btn');
+  const debugMatchStatus = document.getElementById('debug-match-status');
+  const debugControlHint = document.getElementById('debug-control-hint');
 
   // HUD elements
   const p1HpBar = document.getElementById('p1-hp-bar');
@@ -122,6 +226,40 @@
   const latencyEl = document.getElementById('latency');
   const statusBadge = document.getElementById('match-status-badge');
   const eventLog = document.getElementById('event-log');
+  const dbgSource = document.getElementById('dbg-source');
+  const dbgTrusted = document.getElementById('dbg-trusted');
+  const dbgP1Word = document.getElementById('dbg-p1-word');
+  const dbgP2Word = document.getElementById('dbg-p2-word');
+  const dbgP1Hud = document.getElementById('dbg-p1-hud');
+  const dbgP2Hud = document.getElementById('dbg-p2-hud');
+  const dbgTimerRaw = document.getElementById('dbg-timer-raw');
+  const dbgTimerWord = document.getElementById('dbg-timer-word');
+  const dbgFlags = document.getElementById('dbg-flags');
+  const dbgSourceMap = document.getElementById('dbg-source-map');
+  const dbgUsedWords = document.getElementById('dbg-used-words');
+  const dbgRoundState = document.getElementById('dbg-round-state');
+  const dbgLogPath = document.getElementById('dbg-log-path');
+  const dbgJson = document.getElementById('dbg-json');
+  const manualUi = {
+    1: {
+      enabled: document.getElementById('manual-p1-enabled'),
+      pressed: document.getElementById('manual-p1-pressed'),
+      analogX: document.getElementById('manual-p1-analog-x'),
+      analogY: document.getElementById('manual-p1-analog-y'),
+      stickReset: document.getElementById('manual-p1-stick-reset'),
+      release: document.getElementById('manual-p1-release'),
+      buttons: Array.from(document.querySelectorAll('.ctrl-btn[data-player="1"]')),
+    },
+    2: {
+      enabled: document.getElementById('manual-p2-enabled'),
+      pressed: document.getElementById('manual-p2-pressed'),
+      analogX: document.getElementById('manual-p2-analog-x'),
+      analogY: document.getElementById('manual-p2-analog-y'),
+      stickReset: document.getElementById('manual-p2-stick-reset'),
+      release: document.getElementById('manual-p2-release'),
+      buttons: Array.from(document.querySelectorAll('.ctrl-btn[data-player="2"]')),
+    },
+  };
 
   // Connection info
   const connTransport = document.getElementById('conn-transport');
@@ -139,23 +277,211 @@
   let pollingInterval = null;
   let reconnectTimeout = null;
   let reconnectDelay = 1000;
-  const HEALTH_MAX = 160;
+  let lastDebugSignature = '';
+  let pendingMatchId = '{{ match_id | default("", true) }}';
+  const matchCatalog = new Map();
+  const manualControllers = {
+    1: { enabled: false, pressed: new Set(), analogX: 0, analogY: 0 },
+    2: { enabled: false, pressed: new Set(), analogX: 0, analogY: 0 },
+  };
+
+  function selectedMatchId() {
+    return selector.value || '';
+  }
+
+  function selectedMatchMeta() {
+    return matchCatalog.get(selectedMatchId()) || null;
+  }
+
+  function canDriveMatch(meta = selectedMatchMeta()) {
+    return Boolean(meta && meta.is_live);
+  }
+
+  function setControllerButtonActive(button, active) {
+    button.style.background = active ? 'var(--accent)' : '';
+    button.style.borderColor = active ? 'var(--accent)' : '';
+    button.style.color = active ? '#fff' : '';
+  }
+
+  function renderManualPlayer(player) {
+    const state = manualControllers[player];
+    const ui = manualUi[player];
+    const live = canDriveMatch();
+    const enabled = live && state.enabled;
+    ui.enabled.checked = state.enabled;
+    ui.analogX.value = String(Math.round(state.analogX * 100));
+    ui.analogY.value = String(Math.round(state.analogY * 100));
+    ui.pressed.textContent = state.pressed.size ? Array.from(state.pressed).join(', ') : 'none';
+    ui.enabled.disabled = !live;
+    ui.analogX.disabled = !enabled;
+    ui.analogY.disabled = !enabled;
+    ui.stickReset.disabled = !enabled;
+    ui.release.disabled = !live;
+    ui.buttons.forEach((button) => {
+      const active = state.pressed.has(button.dataset.button);
+      button.disabled = !enabled;
+      setControllerButtonActive(button, active);
+    });
+  }
+
+  function renderManualControls() {
+    renderManualPlayer(1);
+    renderManualPlayer(2);
+  }
+
+  function updateSelectedMatchMeta() {
+    const meta = selectedMatchMeta();
+    if (meta) {
+      p1Name.textContent = meta.fighter1?.name || 'P1';
+      p2Name.textContent = meta.fighter2?.name || 'P2';
+      debugMatchStatus.textContent = `${meta.fighter1?.name || 'P1'} vs ${meta.fighter2?.name || 'P2'} [${meta.is_live ? 'live' : meta.status}]`;
+      if (meta.savestate_path) {
+        savestateSelect.value = meta.savestate_path;
+      }
+    } else {
+      p1Name.textContent = 'P1';
+      p2Name.textContent = 'P2';
+      debugMatchStatus.textContent = 'Select an upcoming or live match';
+    }
+    const live = canDriveMatch(meta);
+    startMatchBtn.disabled = !meta || meta.is_live;
+    stopMatchBtn.disabled = !live;
+    loadSavestateBtn.disabled = !live;
+    debugControlHint.textContent = live
+      ? 'Manual override holds controller input until you release it.'
+      : 'Select an upcoming match to start it, or a live match to control it.';
+    renderManualControls();
+  }
+
+  async function postViewerControl(path, payload = {}) {
+    const resp = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const contentType = resp.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await resp.json() : await resp.text();
+    if (!resp.ok) {
+      const detail = typeof data === 'string' ? data : (data.detail || JSON.stringify(data));
+      throw new Error(detail);
+    }
+    return data;
+  }
+
+  function syncManualControlFromPayload(payload) {
+    if (!payload) {
+      return;
+    }
+    [1, 2].forEach((player) => {
+      const key = player === 1 ? 'p1' : 'p2';
+      const control = payload[key];
+      if (!control) {
+        return;
+      }
+      manualControllers[player].enabled = Boolean(control.enabled);
+      manualControllers[player].pressed = new Set(control.pressed || []);
+      manualControllers[player].analogX = Number(control.analog_x || 0);
+      manualControllers[player].analogY = Number(control.analog_y || 0);
+    });
+    renderManualControls();
+  }
+
+  async function sendManualState(player) {
+    const matchId = selectedMatchId();
+    if (!matchId || !canDriveMatch()) {
+      return;
+    }
+    const state = manualControllers[player];
+    const response = await postViewerControl(`/admin/viewer/control/${matchId}/controller`, {
+      player,
+      enabled: state.enabled,
+      analog_x: state.analogX,
+      analog_y: state.analogY,
+      pressed: Array.from(state.pressed),
+    });
+    syncManualControlFromPayload(response.manual_control);
+  }
+
+  async function setManualMode(player, enabled) {
+    const matchId = selectedMatchId();
+    if (!matchId || !canDriveMatch()) {
+      manualControllers[player].enabled = false;
+      renderManualControls();
+      return;
+    }
+    manualControllers[player].enabled = enabled;
+    if (!enabled) {
+      manualControllers[player].pressed.clear();
+      manualControllers[player].analogX = 0;
+      manualControllers[player].analogY = 0;
+    }
+    renderManualControls();
+    const response = await postViewerControl(`/admin/viewer/control/${matchId}/manual-mode`, {
+      player,
+      enabled,
+    });
+    syncManualControlFromPayload(response.manual_control);
+    if (!enabled) {
+      logEvent('info', `P${player} manual override disabled`);
+    } else {
+      logEvent('info', `P${player} manual override enabled`);
+    }
+  }
+
+  async function releaseManual(player, disable = false) {
+    const matchId = selectedMatchId();
+    if (!matchId || !canDriveMatch()) {
+      return;
+    }
+    const response = await postViewerControl(`/admin/viewer/control/${matchId}/release`, {
+      player,
+      disable,
+    });
+    syncManualControlFromPayload(response.manual_control);
+  }
+
+  async function waitForRunner(matchId) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await refreshMatches({ preserveSelection: true, autoConnect: false });
+      const meta = matchCatalog.get(matchId);
+      if (meta && meta.is_live) {
+        selector.value = matchId;
+        applyMatchSelection();
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    return false;
+  }
+
+  function applyMatchSelection() {
+    const matchId = selectedMatchId();
+    const meta = selectedMatchMeta();
+    updateSelectedMatchMeta();
+    if (meta && meta.is_live) {
+      overlay.style.display = 'none';
+      if (currentMatchId !== matchId || !ws || ws.readyState !== WebSocket.OPEN) {
+        connectToMatch(matchId);
+      }
+    } else {
+      if (currentMatchId) {
+        disconnect();
+      } else {
+        overlay.style.display = 'flex';
+      }
+    }
+  }
 
   // ── Match selector ──
-  window.refreshMatches = async function() {
+  window.refreshMatches = async function({ preserveSelection = true, autoConnect = true } = {}) {
     try {
-      const resp = await fetch('/api/stream/live');
+      const resp = await fetch('/api/matches/?status=live,upcoming');
       const matches = await resp.json();
+      const previousSelection = preserveSelection ? selectedMatchId() : '';
 
-      // Also fetch upcoming/live matches from DB for display names
-      const dbResp = await fetch('/api/matches/?status=live,upcoming');
-      const dbMatches = await dbResp.json();
-      const dbMap = {};
-      dbMatches.forEach(m => { dbMap[m.id] = m; });
-
-      // Keep current selection
-      const prev = selector.value;
+      matchCatalog.clear();
       selector.innerHTML = '<option value="">Select match...</option>';
+      let firstLiveMatchId = '';
 
       if (matches.length === 0) {
         const opt = document.createElement('option');
@@ -166,37 +492,195 @@
       }
 
       matches.forEach(m => {
+        const isLive = m.status === 'live' && Boolean(m.stream_url);
+        m.is_live = isLive;
+        matchCatalog.set(m.id, m);
         const opt = document.createElement('option');
-        opt.value = m.match_id;
-        const db = dbMap[m.match_id];
-        if (db) {
-          opt.textContent = `${db.fighter1.name} vs ${db.fighter2.name} [${m.state}]`;
-        } else {
-          opt.textContent = `${m.match_id.slice(0,8)}... [${m.state}]`;
+        opt.value = m.id;
+        opt.dataset.status = m.status;
+        opt.dataset.live = isLive ? '1' : '0';
+        opt.textContent = `${m.fighter1.name} vs ${m.fighter2.name} [${isLive ? 'live' : m.status}]`;
+        if (!firstLiveMatchId && isLive) {
+          firstLiveMatchId = m.id;
         }
         selector.appendChild(opt);
       });
 
-      // Restore selection
-      if (prev) selector.value = prev;
+      if (previousSelection && matchCatalog.has(previousSelection)) {
+        selector.value = previousSelection;
+      } else if (pendingMatchId && matchCatalog.has(pendingMatchId)) {
+        selector.value = pendingMatchId;
+        pendingMatchId = '';
+      } else if (firstLiveMatchId) {
+        selector.value = firstLiveMatchId;
+      } else if (matches[0]) {
+        selector.value = matches[0].id;
+      }
 
-      // Auto-select first if none selected
-      if (!selector.value && matches.length > 0) {
-        selector.value = matches[0].match_id;
-        selector.dispatchEvent(new Event('change'));
+      if (autoConnect) {
+        applyMatchSelection();
+      } else {
+        updateSelectedMatchMeta();
       }
     } catch (e) {
       logEvent('error', `Failed to refresh matches: ${e.message}`);
     }
   };
 
-  selector.addEventListener('change', () => {
-    const matchId = selector.value;
-    if (matchId) {
-      connectToMatch(matchId);
-    } else {
-      disconnect();
+  selector.addEventListener('change', applyMatchSelection);
+  startMatchBtn.addEventListener('click', async () => {
+    const matchId = selectedMatchId();
+    if (!matchId) {
+      return;
     }
+    startMatchBtn.disabled = true;
+    try {
+      logEvent('info', `Starting match ${matchId}`);
+      await postViewerControl(`/admin/viewer/control/${matchId}/start`);
+      const live = await waitForRunner(matchId);
+      if (!live) {
+        throw new Error('runner did not become live in time');
+      }
+      logEvent('event', 'Match runner started');
+    } catch (e) {
+      logEvent('error', `Start failed: ${e.message}`);
+    } finally {
+      await refreshMatches({ preserveSelection: true, autoConnect: true });
+    }
+  });
+  stopMatchBtn.addEventListener('click', async () => {
+    const matchId = selectedMatchId();
+    if (!matchId) {
+      return;
+    }
+    stopMatchBtn.disabled = true;
+    try {
+      await postViewerControl(`/admin/viewer/control/${matchId}/stop`);
+      logEvent('event', 'Match runner stopped');
+      if (currentMatchId === matchId) {
+        disconnect();
+      }
+    } catch (e) {
+      logEvent('error', `Stop failed: ${e.message}`);
+    } finally {
+      await refreshMatches({ preserveSelection: true, autoConnect: true });
+    }
+  });
+  loadSavestateBtn.addEventListener('click', async () => {
+    const matchId = selectedMatchId();
+    if (!matchId || !canDriveMatch()) {
+      return;
+    }
+    try {
+      const result = await postViewerControl(`/admin/viewer/control/${matchId}/load-savestate`, {
+        savestate_path: savestateSelect.value,
+      });
+      syncManualControlFromPayload(result.manual_control);
+      logEvent('event', `Savestate loaded: ${result.savestate_path}`);
+    } catch (e) {
+      logEvent('error', `Savestate load failed: ${e.message}`);
+    }
+  });
+
+  [1, 2].forEach((player) => {
+    const ui = manualUi[player];
+    ui.enabled.addEventListener('change', async () => {
+      try {
+        await setManualMode(player, ui.enabled.checked);
+      } catch (e) {
+        manualControllers[player].enabled = !ui.enabled.checked;
+        renderManualControls();
+        logEvent('error', `P${player} manual toggle failed: ${e.message}`);
+      }
+    });
+    ui.release.addEventListener('click', async () => {
+      try {
+        await releaseManual(player, false);
+        logEvent('info', `P${player} controls released`);
+      } catch (e) {
+        logEvent('error', `P${player} release failed: ${e.message}`);
+      }
+    });
+    ui.stickReset.addEventListener('click', async () => {
+      manualControllers[player].analogX = 0;
+      manualControllers[player].analogY = 0;
+      renderManualPlayer(player);
+      try {
+        await sendManualState(player);
+      } catch (e) {
+        logEvent('error', `P${player} stick reset failed: ${e.message}`);
+      }
+    });
+    ui.analogX.addEventListener('input', () => {
+      manualControllers[player].analogX = Number(ui.analogX.value) / 100;
+      renderManualPlayer(player);
+    });
+    ui.analogY.addEventListener('input', () => {
+      manualControllers[player].analogY = Number(ui.analogY.value) / 100;
+      renderManualPlayer(player);
+    });
+    ui.analogX.addEventListener('change', async () => {
+      try {
+        await sendManualState(player);
+      } catch (e) {
+        logEvent('error', `P${player} analog update failed: ${e.message}`);
+      }
+    });
+    ui.analogY.addEventListener('change', async () => {
+      try {
+        await sendManualState(player);
+      } catch (e) {
+        logEvent('error', `P${player} analog update failed: ${e.message}`);
+      }
+    });
+    ui.buttons.forEach((button) => {
+      const buttonName = button.dataset.button;
+      const press = async (event) => {
+        event.preventDefault();
+        if (!manualControllers[player].enabled || !canDriveMatch()) {
+          return;
+        }
+        if (manualControllers[player].pressed.has(buttonName)) {
+          return;
+        }
+        manualControllers[player].pressed.add(buttonName);
+        renderManualPlayer(player);
+        try {
+          await sendManualState(player);
+        } catch (e) {
+          logEvent('error', `P${player} ${buttonName} press failed: ${e.message}`);
+        }
+      };
+      const release = async (event) => {
+        event.preventDefault();
+        if (!manualControllers[player].pressed.has(buttonName)) {
+          return;
+        }
+        manualControllers[player].pressed.delete(buttonName);
+        renderManualPlayer(player);
+        try {
+          await sendManualState(player);
+        } catch (e) {
+          logEvent('error', `P${player} ${buttonName} release failed: ${e.message}`);
+        }
+      };
+      button.addEventListener('pointerdown', press);
+      button.addEventListener('pointerup', release);
+      button.addEventListener('pointerleave', release);
+      button.addEventListener('pointercancel', release);
+    });
+  });
+  window.addEventListener('blur', () => {
+    if (!canDriveMatch()) {
+      return;
+    }
+    [1, 2].forEach((player) => {
+      manualControllers[player].pressed.clear();
+      manualControllers[player].analogX = 0;
+      manualControllers[player].analogY = 0;
+    });
+    renderManualControls();
+    Promise.all([releaseManual(1, false), releaseManual(2, false)]).catch(() => {});
   });
 
   // ── WebSocket connection ──
@@ -282,6 +766,8 @@
     statusDot.style.background = 'var(--red)';
     overlay.style.display = 'flex';
     statusBadge.style.display = 'none';
+    updateDebugPanel({});
+    updateSelectedMatchMeta();
   }
 
   // ── Handle binary JPEG frames ──
@@ -401,6 +887,58 @@
       const latency = Date.now() - serverTime;
       latencyEl.textContent = Math.max(0, latency) + 'ms';
     }
+
+    updateDebugPanel(state.debug || {});
+  }
+
+  function formatProbeField(field) {
+    if (!field || (field.value === null || field.value === undefined) && !field.error) {
+      return '—';
+    }
+    if (field.error) {
+      return field.value === null || field.value === undefined ? `ERR (${field.error})` : `${field.value} / ERR`;
+    }
+    return String(field.value);
+  }
+
+  function updateDebugPanel(debug) {
+    const direct = debug.direct_probe || {};
+    const flags = Array.isArray(debug.sample_flags) ? debug.sample_flags : [];
+    const sourceMap = debug.source_map || {};
+
+    dbgSource.textContent = debug.state_source || '—';
+    dbgTrusted.textContent = debug.logic_trusted === true ? 'yes' : (debug.logic_trusted === false ? 'no' : '—');
+    dbgP1Word.textContent = formatProbeField(direct.p1_health_word);
+    dbgP2Word.textContent = formatProbeField(direct.p2_health_word);
+    dbgP1Hud.textContent = formatProbeField(direct.p1_health_hud);
+    dbgP2Hud.textContent = formatProbeField(direct.p2_health_hud);
+    dbgTimerRaw.textContent = formatProbeField(direct.timer_raw);
+    dbgTimerWord.textContent = formatProbeField(direct.timer_word_u32);
+    dbgFlags.textContent = flags.length ? flags.join(', ') : 'none';
+    dbgSourceMap.textContent = Object.keys(sourceMap).length ? JSON.stringify(sourceMap) : '—';
+    dbgUsedWords.textContent = `p1=${debug.p1_health_word_used ?? '—'}  p2=${debug.p2_health_word_used ?? '—'}`;
+    dbgRoundState.textContent =
+      `raw=${debug.raw_round_done ? '1' : '0'} ${debug.raw_round_over_reason || '—'} | ` +
+      `final=${debug.round_done ? '1' : '0'} ${debug.round_over_reason || '—'} | ` +
+      `ko=${JSON.stringify(debug.ko_streaks || {})}`;
+    dbgLogPath.textContent = debug.ram_debug_log_path || '—';
+    dbgJson.textContent = Object.keys(debug).length ? JSON.stringify(debug, null, 2) : '—';
+    syncManualControlFromPayload(debug.manual_control || null);
+
+    const signature = JSON.stringify({
+      source: debug.state_source || null,
+      flags,
+      trusted: debug.logic_trusted,
+      p1: direct.p1_health_word?.value ?? null,
+      p2: direct.p2_health_word?.value ?? null,
+      t: direct.timer_word_u32?.value ?? null,
+    });
+    if (signature !== lastDebugSignature) {
+      lastDebugSignature = signature;
+      if (debug.state_source || flags.length) {
+        logEvent('info', `RAM src=${debug.state_source || '—'} trusted=${debug.logic_trusted === true ? 'yes' : 'no'} flags=${flags.length ? flags.join('|') : 'none'}`);
+      }
+    }
   }
 
   // ── HTTP Polling Fallback ──
@@ -448,14 +986,11 @@
   }
 
   // ── Init ──
-  // Check URL for match_id
-  const urlMatchId = '{{ match_id | default("", true) }}';
-  if (urlMatchId) {
-    connectToMatch(urlMatchId);
+  renderManualControls();
+  if (pendingMatchId) {
+    selector.value = pendingMatchId;
   }
-
-  // Auto-refresh match list
-  refreshMatches();
+  refreshMatches({ preserveSelection: false, autoConnect: true });
   setInterval(refreshMatches, 10000);
 
   // Ping to keep WS alive
