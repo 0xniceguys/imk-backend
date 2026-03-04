@@ -13,8 +13,11 @@ from app.services.bridge import EmulatorBridge, read_u8, read_u32
 
 # ── Confirmed MK4 memory addresses (N64 virtual RDRAM) ──
 
-P1_HEALTH_ADDR = 0x8036E729   # u8, 0=KO, 160=full
-P2_HEALTH_ADDR = 0x8036E72E   # u8, same range
+# Health (u32, 16.16 fixed-point: 65536 = full, 0 = dead)
+# OLD: 0x8036E729/0x8036E72E were display bars (only update at round end)
+# NEW: Internal health values that update per-hit (verified 2026-03-04 from training code)
+P1_HEALTH_ADDR = 0x800FE0D8   # u32, 65536=full, 0=dead (normalize to 0-160)
+P2_HEALTH_ADDR = 0x80126F54   # u32, 65536=full, 0=dead (normalize to 0-160)
 FIGHT_TIMER_ADDR = 0x80105118  # u8, counts down from 99
 P1_X_ADDR = 0x800F87F8         # u32, position in upper halfword (signed i16)
 P2_X_ADDR = 0x8006A060         # u32, position in upper halfword (signed i16)
@@ -87,8 +90,26 @@ class FightState:
 def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
     """Read the current fight state from emulator RAM."""
     try:
-        p1_hp = read_u8(bridge, P1_HEALTH_ADDR)
-        p2_hp = read_u8(bridge, P2_HEALTH_ADDR)
+        # Health: u32 in 16.16 fixed-point format (0x10000 = 65536 = full HP, 0 = dead)
+        # Normalize to 0-160 for display and logic
+        HEALTH_RAW_MAX = 0x10000  # 65536
+        HEALTH_MAX = 160
+
+        p1_hp_raw = read_u32(bridge, P1_HEALTH_ADDR)
+        p2_hp_raw = read_u32(bridge, P2_HEALTH_ADDR)
+
+        # DEBUG: Log raw values every 60 frames (~6 seconds at 10Hz)
+        if frame_id % 60 == 0:
+            import logging
+            logging.info(f"[HP DEBUG] Frame {frame_id}: P1_raw=0x{p1_hp_raw:08X} ({p1_hp_raw}) P2_raw=0x{p2_hp_raw:08X} ({p2_hp_raw})")
+
+        # Clamp to valid range (in case we read garbage data)
+        p1_hp_raw = min(p1_hp_raw, HEALTH_RAW_MAX)
+        p2_hp_raw = min(p2_hp_raw, HEALTH_RAW_MAX)
+
+        p1_hp = int(p1_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX)
+        p2_hp = int(p2_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX)
+
         timer = read_u8(bridge, FIGHT_TIMER_ADDR)
 
         # Positions: upper 16 bits of 32-bit word, interpreted as signed int16
