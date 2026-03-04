@@ -69,14 +69,27 @@ async def update_fighter(
         fighter.name = body.name
     if body.image_url is not None:
         fighter.image_url = body.image_url
+    if body.llm_model is not None:
+        fighter.llm_model = body.llm_model
     if body.agent_architecture is not None:
         fighter.agent_architecture = body.agent_architecture
         fighter.agent_id = None  # Clear custom agent when using builtin
+    if body.description is not None:
+        fighter.description = body.description
+    if body.origin is not None:
+        fighter.origin = body.origin
+    if body.special_move is not None:
+        fighter.special_move = body.special_move
+    if body.fight_style is not None:
+        fighter.fight_style = body.fight_style
+    if body.rank is not None:
+        fighter.rank = body.rank
 
     await db.commit()
     await db.refresh(fighter, attribute_names=["agent"])
 
     return fighter
+
 
 
 @router.delete("/{fighter_id}")

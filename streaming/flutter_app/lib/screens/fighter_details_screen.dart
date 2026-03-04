@@ -21,6 +21,9 @@ class FighterDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fighters = ref.watch(fighterProvider);
+    if (fighters.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final idx = fighterId != null
         ? fighters.indexWhere((f) => f.id == fighterId)
         : 0;
@@ -30,6 +33,9 @@ class FighterDetailsScreen extends ConsumerWidget {
     final nextIdx = safeIdx < fighters.length - 1 ? safeIdx + 1 : 0;
     final top = MediaQuery.of(context).padding.top;
     final bottom = MediaQuery.of(context).padding.bottom;
+
+    // Resolve image URL for relative paths
+    final resolvedUrl = fighter.resolvedImageUrl(kStreamBaseUrl);
 
     return Column(
       children: [
@@ -64,11 +70,12 @@ class FighterDetailsScreen extends ConsumerWidget {
           child: SingleChildScrollView(
             child: Column(
               children: [
+                // Fighter image
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 320),
-                  child: fighter.imageUrl != null && fighter.imageUrl!.isNotEmpty
+                  child: resolvedUrl != null
                       ? Image.network(
-                          fighter.imageUrl!,
+                          resolvedUrl,
                           width: 148,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => Image.asset(
@@ -82,21 +89,97 @@ class FighterDetailsScreen extends ConsumerWidget {
                 Text(fighter.name,
                     style: displayStyle(size: 40, color: Palette.gold)),
                 Text(fighter.llmModel,
-                    style:
-                        bodyStyle(size: 18, color: Palette.secondary)),
+                    style: bodyStyle(size: 18, color: Palette.secondary)),
+                // Tags
+                if (fighter.fightStyle != null || fighter.origin != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (fighter.fightStyle != null)
+                          _Tag(label: fighter.fightStyle!),
+                        if (fighter.fightStyle != null && fighter.origin != null)
+                          const SizedBox(width: 6),
+                        if (fighter.origin != null)
+                          _Tag(label: '📍 ${fighter.origin!}'),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 20),
-                DetailStatsSection(
-                    title: 'Overall Stats', fighter: fighter),
+
+                // ── Section 1: Overall Stats ──
+                _DetailSection(
+                  title: 'Overall Stats',
+                  child: StatsColumnsWidget(fighter: fighter, fontSize: 14, gap: 16),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Section 2: Fight Style ──
+                _DetailSection(
+                  title: 'Fight Style',
+                  child: Column(
+                    children: [
+                      if (fighter.fightStyle != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(fighter.fightStyle!,
+                              style: displayStyle(size: 18, color: Palette.gold)),
+                        ),
+                      Text(
+                        fighter.description ?? 'No description available.',
+                        style: bodyStyle(size: 13, color: Palette.secondary),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Section 3: Special Move ──
+                _DetailSection(
+                  title: 'Special Move',
+                  child: fighter.specialMove != null
+                      ? Column(
+                          children: [
+                            Icon(Icons.flash_on, color: Palette.gold, size: 24),
+                            const SizedBox(height: 6),
+                            Text(
+                              fighter.specialMove!,
+                              style: bodyStyle(size: 14, color: Palette.white),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        )
+                      : Text('No special move defined.',
+                          style: bodyStyle(size: 13, color: Palette.secondary)),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Section 4: Agent Info ──
+                _DetailSection(
+                  title: 'AI Agent',
+                  child: Column(
+                    children: [
+                      _InfoRow(
+                        label: 'Architecture',
+                        value: fighter.agentArchitecture ?? 'Unknown',
+                      ),
+                      if (fighter.rank != null)
+                        _InfoRow(
+                          label: 'Global Rank',
+                          value: '#${fighter.rank}',
+                          valueColor: Palette.gold,
+                        ),
+                      _InfoRow(
+                        label: 'Losses',
+                        value: '${fighter.losses}',
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 32),
-                DetailStatsSection(
-                    title: 'Training Stats', fighter: fighter),
-                const SizedBox(height: 32),
-                DetailStatsSection(
-                    title: 'Skills Tree', fighter: fighter),
-                const SizedBox(height: 32),
-                DetailStatsSection(
-                    title: 'Match History', fighter: fighter),
-                const SizedBox(height: 32),
+
                 // Prev/Next navigation
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -155,6 +238,72 @@ class FighterDetailsScreen extends ConsumerWidget {
         ),
         SizedBox(height: bottom > 0 ? bottom : 12),
       ],
+    );
+  }
+}
+
+/// A section divider block with a title and arbitrary content.
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Container(height: 1, color: Palette.darkGold),
+          const SizedBox(height: 16),
+          Text(title, style: displayStyle(size: 22, color: Palette.statLabel)),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// A tag pill — shared with carousel.
+class _Tag extends StatelessWidget {
+  const _Tag({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: Palette.gold.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(4),
+        color: Palette.gold.withOpacity(0.08),
+      ),
+      child: Text(label, style: bodyStyle(size: 12, color: Palette.gold)),
+    );
+  }
+}
+
+/// A label/value row for the agent info section.
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value, this.valueColor});
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: bodyStyle(size: 13, color: Palette.statLabel)),
+          Text(value,
+              style: bodyStyle(
+                  size: 13, color: valueColor ?? Palette.white)),
+        ],
+      ),
     );
   }
 }
