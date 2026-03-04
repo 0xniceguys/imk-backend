@@ -49,11 +49,27 @@ class ProfileScreen extends ConsumerWidget {
                 Image.asset(Assets.profileAvatar, fit: BoxFit.cover),
           ),
           const SizedBox(height: 12),
-          Text(displayName,
-              style: displayStyle(size: 40, color: Palette.gold)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: displayStyle(size: 30, color: Palette.gold),
+            ),
+          ),
           if (auth.email != null)
-            Text(auth.email!,
-                style: bodyStyle(size: 14, color: Palette.secondary)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Text(
+                auth.email!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: bodyStyle(size: 14, color: Palette.secondary),
+              ),
+            ),
           // Dynamic tier based on betting history
           () {
             final tier = totalBets < 5
@@ -96,10 +112,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Container(height: 1, color: Palette.darkGold),
-          const SizedBox(height: 24),
-          Text('Bet History', style: displayStyle(size: 36)),
-          const SizedBox(height: 14),
+          Text('Bet History', style: displayStyle(size: 24)),
           if (bets.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
