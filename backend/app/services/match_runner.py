@@ -41,6 +41,7 @@ from app.services.game_state import (
     p1_won,
     read_fight_state,
 )
+from app.services.ffmpeg_audio_capture import FFmpegAudioCapture
 from app.services.ram_debug import RamDebugRecorder
 from app.ws.connection_manager import manager as ws_manager
 
@@ -198,6 +199,7 @@ class MatchRunner:
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
         self._frame_capture: FFmpegCapture | None = None
+        self._audio_capture = FFmpegAudioCapture(match_id=self.match_id)
         self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
         self._manual_overrides: dict[int, ManualOverrideState] = {
             1: ManualOverrideState(),
@@ -488,6 +490,7 @@ class MatchRunner:
             logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
 
         await self._frame_capture.start(self._on_ffmpeg_frame)
+        await self._audio_capture.start()
         fps = 30 if is_linux() else 60
         logger.info("FFmpeg capture started at %dfps", fps)
 
@@ -501,10 +504,11 @@ class MatchRunner:
         logger.info("Stopping match runner %s", self.match_id)
         self.state = RunnerState.STOPPED
 
-        # Stop FFmpeg capture
+        # Stop FFmpeg capture (video + audio)
         if self._frame_capture:
             await self._frame_capture.stop()
             self._frame_capture = None
+        await self._audio_capture.stop()
 
         # Cancel background task
         if self._agent_loop_task and not self._agent_loop_task.done():
@@ -1017,6 +1021,7 @@ class MatchRunner:
         if self._frame_capture:
             await self._frame_capture.stop()
             self._frame_capture = None
+        await self._audio_capture.stop()
         if self._bridge:
             try:
                 self._bridge.close()
