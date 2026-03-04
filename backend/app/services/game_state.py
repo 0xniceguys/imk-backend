@@ -219,12 +219,13 @@ def _state_from_contract(contract: dict, frame_id: int) -> FightState:
 def _state_from_direct_reads(probe: dict[str, object], frame_id: int) -> FightState:
     p1_health_word = _require_probe_value(probe, "p1_health_word")
     p2_health_word = _require_probe_value(probe, "p2_health_word")
-    timer = _require_probe_value(probe, "timer_raw")
+    timer_word = _require_probe_value(probe, "timer_word_u32")
     p1_x_word = _require_probe_value(probe, "p1_x_word")
     p2_x_word = _require_probe_value(probe, "p2_x_word")
 
     p1_health = _decode_health_word(p1_health_word)
     p2_health = _decode_health_word(p2_health_word)
+    timer = timer_word & 0xFF
     p1_x = _decode_s16hi(p1_x_word)
     p2_x = _decode_s16hi(p2_x_word)
 
@@ -253,6 +254,7 @@ def _state_from_direct_reads(probe: dict[str, object], frame_id: int) -> FightSt
         debug_info={
             "state_source": "direct",
             "selected_frame_id": frame_id,
+            "timer_decode_source": "timer_word_lsb",
             "direct_probe": _serialize_direct_probe(probe),
         },
     )
@@ -262,20 +264,32 @@ def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
     """Read the current fight state from the bridge."""
     contract_state: dict[str, object] | None = None
     direct_probe: dict[str, object] | None = None
+    direct_error: str | None = None
     try:
         direct_probe = _read_direct_probe(bridge)
         contract_state = _read_contract_state(bridge)
+        if direct_probe is not None:
+            try:
+                state = _state_from_direct_reads(direct_probe, frame_id)
+                if contract_state is not None:
+                    state.debug_info["contract_payload"] = dict(contract_state)
+                return state
+            except Exception as exc:
+                direct_error = f"{type(exc).__name__}: {exc}"
         if contract_state is not None:
             state = _state_from_contract(contract_state, frame_id)
             state.debug_info["direct_probe"] = _serialize_direct_probe(direct_probe)
+            if direct_error:
+                state.debug_info["direct_error"] = direct_error
             return state
-        return _state_from_direct_reads(direct_probe, frame_id)
+        raise RuntimeError(direct_error or "no valid RAM state source available")
     except Exception as exc:
         return FightState(
             frame_id=frame_id,
             debug_info={
                 "state_source": "fallback",
                 "error": f"{type(exc).__name__}: {exc}",
+                "direct_error": direct_error,
                 "contract_payload": dict(contract_state) if isinstance(contract_state, dict) else None,
                 "direct_probe": _serialize_direct_probe(direct_probe),
             },
