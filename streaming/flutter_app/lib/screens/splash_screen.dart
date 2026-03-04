@@ -220,13 +220,13 @@ class _SplashPageState extends ConsumerState<SplashPage>
                           children: [
                             Container(
                               height: 1,
-                              width: 120,
+                              width: 200,
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
                                     Colors.transparent,
-                                    Color(0x99FFC500),
+                                    Color(0xFFFFC500),
                                     Colors.transparent,
                                   ],
                                 ),
