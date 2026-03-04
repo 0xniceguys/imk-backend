@@ -7,6 +7,7 @@ const kUseDevnet = false; // always mainnet
 //   flutter run --dart-define=API_HOST=10.0.2.2:8000
 const _apiHost = String.fromEnvironment('API_HOST', defaultValue: 'immortalkombat.mercle.ai');
 final _isLocal = _apiHost.contains(':'); // true when a port is specified (local dev)
+final kApiOrigin = '${_isLocal ? 'http' : 'https'}://$_apiHost';
 final kApiBaseUrl = '${_isLocal ? 'http' : 'https'}://$_apiHost/api';
 final kWsBaseUrl = '${_isLocal ? 'ws' : 'wss'}://$_apiHost';
 // Base for non-API routes (e.g. /stream/audio/...)
@@ -18,7 +19,8 @@ const kPrivyAppId = 'cmm5ifxpw00p50cl5bkx86zcd';
 const kPrivyClientId = 'client-WY6WiWvWLFu17WpAsHYy8EuUWhdVFdGhA3vKCeeAFnZ3s';
 
 class Assets {
-  static const startBg = 'assets/figma/startBg.png';
+  static const skullIcon = 'assets/icon/skullicon.svg';
+  static const startBg = 'assets/figma/getstartedimage.png';
   static const startHero = 'assets/figma/startHeroGray.png';
   static const logoVector = 'assets/figma/logoVector.png';
   static const ctaTop = 'assets/figma/ctaTop.png';
