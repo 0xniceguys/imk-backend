@@ -332,13 +332,14 @@ class Mk4FightTraceProvider:
         )
 
     def is_round_over(self, state: TracedState) -> bool:
-        """True when someone's health reached zero during an active fight.
+        """True when someone's health reached zero or timer expired.
 
-        Guards against false triggers:
+        Guards:
         - Both zero → uninitialized RAM (scene transition), not a real KO
-        - Timer still at 99 → fight hasn't actually started yet
-        - Either health at max (160) while the other is 0 → savestate just loaded,
-          P2 RAM not yet populated; ignore.
+        - Both at full (160) → fight hasn't started yet
+        Note: we do NOT guard against P1=160/P2=0 because that's a legit
+        perfect-round KO. The worker's settle + health-poll phase handles
+        the initialization window before this is ever called.
         """
         p1 = state.p1_health
         p2 = state.p2_health
@@ -348,27 +349,20 @@ class Mk4FightTraceProvider:
         if (p1 is None or p1 == 0) and (p2 is None or p2 == 0):
             return False
 
-        # Fight hasn't started yet — check using health: if BOTH are at full (160),
-        # the fight hasn't started. Timer is frozen at 99 by worker.py every step
-        # (h.write_u8(FIGHT_TIMER_ADDR, 99)) so timer>=99 is normal mid-fight.
+        # Fight hasn't started yet — both at full health
         if p1 == HEALTH_MAX and p2 == HEALTH_MAX:
             return False
 
-        # Timer check — verified via frame-by-frame scan:
-        # counts 97→84 smoothly, resets to 99 at new round.
-        if timer is not None and timer == 0:
-            return True
-
-        # Sanity: at least one player must have started with health
-        # If one is at full (160) and the other is 0, RAM is still initialising
-        if (p1 == HEALTH_MAX and (p2 is None or p2 == 0)) or \
-           (p2 == HEALTH_MAX and (p1 is None or p1 == 0)):
-            return False
-
+        # KO — one player's health hit zero
         if p1 is not None and p1 <= 0:
             return True
         if p2 is not None and p2 <= 0:
             return True
+
+        # Timer expired (only matters if timer isn't frozen)
+        if timer is not None and timer == 0:
+            return True
+
         return False
 
     def p1_won(self, state: TracedState) -> bool:
