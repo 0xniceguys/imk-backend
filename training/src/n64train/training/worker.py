@@ -82,6 +82,23 @@ def run_worker(
 
     save_path = Path(savestate_path)
     reward_extractor = Mk4ShapedRewardExtractor()
+    action_frames = max(1, int(round(STEP_SECS * 60.0)))
+    settle_frames = max(1, int(round(SETTLE_SECS * 60.0)))
+
+    def _step_frames(frames: int) -> None:
+        """Deterministic frame advance: emulator stays paused, advances exactly N frames."""
+        if b is None:
+            raise RuntimeError("bridge not connected")
+        frames = max(1, int(frames))
+        timeout_sec = max(10.0, float(frames) * 2.0)
+        result = b.debugger_command(
+            f'frame {frames}',
+            timeout_sec=timeout_sec,
+            output_tail_chars=2000,
+        )
+        output = str(result.get('output', ''))
+        if f'M64P_FRAME_OK frames={frames}' not in output:
+            raise RuntimeError(f'frame step failed: {output[-500:]}')
 
     # ── Build a LOCAL inference-only copy of the agent ─────────────────────────
     # For architectures with recurrent state (LSTM/GRU/RSSM/Transformer),
@@ -123,9 +140,11 @@ def run_worker(
     h: Mk4BridgeHelper | None = None
     tracer: Mk4FightTraceProvider | None = None
 
+    _bridge_backoff = 0.5   # exponential backoff between episode-level bridge failures
+
     def _ensure_bridge() -> bool:
         """Check and reconnect bridge if dead. Returns True if bridge is usable."""
-        nonlocal b, h, tracer
+        nonlocal b, h, tracer, _bridge_backoff
         # Liveness check on existing connection — use a SHORT 5s timeout so we
         # don't block the worker for 120s if the hello is slow (e.g. on savestate load).
         if b is not None:
@@ -135,6 +154,7 @@ def run_worker(
                 b.hello()
                 if b._socket is not None:
                     b._socket.settimeout(120.0) # restore normal training timeout
+                _bridge_backoff = 0.5   # reset backoff on success
                 return True  # still alive
             except Exception:
                 try:
@@ -144,24 +164,29 @@ def run_worker(
                     pass
                 # fall through to reconnect below
 
-        # Reconnect — emulator boots in ~60-90s; retry for up to 200s (40 × 5s)
-        for attempt in range(40):
+        # Reconnect — emulator boots in ~60-90s under load; retry for up to
+        # 150s (150 × 1.0s). Matches the watchdog's cycle time so the worker
+        # survives a full bridge restart without giving up.
+        RECONNECT_RETRIES = 150
+        RECONNECT_SLEEP   = 1.0
+        for attempt in range(RECONNECT_RETRIES):
             try:
                 if b is not None:
                     try: b.close()
                     except Exception: pass
-                b = SocketEmulatorBridge(sock_path, timeout_sec=120)
+                b = SocketEmulatorBridge(sock_path, timeout_sec=300)
                 h = Mk4BridgeHelper(b)
                 tracer = Mk4FightTraceProvider(helper=h)
-                # Only verify socket accepts — hello() blocks until emulator finishes
-                # booting (~90s). The first h.pause() at episode start confirms readiness.
                 b.connect()
                 if attempt > 0:
                     print(f'[worker-{worker_id}] bridge reconnected (attempt {attempt+1})')
+                _bridge_backoff = 0.5   # reset backoff on success
                 return True
             except Exception as ce:
-                print(f'[worker-{worker_id}] bridge attempt {attempt+1} failed: {ce}')
-                time.sleep(5.0)
+                # Log every 10th attempt to avoid spamming thousands of lines
+                if attempt % 10 == 0 or attempt == RECONNECT_RETRIES - 1:
+                    print(f'[worker-{worker_id}] bridge attempt {attempt+1}/{RECONNECT_RETRIES} failed: {ce}')
+                time.sleep(RECONNECT_SLEEP)
         return False
 
     # No initial blocking FATAL check — the episode loop at line ~170 calls
@@ -236,11 +261,12 @@ def run_worker(
         try:
             # ── Ensure bridge is alive (reconnect if dropped) ─────────────────
             if not _ensure_bridge():
-                print(f'[worker-{worker_id}] attempt={attempt_idx} bridge unreachable — skipping episode, retrying next')
-                time.sleep(5.0)
+                print(f'[worker-{worker_id}] attempt={attempt_idx} bridge unreachable — backoff {_bridge_backoff:.1f}s')
+                time.sleep(_bridge_backoff)
+                _bridge_backoff = min(_bridge_backoff * 2, 30.0)  # exponential backoff, cap 30s
                 continue
 
-            # ── Episode setup: pause → stateload → run ────────────────────────
+            # ── Episode setup: pause → stateload → deterministic frame step ────
             try:
                 h.pause()
                 time.sleep(0.2)
@@ -253,9 +279,8 @@ def run_worker(
             if ctrl_path_p2 is not None:
                 write_ctrl_worker(ControllerState(), ctrl_path_p2)
 
-            # Fire-and-forget: game starts running, window appears
-            h.run()
-            time.sleep(SETTLE_SECS)
+            # Deterministic boot: keep emulator paused and advance known frames.
+            _step_frames(settle_frames)
 
             # ── Poll until RAM shows live health values ────────────────────────
             # Fix 3: if health never appears, abort the episode entirely.
@@ -272,7 +297,7 @@ def run_worker(
                         break
                 except Exception:
                     pass
-                time.sleep(0.3)
+                _step_frames(5)
 
             if not health_ready:
                 print(f'[worker-{worker_id}] attempt={attempt_idx} ERROR: health poll timeout — aborting episode')
@@ -282,11 +307,17 @@ def run_worker(
                                    'cpu_attacked': [], 'acc': acc})
                 continue  # do NOT enter episode collection loop — does NOT count toward valid_episodes
 
-            ep_start    = time.time()
-            ep_steps    = 0
-            MIN_STEPS   = 30   # require ≥ 3s of game time before early termination
-            prev_state  = None
-            round_ended = False   # set True only when is_round_over() confirms break
+            ep_start       = time.time()
+            ep_steps       = 0
+            # MIN_STEPS: minimum steps before is_round_over() can fire.
+            # With verified health addresses (u32 read, normalized 0-160) and health_ready poll
+            # above, false positives from uninitialized RAM are already handled.
+            # 60 steps ≈ 2s of agent decisions — enough to skip the initial
+            # savestate transition without missing quick KOs.
+            MIN_STEPS      = 60
+            prev_state     = None
+            round_ended    = False   # set True only when is_round_over() confirms break
+            _mid_ep_reload = False   # True when bridge dropped + savestate reloaded mid-episode
 
             while time.time() - ep_start < MAX_EPISODE_SECS:
                 if prev_state is not None:
@@ -353,20 +384,27 @@ def run_worker(
                     except Exception:
                         write_ctrl_worker(ControllerState(), ctrl_path_p2)
 
-                time.sleep(STEP_SECS)
+                _step_frames(action_frames)
 
-                # Retry read up to 5 times before concluding bridge dropped.
+                # Retry read before concluding bridge dropped.
                 # A single transient failure (socket hiccup, read timeout) should
                 # NOT reload the savestate mid-fight while health bars are visible.
+                # With 4 emulators running simultaneously (watchdog launches lstm,
+                # obj_belief, transformer, disc_rssm), CPU contention causes bridge
+                # read spikes of 5-10s+. tracer.read() does 14+ individual socket
+                # reads per frame — any one failing triggers a full retry.
+                # 30 × 0.5s = 15s tolerance: survives multi-emu CPU spikes without
+                # false-positive savestate reloads mid-fight.
                 next_state = None
-                READ_RETRIES = 5
+                READ_RETRIES = 30
+                READ_RETRY_SLEEP = 0.5   # 0.5s between retries → 15s total tolerance
                 for _retry in range(READ_RETRIES):
                     try:
                         next_state = tracer.read(ep_steps)
                         break   # success
                     except Exception:
                         if _retry < READ_RETRIES - 1:
-                            time.sleep(STEP_SECS)  # brief wait before retry
+                            time.sleep(READ_RETRY_SLEEP)
                         else:
                             # All retries failed — game likely exited (arcade mode).
                             # Only NOW attempt a savestate reload.
@@ -380,8 +418,8 @@ def run_worker(
                                     # Bug 1: neutralize P2 on reload too
                                     if ctrl_path_p2 is not None:
                                         write_ctrl_worker(ControllerState(), ctrl_path_p2)
-                                    h.run()
-                                    time.sleep(SETTLE_SECS)
+                                    _step_frames(settle_frames)
+                                    _mid_ep_reload = True   # don't break — continue episode after reload
                                     prev_state = None
                                     next_state = None  # signal outer loop to skip
                                     # Bug 3: full temporal reset on mid-episode reload
@@ -399,11 +437,20 @@ def run_worker(
                             break  # exit retry loop
 
                 if next_state is None:
-                    if prev_state is None:
-                        break  # couldn't even get first state — fatal
-                    continue   # reloaded ok or still recovering, loop again
+                    if prev_state is None and not _mid_ep_reload:
+                        break  # truly could not get first state ever — fatal
+                    _mid_ep_reload = False  # reset flag after first successful continue
+                    continue   # recovering from mid-episode reload, try again
 
                 ep_steps += 1
+
+                if ep_steps % 50 == 1 and next_state is not None:
+                    print(
+                        f'[worker-{worker_id}] TRACE step={ep_steps} '
+                        f'p1={next_state.p1_health} p2={next_state.p2_health} '
+                        f'timer={next_state.timer}',
+                        flush=True,
+                    )
 
 
                 if prev_state is not None:
@@ -427,24 +474,24 @@ def run_worker(
                     if prev_state.p1_health is not None and next_state.p1_health is not None:
                         acc['taken_hp'] += max(0.0, float(prev_state.p1_health - next_state.p1_health))
                     if ep_steps >= MIN_STEPS and tracer.is_round_over(next_state):
-                        # Confirm over 3 extra frames — single transient zero-health
-                        # reads can fire is_round_over() falsely mid-match.
-                        CONFIRM_FRAMES = 12
+                        # Confirm over a few extra frames to filter transient
+                        # zero-health reads. 3/5 is enough — the old 10/12 was
+                        # so strict that round 2 would auto-start during
+                        # confirmation, causing multi-round bleed-through.
+                        CONFIRM_FRAMES = 5
                         confirmed = 0
                         for _ in range(CONFIRM_FRAMES):
-                            time.sleep(STEP_SECS)
+                            _step_frames(action_frames)
                             try:
                                 confirm_state = tracer.read(ep_steps)
                                 if tracer.is_round_over(confirm_state):
                                     confirmed += 1
                                 else:
-                                    confirmed = 0
-                                    next_state = confirm_state  # resume from here
                                     break
                             except Exception:
                                 confirmed = CONFIRM_FRAMES  # bridge drop = real end
                                 break
-                        if confirmed >= 10:
+                        if confirmed >= 3:
                             round_ended = True
                             break  # genuinely over
 

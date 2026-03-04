@@ -63,6 +63,11 @@ class BridgeServer:
                     except (BrokenPipeError, ConnectionResetError, socket.timeout, OSError):
                         # Per-connection I/O failure should not kill the bridge server.
                         pass
+                    except Exception:
+                        # Catch-all: any unhandled error (e.g. TypeError from
+                        # json.dumps of non-serializable response) must NOT kill
+                        # the server or delete the socket — just drop this connection.
+                        pass
                     finally:
                         try:
                             writer.close()
