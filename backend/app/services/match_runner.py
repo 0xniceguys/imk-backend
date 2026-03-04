@@ -22,11 +22,13 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from app.agents import create_agent
 from app.agents.base import FighterAgent
 from app.services.actions import (
     ControllerState,
+    encode_controller_state,
     resolve_action,
 )
 from app.services.bridge import EmulatorBridge
@@ -39,9 +41,35 @@ from app.services.game_state import (
     p1_won,
     read_fight_state,
 )
+from app.services.ffmpeg_audio_capture import FFmpegAudioCapture
+from app.services.ram_debug import RamDebugRecorder
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
+KO_CONFIRM_FRAMES = 5
+
+
+def apply_round_end_policy(
+    state: FightState,
+    *,
+    sample_flags: list[str],
+    round_done: bool,
+    round_over_reason: str | None,
+    ko_streaks: dict[str, int],
+    ko_confirm_frames: int = KO_CONFIRM_FRAMES,
+) -> tuple[bool, bool, str | None, dict[str, int]]:
+    next_streaks = {"p1_ko": 0, "p2_ko": 0, "double_ko": 0}
+    invalid_ko_sample = any(flag in {"p1_health_out_of_range", "p2_health_out_of_range", "fallback_state"} for flag in sample_flags)
+
+    if round_over_reason in next_streaks and not invalid_ko_sample:
+        next_streaks[round_over_reason] = int(ko_streaks.get(round_over_reason, 0)) + 1
+        confirmed = next_streaks[round_over_reason] >= ko_confirm_frames
+        return confirmed, p1_won(state) if confirmed else False, round_over_reason if confirmed else None, next_streaks
+
+    if round_done:
+        return True, p1_won(state), round_over_reason, next_streaks
+
+    return False, False, None, next_streaks
 
 class RunnerState(str, Enum):
     IDLE = "idle"
@@ -77,6 +105,7 @@ class GameSnapshot:
     p2_hitstun: float = 0.0
     p1_airborne: float = 0.0
     p2_airborne: float = 0.0
+    debug: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -104,7 +133,24 @@ class GameSnapshot:
             "p2_hitstun": self.p2_hitstun,
             "p1_airborne": self.p1_airborne,
             "p2_airborne": self.p2_airborne,
+            "debug": self.debug,
         }
+
+
+@dataclass
+class ManualOverrideState:
+    """Per-player manual controller override used by the admin viewer."""
+    enabled: bool = False
+    controller_state: ControllerState = field(default_factory=ControllerState)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_payload(self) -> dict[str, Any]:
+        payload = encode_controller_state(self.controller_state)
+        payload.update({
+            "enabled": self.enabled,
+            "updated_at": self.updated_at,
+        })
+        return payload
 
 
 class MatchRunner:
@@ -153,10 +199,191 @@ class MatchRunner:
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
         self._frame_capture: FFmpegCapture | None = None
+        self._audio_capture = FFmpegAudioCapture(match_id=self.match_id)
+        self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
+        self._manual_overrides: dict[int, ManualOverrideState] = {
+            1: ManualOverrideState(),
+            2: ManualOverrideState(),
+        }
+        self._bridge_lock = asyncio.Lock()
+        self._round_context_reset_requested = False
 
     @property
     def rounds_to_win(self) -> int:
         return (self.best_of // 2) + 1
+
+    def manual_control_payload(self) -> dict[str, Any]:
+        return {
+            "p1": self._manual_overrides[1].to_payload(),
+            "p2": self._manual_overrides[2].to_payload(),
+        }
+
+    def _ctrl_path_for_player(self, player: int) -> str | None:
+        if player == 1:
+            return self._ctrl_p1_path
+        if player == 2:
+            return self._ctrl_p2_path
+        raise ValueError("player must be 1 or 2")
+
+    async def _write_player_state(self, player: int, controller_state: ControllerState) -> None:
+        ctrl_path = self._ctrl_path_for_player(player)
+        if not ctrl_path:
+            return
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, write_ctrl, controller_state.clipped(), ctrl_path)
+
+    async def set_manual_mode(self, player: int, enabled: bool) -> dict[str, Any]:
+        override = self._manual_overrides[player]
+        override.enabled = bool(enabled)
+        override.updated_at = time.time()
+        if not override.enabled:
+            override.controller_state = ControllerState()
+        await self._write_player_state(
+            player,
+            override.controller_state if override.enabled else ControllerState(),
+        )
+        self._ram_debug.record_event(
+            "manual_mode_updated",
+            player=player,
+            enabled=override.enabled,
+        )
+        return self.manual_control_payload()
+
+    async def set_manual_controller_state(
+        self,
+        player: int,
+        controller_state: ControllerState,
+        *,
+        enable: bool = True,
+    ) -> dict[str, Any]:
+        override = self._manual_overrides[player]
+        override.enabled = bool(enable)
+        override.controller_state = controller_state.clipped()
+        override.updated_at = time.time()
+        await self._write_player_state(player, override.controller_state)
+        self._ram_debug.record_event(
+            "manual_controller_updated",
+            player=player,
+            enabled=override.enabled,
+            controller_state=override.to_payload(),
+        )
+        return self.manual_control_payload()
+
+    async def release_manual_controls(
+        self,
+        player: int | None = None,
+        *,
+        disable: bool = False,
+    ) -> dict[str, Any]:
+        players = (player,) if player in (1, 2) else (1, 2)
+        for current in players:
+            override = self._manual_overrides[current]
+            override.controller_state = ControllerState()
+            if disable:
+                override.enabled = False
+            override.updated_at = time.time()
+            await self._write_player_state(current, ControllerState())
+        self._ram_debug.record_event(
+            "manual_controls_released",
+            player=player,
+            disable=disable,
+        )
+        return self.manual_control_payload()
+
+    async def debug_load_savestate(self, savestate_path: str | None = None) -> dict[str, Any]:
+        if not self._bridge:
+            raise RuntimeError("Bridge not connected")
+        if savestate_path:
+            self.savestate_path = savestate_path
+        async with self._bridge_lock:
+            await self._load_savestate()
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._bridge.debugger_command, "run")
+        self._round_context_reset_requested = True
+        self._ram_debug.record_event(
+            "manual_savestate_reload",
+            savestate_path=self.savestate_path,
+        )
+        return {
+            "ok": True,
+            "savestate_path": self.savestate_path,
+            "manual_control": self.manual_control_payload(),
+        }
+
+    def _control_source_label(self, player: int, macro_action: Any) -> str:
+        if self._manual_overrides[player].enabled:
+            return "MANUAL"
+        return str(macro_action)
+
+    def _build_snapshot_debug(
+        self,
+        state: FightState,
+        *,
+        sample_flags: list[str],
+        raw_round_done: bool,
+        raw_round_over_reason: str | None,
+        round_done: bool,
+        round_over_reason: str | None,
+        ko_streaks: dict[str, int],
+    ) -> dict[str, Any]:
+        debug_info = state.debug_info or {}
+        direct_probe = debug_info.get("direct_probe")
+        contract_payload = debug_info.get("contract_payload")
+
+        def _compact_probe_field(name: str) -> dict[str, Any] | None:
+            if not isinstance(direct_probe, dict):
+                return None
+            field = direct_probe.get(name)
+            if not isinstance(field, dict):
+                return None
+            return {
+                "value": field.get("value"),
+                "error": field.get("error"),
+            }
+
+        compact_contract: dict[str, Any] | None = None
+        if isinstance(contract_payload, dict):
+            compact_contract = {
+                "frame_id": contract_payload.get("frame_id"),
+                "p1_health": contract_payload.get("p1_health"),
+                "p2_health": contract_payload.get("p2_health"),
+                "timer": contract_payload.get("timer"),
+                "timer_raw": contract_payload.get("timer_raw"),
+                "p1_health_word": contract_payload.get("p1_health_word"),
+                "p2_health_word": contract_payload.get("p2_health_word"),
+                "p1_x": contract_payload.get("p1_x"),
+                "p2_x": contract_payload.get("p2_x"),
+            }
+
+        return {
+            "state_source": debug_info.get("state_source"),
+            "selected_frame_id": debug_info.get("selected_frame_id"),
+            "timer_decode_source": debug_info.get("timer_decode_source"),
+            "contract_core_trusted": debug_info.get("contract_core_trusted"),
+            "logic_trusted": not sample_flags,
+            "sample_flags": list(sample_flags),
+            "source_map": dict(debug_info.get("source_map", {})) if isinstance(debug_info.get("source_map"), dict) else {},
+            "p1_health_word_used": debug_info.get("p1_health_word_used"),
+            "p2_health_word_used": debug_info.get("p2_health_word_used"),
+            "raw_round_done": raw_round_done,
+            "raw_round_over_reason": raw_round_over_reason,
+            "round_done": round_done,
+            "round_over_reason": round_over_reason,
+            "ko_streaks": dict(ko_streaks),
+            "ram_debug_log_path": str(self._ram_debug.file_path),
+            "manual_control": self.manual_control_payload(),
+            "direct_probe": {
+                "p1_health_word": _compact_probe_field("p1_health_word"),
+                "p2_health_word": _compact_probe_field("p2_health_word"),
+                "p1_health_hud": _compact_probe_field("p1_health_hud"),
+                "p2_health_hud": _compact_probe_field("p2_health_hud"),
+                "timer_raw": _compact_probe_field("timer_raw"),
+                "timer_word_u32": _compact_probe_field("timer_word_u32"),
+                "p1_x_word": _compact_probe_field("p1_x_word"),
+                "p2_x_word": _compact_probe_field("p2_x_word"),
+            },
+            "contract_payload": compact_contract,
+        }
 
     async def start(self) -> None:
         """Launch emulator, connect bridge, load savestate, start loops."""
@@ -171,6 +398,14 @@ class MatchRunner:
 
         self.state = RunnerState.STARTING
         logger.info("Starting match runner %s (instance=%s)", self.match_id, self.instance_id)
+        logger.info("RAM debug trace: %s", self._ram_debug.file_path)
+        self._ram_debug.record_event(
+            "runner_starting",
+            savestate_path=self.savestate_path,
+            best_of=self.best_of,
+            rounds_to_win=self.rounds_to_win,
+            agent_interval=self.agent_interval,
+        )
 
         try:
             await self._launch_emulator()
@@ -223,17 +458,16 @@ class MatchRunner:
     async def _start_free_running(self) -> None:
         """Let the emulator run freely and start FFmpeg frame capture.
 
-        Linux:  captures Xvfb display via x11grab at 60fps.
-                mupen64plus config must have ScreenWidth/Height set so the
-                window opens at full size (otherwise x11grab gets black).
-        macOS:  captures primary screen via avfoundation.
+        The emulator runs at native 60fps for smooth video output.
+        RAM reads use a brief pause→read→run cycle per iteration so reads are
+        always taken from a deterministic (paused) state, not mid-execution.
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._bridge.debugger_command, "run")
         logger.info("Emulator set to free-running mode")
 
-        # p1p2state.st loads mid-fight — give game 1s to render first frame
-        await asyncio.sleep(1.0)
+        # Give the video plugin time to render the first frame
+        await asyncio.sleep(1.5)
 
         if is_linux():
             display = self._session.display if self._session else ":99"
@@ -241,11 +475,10 @@ class MatchRunner:
                 display=display,
                 width=640,
                 height=480,
-                framerate=30,   # 30fps for smooth streaming (up from 15fps)
-                quality=15,     # Better quality (lower number = higher quality)
+                framerate=30,
+                quality=15,
             )
             logger.info("FFmpeg capture: x11grab on display %s", display)
-
         else:
             self._frame_capture = FFmpegCapture(
                 screen_index="2",
@@ -257,6 +490,7 @@ class MatchRunner:
             logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
 
         await self._frame_capture.start(self._on_ffmpeg_frame)
+        await self._audio_capture.start()
         fps = 30 if is_linux() else 60
         logger.info("FFmpeg capture started at %dfps", fps)
 
@@ -270,10 +504,11 @@ class MatchRunner:
         logger.info("Stopping match runner %s", self.match_id)
         self.state = RunnerState.STOPPED
 
-        # Stop FFmpeg capture
+        # Stop FFmpeg capture (video + audio)
         if self._frame_capture:
             await self._frame_capture.stop()
             self._frame_capture = None
+        await self._audio_capture.stop()
 
         # Cancel background task
         if self._agent_loop_task and not self._agent_loop_task.done():
@@ -304,6 +539,7 @@ class MatchRunner:
             "type": "match_ended",
             "match_id": self.match_id,
         }
+        self._ram_debug.record_event("runner_stopped", state=self.state.value)
         await ws_manager.broadcast_json(self.match_id, stopped_payload)
         # Cache so reconnecting clients know the match is over
         try:
@@ -376,6 +612,11 @@ class MatchRunner:
             caps.get("frame_step", False),
             caps.get("debugger_command", False),
         )
+        self._ram_debug.record_event(
+            "bridge_connected",
+            capabilities=dict(caps),
+            socket_path=socket_path,
+        )
 
     async def _load_savestate(self) -> None:
         """Load the configured savestate into the emulator."""
@@ -394,12 +635,14 @@ class MatchRunner:
         await asyncio.sleep(0.3)
 
         # Load via bridge LOAD_SAVESTATE protocol (checks for M64P_STATELOAD_OK)
-        result = await loop.run_in_executor(
-            None,
-            self._bridge.load_savestate,
-            self.savestate_path,
-        )
+        result = await loop.run_in_executor(None, self._bridge.load_savestate, self.savestate_path)
         logger.info("Savestate loaded: %s → %s", self.savestate_path, result)
+        self._ram_debug.record_event(
+            "savestate_loaded",
+            savestate_path=self.savestate_path,
+            bridge_response=str(result),
+            round=self.current_round,
+        )
 
         # Brief settle time
         await asyncio.sleep(1.0)
@@ -412,6 +655,12 @@ class MatchRunner:
                     "Round %d/%d starting (P1=%d, P2=%d)",
                     self.current_round, self.best_of,
                     self.rounds_won_p1, self.rounds_won_p2,
+                )
+                self._ram_debug.record_event(
+                    "round_started",
+                    round=self.current_round,
+                    rounds_won_p1=self.rounds_won_p1,
+                    rounds_won_p2=self.rounds_won_p2,
                 )
 
                 p1_won_round = await self._round_loop()
@@ -443,6 +692,16 @@ class MatchRunner:
                     "p2_health": self.latest_snapshot.p2_health,
                     "frame_id": self.latest_snapshot.frame_id,
                 })
+                self._ram_debug.record_event(
+                    "round_ended",
+                    round=self.current_round,
+                    p1_won=p1_won_round,
+                    rounds_won_p1=self.rounds_won_p1,
+                    rounds_won_p2=self.rounds_won_p2,
+                    p1_health=self.latest_snapshot.p1_health,
+                    p2_health=self.latest_snapshot.p2_health,
+                    timer=self.latest_snapshot.timer,
+                )
 
                 if match_over:
                     winner_player = 1 if self.rounds_won_p1 >= self.rounds_to_win else 2
@@ -459,6 +718,12 @@ class MatchRunner:
                         "rounds_won_p1": self.rounds_won_p1,
                         "rounds_won_p2": self.rounds_won_p2,
                     }
+                    self._ram_debug.record_event(
+                        "match_completed",
+                        winner_player=winner_player,
+                        rounds_won_p1=self.rounds_won_p1,
+                        rounds_won_p2=self.rounds_won_p2,
+                    )
                     await ws_manager.broadcast_json(self.match_id, ended_payload)
 
                     # Cache terminal event in Redis so cold-start rejoins get it
@@ -471,27 +736,24 @@ class MatchRunner:
                     await self._auto_settle(winner_player)
                     break
 
-                # More rounds to play — wait for KO animation, reload savestate
+                # More rounds to play — reload savestate.
                 self.current_round += 1
                 logger.info("Between rounds — reloading savestate for round %d", self.current_round)
 
-                # Pause emulator + stop FFmpeg for savestate reload
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(
-                    None, self._bridge.debugger_command, "pause"
-                )
+                await loop.run_in_executor(None, self._bridge.debugger_command, "pause")
+
                 if self._frame_capture:
                     await self._frame_capture.stop()
                     self._frame_capture = None
 
-                await asyncio.sleep(3.0)  # KO animation + pause
+                await asyncio.sleep(2.0)  # KO animation visible
 
                 await self._load_savestate()
                 self.p1_agent.reset()
                 self.p2_agent.reset()
                 self.state = RunnerState.RUNNING
 
-                # Resume free-running + FFmpeg
                 await self._start_free_running()
 
         except asyncio.CancelledError:
@@ -527,27 +789,52 @@ class MatchRunner:
         step_count = 0
         winner_p1 = False
         consecutive_errors = 0
+        previous_state: FightState | None = None
+        ko_streaks = {"p1_ko": 0, "p2_ko": 0, "double_ko": 0}
 
-        # Agent brain runs at ~10Hz — reads RAM, decides, writes inputs
-        agent_interval_sec = 1.0 / 10.0  # 100ms between decisions
+        step_count = 0
+        winner_p1 = False
+        consecutive_errors = 0
+        agent_interval_sec = 1.0 / 10.0  # 100ms between reads
+
+        # Grace period: skip round-over detection for first N steps.
+        # Use 30 steps (~3s) to allow health addresses to stabilise after
+        # savestate load.
+        ROUND_OVER_GRACE_STEPS = 30
 
         while self.state == RunnerState.RUNNING:
             step_start = time.monotonic()
             try:
-                # 1. Read game state from RAM
-                state: FightState = await loop.run_in_executor(
-                    None, read_fight_state, self._bridge, step_count
-                )
+                if self._round_context_reset_requested:
+                    previous_state = None
+                    ko_streaks = {"p1_ko": 0, "p2_ko": 0, "double_ko": 0}
+                    step_count = 0
+                    self._round_context_reset_requested = False
 
-                # 2. Agent decisions
-                p1_action = self.p1_agent.choose_action(state, player=1)
-                p2_action = self.p2_agent.choose_action(state, player=2)
+
+                # 1. Read game state from RAM (free-running — parse fix handles correct values)
+                async with self._bridge_lock:
+                    loop = asyncio.get_running_loop()
+                    state = await loop.run_in_executor(
+                        None, read_fight_state, self._bridge, step_count, previous_state
+                    )
+                previous_state = state
+
+                # 3. Agent decisions, unless a player is under manual control.
+                p1_action = None if self._manual_overrides[1].enabled else self.p1_agent.choose_action(state, player=1)
+                p2_action = None if self._manual_overrides[2].enabled else self.p2_agent.choose_action(state, player=2)
 
                 # 3. Write controller states to mmap
-                p1_resolved = resolve_action(p1_action)
-                p2_resolved = resolve_action(p2_action)
-                write_ctrl(p1_resolved.micro_controller_state, ctrl_p1)
-                write_ctrl(p2_resolved.micro_controller_state, ctrl_p2)
+                if self._manual_overrides[1].enabled:
+                    p1_controller = self._manual_overrides[1].controller_state.clipped()
+                else:
+                    p1_controller = resolve_action(p1_action).micro_controller_state
+                if self._manual_overrides[2].enabled:
+                    p2_controller = self._manual_overrides[2].controller_state.clipped()
+                else:
+                    p2_controller = resolve_action(p2_action).micro_controller_state
+                write_ctrl(p1_controller, ctrl_p1)
+                write_ctrl(p2_controller, ctrl_p2)
 
                 step_count += 1
 
@@ -556,21 +843,26 @@ class MatchRunner:
                     logger.info(
                         "R%d Brain step %d: P1=%s P2=%s | HP %d-%d T=%d",
                         self.current_round, step_count,
-                        p1_resolved.macro_action, p2_resolved.macro_action,
+                        self._control_source_label(1, getattr(p1_action, "macro_action", None)),
+                        self._control_source_label(2, getattr(p2_action, "macro_action", None)),
                         state.p1_health, state.p2_health, state.timer,
                     )
 
-                # 4. Check round status
-                # Grace period: skip round-over detection for the first N steps
-                # so the display stays running after savestate load even if
-                # HP reads temporarily as 0 at startup.
-                ROUND_OVER_GRACE_STEPS = 300  # ~30s at 10Hz
+                # 5. Check round status (grace period set above)
                 if step_count > ROUND_OVER_GRACE_STEPS:
-                    round_done = is_round_over(state)
-                    winner_p1 = p1_won(state) if round_done else False
+                    raw_round_done = is_round_over(state)
                 else:
-                    round_done = False
-                    winner_p1 = False
+                    raw_round_done = False
+
+                sample_flags = self._sample_flags(state)
+                raw_round_over_reason = self._round_over_reason(state, raw_round_done)
+                round_done, winner_p1, round_over_reason, ko_streaks = apply_round_end_policy(
+                    state,
+                    sample_flags=sample_flags,
+                    round_done=raw_round_done,
+                    round_over_reason=raw_round_over_reason,
+                    ko_streaks=ko_streaks,
+                )
 
                 # 5. Update snapshot and broadcast game state
                 self.latest_snapshot = GameSnapshot(
@@ -594,6 +886,49 @@ class MatchRunner:
                     p2_hitstun=state.p2_hitstun,
                     p1_airborne=state.p1_airborne,
                     p2_airborne=state.p2_airborne,
+                    debug=self._build_snapshot_debug(
+                        state,
+                        sample_flags=sample_flags,
+                        raw_round_done=raw_round_done,
+                        raw_round_over_reason=raw_round_over_reason,
+                        round_done=round_done,
+                        round_over_reason=round_over_reason,
+                        ko_streaks=ko_streaks,
+                    ),
+                )
+                self._ram_debug.record(
+                    {
+                        "kind": "sample",
+                        "round": self.current_round,
+                        "step": step_count,
+                        "agent_interval_sec": agent_interval_sec,
+                        "state_source": state.debug_info.get("state_source"),
+                        "frame_id": state.frame_id,
+                        "decoded": {
+                            "p1_health": state.p1_health,
+                            "p2_health": state.p2_health,
+                            "timer": state.timer,
+                            "p1_x": state.p1_x,
+                            "p2_x": state.p2_x,
+                            "p1_airborne": state.p1_airborne,
+                            "p2_airborne": state.p2_airborne,
+                            "p1_y_vel": state.p1_y_vel,
+                        },
+                        "actions": {
+                            "p1": self._control_source_label(1, getattr(p1_action, "macro_action", None)),
+                            "p2": self._control_source_label(2, getattr(p2_action, "macro_action", None)),
+                        },
+                        "round_done": round_done,
+                        "winner_p1": winner_p1,
+                        "round_over_reason": round_over_reason,
+                        "raw_round_done": raw_round_done,
+                        "raw_round_over_reason": raw_round_over_reason,
+                        "ko_streaks": dict(ko_streaks),
+                        "ko_confirm_frames": KO_CONFIRM_FRAMES,
+                        "sample_flags": sample_flags,
+                        "logic_trusted": not sample_flags,
+                        "debug_info": state.debug_info,
+                    }
                 )
 
                 await ws_manager.broadcast_json(
@@ -620,7 +955,6 @@ class MatchRunner:
 
                 consecutive_errors = 0
 
-                # Pace the agent brain at ~10Hz
                 elapsed = time.monotonic() - step_start
                 sleep_time = agent_interval_sec - elapsed
                 if sleep_time > 0:
@@ -687,6 +1021,7 @@ class MatchRunner:
         if self._frame_capture:
             await self._frame_capture.stop()
             self._frame_capture = None
+        await self._audio_capture.stop()
         if self._bridge:
             try:
                 self._bridge.close()
@@ -701,6 +1036,33 @@ class MatchRunner:
             self._session = None
         # Remove from global registry
         _active_runners.pop(self.match_id, None)
+
+    def _sample_flags(self, state: FightState) -> list[str]:
+        flags: list[str] = []
+        if state.timer < 0 or state.timer > 99:
+            flags.append("timer_out_of_range")
+        if state.timer == 0 and state.p1_health > 0 and state.p2_health > 0:
+            flags.append("timer_zero_while_both_alive")
+        if state.p1_health < 0 or state.p1_health > 160:
+            flags.append("p1_health_out_of_range")
+        if state.p2_health < 0 or state.p2_health > 160:
+            flags.append("p2_health_out_of_range")
+        if state.debug_info.get("state_source") == "fallback":
+            flags.append("fallback_state")
+        return flags
+
+    def _round_over_reason(self, state: FightState, round_done: bool) -> str | None:
+        if not round_done:
+            return None
+        if state.p1_health <= 0 and state.p2_health > 0:
+            return "p1_ko"
+        if state.p2_health <= 0 and state.p1_health > 0:
+            return "p2_ko"
+        if state.timer == 0:
+            return "timer_zero"
+        if state.p1_health <= 0 and state.p2_health <= 0:
+            return "double_ko"
+        return "unknown"
 
 
 # ── Global registry of active match runners ──

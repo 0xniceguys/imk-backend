@@ -197,10 +197,11 @@ class EmulatorSession:
             # Force SDL software path so z64's framebuffer blit reaches Xvfb
             env["SDL_RENDER_DRIVER"] = "software"
             env["SDL_FRAMEBUFFER_ACCELERATION"] = "0"
-            # Suppress real audio output — no PulseAudio/ALSA needed on headless server.
-            # The SDL audio plugin still loads and satisfies mupen's plugin system,
-            # but SDL routes audio to /dev/null internally.
-            env["SDL_AUDIODRIVER"] = "dummy"
+            # Route emulator audio through PulseAudio null-sink so FFmpegAudioCapture
+            # can record it. SDL supports PulseAudio via SDL_AUDIODRIVER=pulse.
+            env["SDL_AUDIODRIVER"] = "pulse"
+            # Point SDL at the user PulseAudio socket (same user as service runs as)
+            env.setdefault("PULSE_SERVER", f"unix:/run/user/{os.getuid()}/pulse/native")
             # Force Mesa software rasterizer (swrast/llvmpipe) for OpenGL.
             # Do NOT set LIBGL_ALWAYS_INDIRECT — that forces server-side Xvnc GLX
             # which doesn't advertise the visuals rice needs, making glXChooseVisual

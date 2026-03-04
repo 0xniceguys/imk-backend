@@ -37,6 +37,11 @@ _BTN: dict[Button, int] = {
 CTRL_SIZE = 4
 
 
+def _encode_axis(value: float) -> int:
+    scaled = int(round(max(-1.0, min(1.0, value)) * 80))
+    return max(-80, min(80, scaled))
+
+
 def write_ctrl(state: ControllerState, path: str) -> None:
     """Write controller state to a mmap file for the input plugin to read.
 
@@ -45,8 +50,8 @@ def write_ctrl(state: ControllerState, path: str) -> None:
     mask = 0
     for btn in state.pressed:
         mask |= _BTN.get(btn, 0)
-    x = int(state.analog_x * 80) & 0xFF
-    y = int(state.analog_y * 80) & 0xFF
+    x = _encode_axis(state.analog_x)
+    y = _encode_axis(state.analog_y)
     if not os.path.exists(path):
         with open(path, "w+b") as f:
             f.write(b"\x00" * CTRL_SIZE)
