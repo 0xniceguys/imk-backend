@@ -9,10 +9,15 @@ Hang detection: the learner process writes a heartbeat timestamp to
 If the file is older than HEARTBEAT_MAX_AGE_SECS the process is considered
 hung (live but blocked) and is killed + relaunched.
 """
+import shutil
 import subprocess, time, os
 from pathlib import Path
 
 N64_ROOT = Path(__file__).resolve().parents[2]
+
+# Use the Homebrew Python that has torch installed (not Xcode's Python 3.9)
+_BREW_PY = '/opt/homebrew/bin/python3'
+PYTHON = _BREW_PY if shutil.which(_BREW_PY) else shutil.which('python3') or 'python3'
 LOG_DIR  = N64_ROOT / 'training/data/logs'
 SCRIPT   = N64_ROOT / 'training/scripts/mk4_train_parallel.py'
 AGENTS   = ['lstm', 'obj_belief', 'transformer', 'disc_rssm']
@@ -56,7 +61,7 @@ def launch(agent: str) -> subprocess.Popen:
     agent_logfiles[agent] = log_file
 
     proc = subprocess.Popen(
-        ['python3', str(SCRIPT),
+        [PYTHON, str(SCRIPT),
          '--agent', agent, '--run-id', agent,
          '--workers', '1', '--episodes', '9999'],
         stdout=log_file,
