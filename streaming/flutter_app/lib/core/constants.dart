@@ -16,6 +16,7 @@ const kPrivyAppId = 'cmm5ifxpw00p50cl5bkx86zcd';
 const kPrivyClientId = 'client-WY6WiWvWLFu17WpAsHYy8EuUWhdVFdGhA3vKCeeAFnZ3s';
 
 class Assets {
+  static const skullIcon = 'assets/icon/skullicon.svg';
   static const startBg = 'assets/figma/getstartedimage.png';
   static const startHero = 'assets/figma/startHeroGray.png';
   static const logoVector = 'assets/figma/logoVector.png';

@@ -237,7 +237,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                               style: TextStyle(
                                 color: Palette.muted,
                                 fontSize: 14,
-                                letterSpacing: -0.7,
+                                letterSpacing: -0.1,
                               ),
                             ),
                           ],
