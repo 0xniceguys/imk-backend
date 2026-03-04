@@ -84,7 +84,9 @@ static const char *ctrl_path_p1(void) {
 
 static const char *ctrl_path_p2(void) {
   const char *env = getenv("N64TRAIN_CTRL_P2");
-  return (env && env[0]) ? env : CTRL_FILE_P2_DEFAULT;
+  /* Return NULL when unset — caller must skip P2 ctrl_open().
+   * This lets MK4's built-in CPU AI control P2 natively. */
+  return (env && env[0]) ? env : NULL;
 }
 
 typedef struct {
@@ -166,7 +168,14 @@ InitiateControllers(CONTROL_INFO info) {
     info.Controls[i].Type = CONT_TYPE_STANDARD;
   }
   ctrl_open(0, ctrl_path_p1());
-  ctrl_open(1, ctrl_path_p2());
+  /* Only intercept P2 if N64TRAIN_CTRL_P2 was explicitly set.
+   * When NULL, MK4's arcade CPU AI controls P2 natively. */
+  const char *p2path = ctrl_path_p2();
+  if (p2path) {
+    ctrl_open(1, p2path);
+  } else {
+    fprintf(stderr, "[n64train-input] P2: NOT intercepted (CPU AI will control)\n");
+  }
 }
 
 __attribute__((visibility("default"))) void GetKeys(int control,
