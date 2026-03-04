@@ -653,11 +653,15 @@ async def fighters_list(request: Request):
             for f in fighters
         ]
 
+        agents_q = await db.execute(select(Agent).order_by(Agent.name))
+        agents = list(agents_q.scalars().all())
+
         return templates.TemplateResponse("fighters.html", {
             "request": request,
             "active_page": "fighters",
             "fighters": fighters,
             "fighters_json": fighters_data,
+            "agents": agents,
             "flash": None,
         })
 
@@ -692,6 +696,7 @@ async def fighter_json(request: Request, fighter_id: UUID):
             "special_move": f.special_move,
             "fight_style": f.fight_style,
             "rank": f.rank,
+            "agent_id": str(f.agent_id) if f.agent_id else None,
             "agent_name": f.agent.name if f.agent else None,
         })
 
@@ -762,13 +767,54 @@ async def fighter_edit(request: Request, fighter_id: UUID):
         if not f:
             raise HTTPException(404, "Fighter not found")
 
+        # Text / enum fields
         for field in ("name", "llm_model", "agent_architecture", "description",
                       "origin", "special_move", "fight_style"):
             if field in data and data[field] is not None:
-                setattr(f, field, data[field] or None if field != "name" and field != "llm_model" else data[field])
+                setattr(f, field, data[field] or None if field not in ("name", "llm_model") else data[field])
 
+        # Character name
+        if "character" in data and data["character"]:
+            f.character = data["character"]
+        # Numeric fields
         if "rank" in data:
             f.rank = int(data["rank"]) if data["rank"] not in (None, "", "null") else None
+
+        # character_id — critical game engine field
+        if "character_id" in data and data["character_id"] is not None:
+            try:
+                f.character_id = int(data["character_id"])
+            except (ValueError, TypeError):
+                pass
+
+        # Stat corrections — only update if explicitly provided
+        if "matches_played" in data and data["matches_played"] is not None:
+            try:
+                f.matches_played = max(0, int(data["matches_played"]))
+            except (ValueError, TypeError):
+                pass
+        if "matches_won" in data and data["matches_won"] is not None:
+            try:
+                mp = f.matches_played or 0
+                f.matches_won = max(0, min(int(data["matches_won"]), mp))
+            except (ValueError, TypeError):
+                pass
+
+        # Agent assignment
+        if "agent_id" in data:
+            if data["agent_id"]:
+                try:
+                    agent_uuid = UUID(data["agent_id"])
+                    ar = await db.execute(select(Agent).where(Agent.id == agent_uuid))
+                    agent = ar.scalar_one_or_none()
+                    if agent:
+                        f.agent_id = agent_uuid
+                    else:
+                        raise HTTPException(400, f"Agent {data['agent_id']} not found")
+                except ValueError:
+                    raise HTTPException(400, "Invalid agent_id format")
+            else:
+                f.agent_id = None  # unlink agent
 
         await db.commit()
         return JSONResponse({"ok": True})
@@ -808,13 +854,33 @@ async def fighter_image_upload(request: Request, fighter_id: UUID):
 
 @router.post("/fighters/{fighter_id}/delete")
 async def fighter_delete(request: Request, fighter_id: UUID):
-    """Delete a fighter."""
+    """Delete a fighter — NULLs match references first to avoid FK violations."""
     _require_admin_api(request)
+    from sqlalchemy import update as sql_update
     async for db in _get_db():
         result = await db.execute(select(Fighter).where(Fighter.id == fighter_id))
         f = result.scalar_one_or_none()
         if not f:
             raise HTTPException(404, "Fighter not found")
+
+        # NULL out all match references before deleting
+        await db.execute(
+            sql_update(Match)
+            .where(Match.fighter1_id == fighter_id)
+            .values(fighter1_id=None)
+        )
+        await db.execute(
+            sql_update(Match)
+            .where(Match.fighter2_id == fighter_id)
+            .values(fighter2_id=None)
+        )
+        await db.execute(
+            sql_update(Match)
+            .where(Match.winner_id == fighter_id)
+            .values(winner_id=None)
+        )
+        await db.commit()
+
         await db.delete(f)
         await db.commit()
         return JSONResponse({"ok": True})
