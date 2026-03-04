@@ -1,20 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Live Viewer{% endblock %}
 
-<!-- hls.js for browser HLS audio playback -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
-
 {% block content %}
+<!-- hls.js for HLS audio playback — must load before inline JS -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+
 <div class="flex justify-between items-center mb-2">
   <h1>
-    <span id="status-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:8px;"></span>
+    <span id="status-dot"
+      style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:8px;"></span>
     Live Match Viewer
   </h1>
   <div class="flex gap-1 items-center">
     <span class="text-dim text-sm" id="viewer-count">0 viewers</span>
     <span class="text-dim text-sm" id="fps-counter">0 fps</span>
     <!-- Audio mute toggle -->
-    <button id="audio-mute-btn" class="btn btn-sm" title="Toggle audio" style="padding:4px 8px;font-size:0.8rem;" onclick="toggleAudioMute()">
+    <button id="audio-mute-btn" class="btn btn-sm" title="Toggle audio" style="padding:4px 8px;font-size:0.8rem;"
+      onclick="toggleAudioMute()">
       🔊 Audio ON
     </button>
     <select id="match-selector" style="width:auto;min-width:200px;">
@@ -143,13 +145,10 @@
         Pressed: <span id="manual-p{{ player }}-pressed">none</span>
       </div>
       <div class="grid mt-1" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:0.45rem;">
-        {% for button in ["D_UP", "D_DOWN", "D_LEFT", "D_RIGHT", "A", "B", "START", "Z", "L", "R", "C_UP", "C_DOWN", "C_LEFT", "C_RIGHT"] %}
-        <button
-          class="btn btn-sm ctrl-btn"
-          data-player="{{ player }}"
-          data-button="{{ button }}"
-          type="button"
-        >{{ button }}</button>
+        {% for button in ["D_UP", "D_DOWN", "D_LEFT", "D_RIGHT", "A", "B", "START", "Z", "L", "R", "C_UP", "C_DOWN",
+        "C_LEFT", "C_RIGHT"] %}
+        <button class="btn btn-sm ctrl-btn" data-player="{{ player }}" data-button="{{ button }}" type="button">{{
+          button }}</button>
         {% endfor %}
       </div>
       <div class="grid mt-1" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:0.75rem;">
@@ -177,36 +176,67 @@
     <h2>Event Log</h2>
     <button onclick="document.getElementById('event-log').innerHTML=''" class="btn btn-sm">Clear</button>
   </div>
-  <div id="event-log" style="max-height:200px;overflow-y:auto;font-family:monospace;font-size:0.8rem;color:var(--text-dim);"></div>
+  <div id="event-log"
+    style="max-height:200px;overflow-y:auto;font-family:monospace;font-size:0.8rem;color:var(--text-dim);"></div>
 </div>
 
 <!-- Connection info -->
 <div class="card mt-1">
-  <div class="card-header"><h2>Connection</h2></div>
+  <div class="card-header">
+    <h2>Connection</h2>
+  </div>
   <table>
-    <tr><th style="width:150px;">Transport</th><td id="conn-transport">—</td></tr>
-    <tr><th>State</th><td id="conn-state">Disconnected</td></tr>
-    <tr><th>Match ID</th><td id="conn-match-id" class="text-sm" style="font-family:monospace;">—</td></tr>
-    <tr><th>Messages</th><td><span id="msg-count-json">0</span> JSON / <span id="msg-count-binary">0</span> binary</td></tr>
+    <tr>
+      <th style="width:150px;">Transport</th>
+      <td id="conn-transport">—</td>
+    </tr>
+    <tr>
+      <th>State</th>
+      <td id="conn-state">Disconnected</td>
+    </tr>
+    <tr>
+      <th>Match ID</th>
+      <td id="conn-match-id" class="text-sm" style="font-family:monospace;">—</td>
+    </tr>
+    <tr>
+      <th>Messages</th>
+      <td><span id="msg-count-json">0</span> JSON / <span id="msg-count-binary">0</span> binary</td>
+    </tr>
   </table>
 </div>
 
 <div class="card mt-1">
-  <div class="card-header"><h2>RAM Debug</h2></div>
+  <div class="card-header">
+    <h2>RAM Debug</h2>
+  </div>
   <table>
-    <tr><th style="width:180px;">Source</th><td id="dbg-source-map">—</td></tr>
-    <tr><th>Used Words</th><td id="dbg-used-words">—</td></tr>
-    <tr><th>Round Logic</th><td id="dbg-round-state">—</td></tr>
-    <tr><th>Log Path</th><td id="dbg-log-path" class="text-sm" style="font-family:monospace;">—</td></tr>
+    <tr>
+      <th style="width:180px;">Source</th>
+      <td id="dbg-source-map">—</td>
+    </tr>
+    <tr>
+      <th>Used Words</th>
+      <td id="dbg-used-words">—</td>
+    </tr>
+    <tr>
+      <th>Round Logic</th>
+      <td id="dbg-round-state">—</td>
+    </tr>
+    <tr>
+      <th>Log Path</th>
+      <td id="dbg-log-path" class="text-sm" style="font-family:monospace;">—</td>
+    </tr>
   </table>
-  <pre id="dbg-json" style="margin-top:0.75rem;max-height:260px;overflow:auto;background:var(--surface2);padding:0.75rem;border-radius:6px;font-size:0.75rem;color:var(--text-dim);">—</pre>
+  <pre id="dbg-json"
+    style="margin-top:0.75rem;max-height:260px;overflow:auto;background:var(--surface2);padding:0.75rem;border-radius:6px;font-size:0.75rem;color:var(--text-dim);">—</pre>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-(function() {
-  const SAVESTATES = {{ savestates | tojson }};
+  (function () {
+    const SAVESTATES = {{ savestates | tojson
+  }};
   const HEALTH_MAX = 160;
 
   // ── Elements ──
@@ -483,7 +513,7 @@
   }
 
   // ── Match selector ──
-  window.refreshMatches = async function({ preserveSelection = true, autoConnect = true } = {}) {
+  window.refreshMatches = async function ({ preserveSelection = true, autoConnect = true } = {}) {
     try {
       const resp = await fetch('/api/matches/?status=live,upcoming');
       const matches = await resp.json();
@@ -690,7 +720,7 @@
       manualControllers[player].analogY = 0;
     });
     renderManualControls();
-    Promise.all([releaseManual(1, false), releaseManual(2, false)]).catch(() => {});
+    Promise.all([releaseManual(1, false), releaseManual(2, false)]).catch(() => { });
   });
 
   // ── Audio (HLS) ──
@@ -728,7 +758,7 @@
       // Native HLS (Safari)
       gameAudio.src = playlist;
       gameAudio.muted = audioMuted;
-      gameAudio.play().catch(() => {});
+      gameAudio.play().catch(() => { });
     } else {
       logEvent('warn', 'HLS audio not supported in this browser');
     }
@@ -747,7 +777,7 @@
     audioMuteBtn.textContent = audioMuted ? '🔇 Unmute' : '🔊 Audio ON';
   }
 
-  window.toggleAudioMute = function() {
+  window.toggleAudioMute = function () {
     audioMuted = !audioMuted;
     gameAudio.muted = audioMuted;
     updateMuteBtn();
@@ -1074,6 +1104,6 @@
       ws.send(JSON.stringify({ type: 'ping' }));
     }
   }, 15000);
-})();
+}) ();
 </script>
 {% endblock %}
