@@ -1,8 +1,11 @@
 """
-Settlement service — settles a match, updates fighter stats, pays out bets.
+Settlement service — settles a match in DB and resolves it on-chain.
 
-Extracted from admin_views.py so it can be called both from admin UI
-and from the match runner's auto-settle.
+Flow:
+  1. Mark match COMPLETED in DB
+  2. Update fighter stats
+  3. Compute parimutuel payouts in DB
+  4. Call lock_match + resolve_match on-chain via admin keypair
 """
 
 from __future__ import annotations
@@ -38,8 +41,10 @@ async def settle_match(match_id: str, winner_player: int) -> None:
             logger.error("settle_match: match %s not found", match_id)
             return
 
-        # Determine winner fighter ID
+        # Determine winner fighter ID and on-chain side
         winner_id = match.fighter1_id if winner_player == 1 else match.fighter2_id
+        winner_side = "A" if winner_player == 1 else "B"
+
         if winner_id is None:
             logger.warning("settle_match: winner fighter ID is None for match %s", match_id)
 
@@ -61,9 +66,9 @@ async def settle_match(match_id: str, winner_player: int) -> None:
             if fid == winner_id:
                 fighter.matches_won += 1
 
-        # Parimutuel payout
+        # Parimutuel payout (DB-side, mirrors contract math)
         active_bets = [b for b in match.bets if b.status == BetStatus.ACTIVE]
-        total_pool = sum(float(b.amount) for b in active_bets)
+        total_pool  = sum(float(b.amount) for b in active_bets)
         winner_pool = sum(
             float(b.amount) for b in active_bets if b.fighter_id == winner_id
         )
@@ -86,12 +91,76 @@ async def settle_match(match_id: str, winner_player: int) -> None:
         from app.services.match_runner import get_runner
         runner = get_runner(match_id)
         if runner:
-            match.current_round = runner.current_round
-            match.rounds_won_p1 = runner.rounds_won_p1
-            match.rounds_won_p2 = runner.rounds_won_p2
+            match.current_round    = runner.current_round
+            match.rounds_won_p1    = runner.rounds_won_p1
+            match.rounds_won_p2    = runner.rounds_won_p2
 
         await db.commit()
         logger.info(
             "Match %s settled: winner=P%d, bets=%d, pool=%.4f",
             match_id, winner_player, len(active_bets), total_pool,
+        )
+
+    # ── On-chain: lock + resolve ──────────────────────────────────────────────
+    if match.on_chain_match_pda:
+        await _resolve_on_chain(match, winner_side)
+    else:
+        logger.info(
+            "Match %s has no on_chain_match_pda — skipping on-chain resolve", match_id
+        )
+
+
+async def _resolve_on_chain(match: Match, winner_side: str) -> None:
+    """Call lock_match then resolve_match on-chain using the admin keypair."""
+    from app.config import settings
+    from app.services import solana_tx
+    from app.services.admin_keypair import get_admin_keypair
+
+    if not settings.treasury_wallet:
+        logger.error("TREASURY_WALLET not set — cannot resolve match on-chain")
+        return
+
+    rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
+
+    try:
+        admin_kp = get_admin_keypair()
+    except ValueError as exc:
+        logger.error("Admin keypair not configured: %s", exc)
+        return
+
+    try:
+        # 1. lock_match
+        blockhash = await solana_tx.get_recent_blockhash(rpc)
+        lock_tx = solana_tx.build_lock_match_ix(
+            admin_keypair=admin_kp,
+            match_pda_str=match.on_chain_match_pda,
+            blockhash=blockhash,
+            program_id_str=settings.betting_program_id,
+        )
+        lock_sig = await solana_tx.send_transaction(lock_tx, rpc)
+        logger.info("lock_match tx: %s (match_pda=%s)", lock_sig, match.on_chain_match_pda)
+
+        # 2. resolve_match
+        blockhash = await solana_tx.get_recent_blockhash(rpc)
+        resolve_tx = solana_tx.build_resolve_match_ix(
+            admin_keypair=admin_kp,
+            match_pda_str=match.on_chain_match_pda,
+            skr_mint_str=settings.skr_mint,
+            treasury_wallet_str=settings.treasury_wallet,
+            winner_side=winner_side,
+            blockhash=blockhash,
+            program_id_str=settings.betting_program_id,
+        )
+        resolve_sig = await solana_tx.send_transaction(resolve_tx, rpc)
+        logger.info(
+            "resolve_match tx: %s (match_pda=%s, winner=%s)",
+            resolve_sig, match.on_chain_match_pda, winner_side,
+        )
+
+    except Exception as exc:
+        # Log but don't crash — DB is already settled, on-chain failure can be retried
+        logger.error(
+            "On-chain settle failed for match %s (pda=%s): %s",
+            match.id, match.on_chain_match_pda, exc,
+            exc_info=True,
         )
