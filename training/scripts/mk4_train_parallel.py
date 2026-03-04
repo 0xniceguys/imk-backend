@@ -29,13 +29,27 @@ sys.path.insert(0, str(N64_ROOT / 'training/src'))
 sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
 BRIDGE_DIR  = N64_ROOT / 'training/data/bridge'
-STATE_PATH  = str(N64_ROOT / 'training/data/savestates/mk4_arcade/my_state.st')
 ROM_PATH    = str(N64_ROOT / 'Mortal Kombat 4 (USA).z64')
 M64P_BIN    = str(N64_ROOT / 'vendor/mupen64plus-ui-console/projects/unix/mupen64plus')
 CORELIB     = str(N64_ROOT / 'vendor/mupen64plus-core/projects/unix/libmupen64plus.dylib')
 PLUGIN      = str(N64_ROOT / 'vendor/n64train-input/n64train-input.dylib')
 PLUG_DIR    = '/opt/homebrew/lib/mupen64plus'
 DATA_DIR    = '/opt/homebrew/share/mupen64plus'
+
+
+def resolve_state_path() -> str:
+    candidates = [
+        N64_ROOT / 'training/data/savestates/mk4_arcade/p1p2state.st',
+        N64_ROOT / 'training/data/savestates/mk4_arcade/kai_arcade_p1p2.st',
+        N64_ROOT / 'training/data/savestates/mk4_arcade/my_state.st',
+    ]
+    for path in candidates:
+        if path.exists():
+            return str(path)
+    raise FileNotFoundError(
+        'No self-play savestate found. Expected one of: '
+        'p1p2state.st, kai_arcade_p1p2.st, my_state.st'
+    )
 
 
 def socket_path(run_id: str, worker_id: int) -> str:
@@ -149,11 +163,13 @@ def main() -> None:
     n_workers      = min(args.workers, 6)
     eps_per_worker = args.episodes
     total_eps      = n_workers * eps_per_worker
+    state_path     = resolve_state_path()
 
     print(f'[parallel] Run ID       : {run_id}')
     print(f'[parallel] Agent        : {args.agent}')
     print(f'[parallel] Workers      : {n_workers}')
     print(f'[parallel] Episodes/w   : {eps_per_worker}  (total: {total_eps})')
+    print(f'[parallel] Savestate    : {Path(state_path).name}')
     print(f'[parallel] Speed mode   : Pure Interpreter + DEBUG_VISIBLE (DynaRec disabled — crashes mupen64plus mid-game)')
 
     if args.dry_run:
@@ -235,7 +251,7 @@ def main() -> None:
             target=run_worker,
             args=(i, socket_path(run_id, i), ctrl_path(run_id, i),
                   rollout_queue, weight_queues[i],
-                  eps_per_worker, STATE_PATH, args.agent,
+                  eps_per_worker, state_path, args.agent,
                   p2_path, frozen_opponent_weights),    # pass state_dict, not model object
             daemon=False,
             name=f'worker-{run_id}-{i}',

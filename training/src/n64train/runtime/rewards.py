@@ -15,11 +15,11 @@ ATTACK_ACTIONS = {
     'JAB_COMBO', 'PUNISH', 'SPECIAL_1', 'SPECIAL_2', 'THROW_ATTEMPT',
 }
 
-SPAM_THRESHOLD      = 5     # consecutive same moves before penalty fires (more steps per second)
-SPAM_SCALE          = 1.0   # penalty per step OVER threshold
-ATTACK_COOLDOWN     = 24    # steps — min gap between attacks (~0.8s at 33ms/step, matches MK4 recovery)
-COOLDOWN_PENALTY    = 2.0   # flat penalty per cooldown violation
-WHIFF_PENALTY       = 0.5   # penalty for attacking and dealing 0 damage (out-of-range attack)
+SPAM_THRESHOLD      = 8     # consecutive same moves before penalty fires
+SPAM_SCALE          = 0.3   # penalty per step OVER threshold (was 1.0 — drowning dealt signal)
+ATTACK_COOLDOWN     = 8     # steps — min gap between attacks (~0.26s at 33ms/step, realistic MK4 recovery)
+COOLDOWN_PENALTY    = 0.5   # flat penalty per cooldown violation (was 2.0)
+WHIFF_PENALTY       = 0.15  # penalty for attacking and dealing 0 damage (whiffing is normal)
 
 
 @dataclass

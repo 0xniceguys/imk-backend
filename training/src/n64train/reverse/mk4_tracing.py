@@ -4,8 +4,8 @@ mk4_tracing.py — MK4 Fight-State Trace Provider
 Reads P1/P2 health, fight timer, and character positions from RAM
 via the debugger mem command and returns a TracedState.
 
-Addresses are marked with their confidence level and can be updated
-once find_fight_addrs.py confirms the exact values.
+Addresses are marked with their confidence level. Health and timer are
+currently wired to the verified MK4 internal counters used by training.
 
 Usage:
     from n64train.reverse.mk4_tracing import Mk4FightTraceProvider
@@ -26,25 +26,29 @@ class DebugReaderLike(Protocol):
 
 
 # ── Known fight-state addresses ───────────────────────────────────────────────
-# These are PLACEHOLDER values until find_fight_addrs.py confirms them.
-# Replace with confirmed values when scan is run.
+# Health and timer below are confirmed for the training/runtime path.
 #
 # Address format: N64 virtual address (0x80xxxxxx)
 #
-# To verify an address manually:
-#   h.read_u8(ADDR)  at round start (should be 0xA0 = 160 for health, ~99 for timer)
-#   after taking damage: h.read_u8(P1_HEALTH_ADDR) should be < 0xA0
-#
-# Placeholder until scan confirms real values.
-# Set ADDRESSES_CONFIRMED = True once find_fight_addrs.py results are verified.
+# To verify the health words manually:
+#   h.read_u32(P1_HEALTH_ADDR) at round start should be 0x00010000
+#   after taking damage: h.read_u32(P1_HEALTH_ADDR) should be < 0x00010000
+# To verify the timer manually:
+#   h.read_u8(FIGHT_TIMER_ADDR) should be near 99 at round start and count down.
 
 ADDRESSES_CONFIRMED = True
 
-# Note on addresses: scanner outputs  BASE + (dump_offset ^ 3).
-# read_u8() applies ^3 internally, so we store (scanner_addr ^ 3) = BASE + dump_offset.
-# Health: byte in [0x00, 0xA0] (0=dead, 160=full)
-P1_HEALTH_ADDR   = 0x8036E729  # scan found 0x8036E72A → XOR3 → 0x8036E729
-P2_HEALTH_ADDR   = 0x8036E72E  # scan found 0x8036E72D → XOR3 → 0x8036E72E
+# Health: use the internal 16.16 fixed-point words from the MK4 GameShark
+# infinite-health cheats. Full health is 0x00010000 (= 1.0). These survive
+# savestate/mode transitions where the animated HUD bytes can transiently read 0.
+#
+# HUD display bytes are retained as references for visual debugging only:
+#   P1_DISPLAY_HEALTH_ADDR = 0x8036E729
+#   P2_DISPLAY_HEALTH_ADDR = 0x8036E72E
+P1_HEALTH_ADDR   = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
+P2_HEALTH_ADDR   = 0x80126F54   # u32 fixed-point, full health = 0x00010000
+P1_DISPLAY_HEALTH_ADDR = 0x8036E729
+P2_DISPLAY_HEALTH_ADDR = 0x8036E72E
 
 # Timer: counts down from 99
 FIGHT_TIMER_ADDR = 0x80105118  # confirmed: reads 97 at round start (0x8010511B XOR3)
@@ -109,54 +113,42 @@ P1_GROUND_FLAG_ADDR  = 0x800FE0F8   # u32: 4=on_ground, 1=airborne
 # Negative = going up (N64 world coords), positive = falling
 P1_Y_VEL_ADDR        = 0x800FE90C   # u32: 0x738 idle, 0xFFFFED1A mid-jump
 
-# Attack type register — DIFFERENT value for each attack (scanned 2026-03-03):
-#   0      = idle / walking / blocking
-#   69422  = LP (low punch, A)
-#   67956  = HP (high punch, B)
-#   68606  = HK (high kick, C-UP)
-#   0      = LK (low kick, C-RIGHT) — same region as idle, needs deeper scan
-# This lets the model distinguish attack types, not just "attacking or not"
+# Attack type register candidate from early combat scans. Deterministic verifier
+# runs show it can change during the opponent's punch phase as well, so it is
+# retained for reverse-engineering notes but not exported as a trusted live
+# action feature right now.
 P1_ATTACK_TYPE_ADDR = 0x800FE090   # u32: 0=idle, LP=69422, HP=67956, HK=68606
-P1_LK_ADDR          = 0x800FE144   # u32: changes ONLY on LK (idle=-2146312416, LK=-2146312648)
+P1_LK_ADDR          = 0x800FE144   # reverse-engineering candidate for LK; drifts at idle
 
-# Hitstun / block flag — non-zero during HP active frames OR during block
-# HP=292 (0x124), BLK=124 (0x7C), idle=0
-P1_HITSTUN_ADDR      = 0x800FE310   # u32: 0 idle, non-zero during HP or block
+# Candidate block/hitbox flag from early scans. It is retained for reverse-
+# engineering notes, but not exported directly because live probes did not yet
+# show a clean idle->active->idle signal across the training states.
+P1_HITSTUN_ADDR      = 0x800FE310
 
 # P2 equivalents — VERIFIED by P2 controller scan (2026-03-03)
 # ⚠️  P2 struct has DIFFERENT offsets than P1!
-#     P2 ground_flag  = +0x0CC  (P1 was +0x0F8)
+#     P2 jump/air flag = +0x178 (upper halfword, 0=ground, non-zero during P2 jump)
 #     P2 attack/punch = +0x094  (P1 was +0x310)
 #     P2 anim pointer = +0x0C0  (PERFECT ARC on jump+punch)
 #     P2 Y velocity   = NOT FOUND in P2 struct (different layout)
 P2_BASE = 0x80126E00
 P2_ACTION_STATE_ADDR = P2_BASE + 0x0C0   # 0x80126EC0 - anim pointer (PERFECT ARC)
-P2_GROUND_FLAG_ADDR  = P2_BASE + 0x0CC   # 0x80126ECC - 2=ground, 1=air (PERFECT ARC)
+P2_GROUND_FLAG_ADDR  = P2_BASE + 0x178   # 0x80126F78 - hi-halfword 0=ground, 0x0BFC during P2 jump
 P2_Y_VEL_ADDR        = 0x00000000        # NOT AVAILABLE — P2 struct lacks y_vel
 P2_HITSTUN_ADDR      = P2_BASE + 0x19C   # 0x80126F9C - 0=idle, 2=attacking punch-only (NOT jump)
 
-# P2 attack type registers — DIFFERENT value for each attack (BOTH scanned 2026-03-03):
-#
-# Primary: P2_ATTACK_TYPE_ADDR (+0x094) — high magnitude, covers LP/HP/HK:
-#   0       = idle / LK / Block / Jump
-#   -91881  = LP (low punch, A)
-#   -87293  = HP (high punch, B)
-#   -129236 = HK (high kick, C-UP)
-#
-# Secondary: P2_LK_ADDR (+0x130) — changes on ALL attacks inc. LK, distinct per type:
-#   2946    = idle / neutral
-#   3131    = LK (low kick, C-RIGHT)  ← unique!
-#   3139    = LP (low punch, A)
-#   3133    = HK (high kick, C-UP)
-# Combined: primary=0 & secondary≠2946 → LK detected
+# P2 primary attack-register candidate. Deterministic verifier runs show it can
+# also change during the opponent's punch phase, so it is kept only as a
+# reverse-engineering note for now.
 P2_ATTACK_TYPE_ADDR = P2_BASE + 0x094   # 0x80126E94 - LP/HP/HK unique signed values
-P2_LK_ADDR          = P2_BASE + 0x130   # 0x80126F30 - all attacks change this; LK=3131
+P2_LK_ADDR          = P2_BASE + 0x130   # reverse-engineering candidate; drifts at idle
 
 # Character IDs (u32 word, LSB = char id)
 P1_CHAR_WORD_ADDR = 0x800FE290   # u32: LSB = char (0x0B=Kai)
 P2_CHAR_WORD_ADDR = 0x80126E8C   # u32: LSB = char (0x0A=Reptile)
 
 HEALTH_MAX = 0xA0       # 160 — full health
+HEALTH_FP_ONE = 0x00010000
 Y_VEL_NORM = 100000.0   # normalise Y velocity (typical range ~±0x10000)
 ANIM_NORM  = 255.0      # action state IDs are small integers
 
@@ -194,6 +186,13 @@ class Mk4FightTraceProvider:
         except Exception:
             return None
 
+    def _decode_health_word(self, addr: int) -> int | None:
+        raw = self._read_u32_safe(addr)
+        if raw is None:
+            return None
+        ratio = max(0.0, min(1.0, float(raw) / float(HEALTH_FP_ONE)))
+        return int(round(ratio * HEALTH_MAX))
+
     def read(self, frame_id: int) -> TracedState:
         if not ADDRESSES_CONFIRMED:
             # Return stub with full health so dry-run episodes work
@@ -207,8 +206,9 @@ class Mk4FightTraceProvider:
             )
 
         try:
-            p1_hp  = self.helper.read_u8(P1_HEALTH_ADDR)
-            p2_hp  = self.helper.read_u8(P2_HEALTH_ADDR)
+            # Health: internal 16.16 fixed-point words.
+            p1_hp  = self._decode_health_word(P1_HEALTH_ADDR)
+            p2_hp  = self._decode_health_word(P2_HEALTH_ADDR)
             timer  = self.helper.read_u8(FIGHT_TIMER_ADDR)
             # Positions are in the upper 16-bit halfword of the 32-bit word.
             # Extract and interpret as signed int16.
@@ -235,19 +235,12 @@ class Mk4FightTraceProvider:
         p2_hitstun = 0.0
 
         if CANDIDATE_ADDRS_CONFIRMED:
-            # P1 attack type: 5-class normalized float encoding all attack types
-            # 0.0=idle, 0.2=LK, 0.97=HP, 0.98=HK, 0.99=LP
-            p1_atk_raw = self._read_u32_safe(P1_ATTACK_TYPE_ADDR)
-            p1_lk_raw  = self._read_u32_safe(P1_LK_ADDR)
-            # LK idle baseline = 0x80126B20 (u32). Changes to 0x80126A38 during LK.
-            LK_IDLE_U32 = 0x80126B20
-            # Priority: 0x090 register first (LP/HP/HK), then LK, else idle
-            if p1_atk_raw and p1_atk_raw != 0:
-                p1_action = min(1.0, float(p1_atk_raw) / 70000.0)
-            elif p1_lk_raw is not None and p1_lk_raw != LK_IDLE_U32:
-                p1_action = 0.2   # LK — distinct from all other attacks
-            else:
-                p1_action = 0.0   # idle / walking
+            # Dynamic action-side registers remain under investigation. The
+            # deterministic verifier showed cross-player coupling and idle drift
+            # in the current candidates, so we keep them disabled here until we
+            # have player-isolated addresses again.
+            p1_action = 0.0
+            p1_hitstun = 0.0
 
             # P1 ground flag: 4=on_ground, 1=airborne
             p1_gnd_raw  = self._read_u32_safe(P1_GROUND_FLAG_ADDR)
@@ -263,36 +256,25 @@ class Mk4FightTraceProvider:
             else:
                 p1_y_vel = 0.0
 
-            # P1 hitstun: non-zero only while punch hitbox is active
-            p1_hst_raw = self._read_u32_safe(P1_HITSTUN_ADDR)
-            p1_hitstun = float(p1_hst_raw > 0) if p1_hst_raw is not None else 0.0
+            p2_action = 0.0
+            p2_hitstun = 0.0
 
-            # P2 attack type: 5-class via two registers (both scanned 2026-03-03)
-            # Primary (+0x094): LP=-91881, HP=-87293, HK=-129236, idle/LK=0
-            # Secondary (+0x130): idle=2946, LK=3131, LP=3139, HK=3133
-            P2_LK_IDLE = 2946
-            p2_atk_raw = self._read_u32_safe(P2_ATTACK_TYPE_ADDR)
-            p2_lk_raw  = self._read_u32_safe(P2_LK_ADDR)
-            if p2_atk_raw is not None and p2_atk_raw != 0:
-                p2_action = min(1.0, abs(p2_atk_raw) / 130000.0)  # LP/HP/HK
-            elif p2_lk_raw is not None and p2_lk_raw != P2_LK_IDLE:
-                p2_action = 0.2   # LK — secondary register = 3131
+            # P2 jump flag lives in the upper halfword of the word at +0x178.
+            # Deterministic probes showed it staying 0 in neutral and P1 jump,
+            # then flipping to 0x0BFC during a P2 jump.
+            p2_gnd_raw = self._read_u32_safe(P2_GROUND_FLAG_ADDR)
+            if p2_gnd_raw is not None:
+                p2_airborne = float(((p2_gnd_raw >> 16) & 0xFFFF) != 0)
             else:
-                p2_action = 0.0   # idle / block / jump
-
-            # P2 ground flag: 2=ground, 1=airborne (different from P1's 4/1!)
-            p2_gnd_raw  = self._read_u32_safe(P2_GROUND_FLAG_ADDR)
-            p2_airborne = float(p2_gnd_raw == 1) if p2_gnd_raw is not None else 0.0
+                p2_airborne = 0.0
 
             # P2 Y velocity: NOT AVAILABLE in P2 struct
             p2_y_vel = 0.0
 
-            # P2 hitstun/attack: non-zero during punch/kick at +0x094
-            p2_hst_raw = self._read_u32_safe(P2_HITSTUN_ADDR)
-            p2_hitstun = float(p2_hst_raw != 0) if p2_hst_raw is not None else 0.0
-
+        facing_sign = 1.0 if p2_x >= p1_x else -1.0
         extras: dict = {
-            # attack type: LP~0.71, HP~0.67, HK~0.99 for P1; LP~0.71, HP~0.67, HK~0.99 for P2; 0=idle
+            # Dynamic action-side signals are disabled until player-isolated
+            # addresses are confirmed by the deterministic verifier.
             'p1_action':   p1_action,
             'p2_action':   p2_action,
             # Airborne: 1.0 when in air, 0.0 on ground
@@ -301,11 +283,19 @@ class Mk4FightTraceProvider:
             # Y velocity: negative = moving up, positive = falling. Clamped to [-1,+1]
             'p1_y_vel':    p1_y_vel,
             'p2_y_vel':    p2_y_vel,
-            # Hitstun/block flag: non-zero during active attack frames or block stance
+            # Attack-side reward flags are also disabled until the underlying
+            # player-isolated addresses are confirmed.
             'p1_hitstun':  p1_hitstun,
             'p2_hitstun':  p2_hitstun,
             # Crossover-aware facing
-            'facing_sign': 1.0 if p2_x >= p1_x else -1.0,
+            'facing_sign': facing_sign,
+            # Raw internal health words for reverse-engineering/debugging.
+            'p1_health_word': self._read_u32_safe(P1_HEALTH_ADDR) or 0,
+            'p2_health_word': self._read_u32_safe(P2_HEALTH_ADDR) or 0,
+            'timer_raw': timer if timer is not None else 0,
+            'p1_ground_flag_raw': p1_gnd_raw if 'p1_gnd_raw' in locals() and p1_gnd_raw is not None else 0,
+            'p2_air_flag_word': p2_gnd_raw if 'p2_gnd_raw' in locals() and p2_gnd_raw is not None else 0,
+            'p1_y_vel_raw': p1_yv_raw if 'p1_yv_raw' in locals() and p1_yv_raw is not None else 0,
         }
 
         return TracedState(
@@ -315,10 +305,10 @@ class Mk4FightTraceProvider:
             timer     = timer,
             p1_x      = p1_x,
             p2_x      = p2_x,
-            p1_y      = p1_y_vel,    # repurpose p1_y field for y_vel
-            p2_y      = p2_y_vel,
-            p1_facing = int(p1_airborne),
-            p2_facing = int(p2_airborne),
+            p1_y      = None,
+            p2_y      = None,
+            p1_facing = int(facing_sign),
+            p2_facing = -int(facing_sign),
             extras    = extras,
         )
 
@@ -345,9 +335,8 @@ class Mk4FightTraceProvider:
         if p1 == HEALTH_MAX and p2 == HEALTH_MAX:
             return False
 
-        # Timer == 0: round timed out — this IS a real round end.
-        # (The fight-not-started guard above only fires when BOTH are at max health;
-        # if one player has taken damage by timeout that guard won't trigger.)
+        # Timer check — verified via frame-by-frame scan:
+        # counts 97→84 smoothly, resets to 99 at new round.
         if timer is not None and timer == 0:
             return True
 
@@ -372,11 +361,9 @@ class Mk4FightTraceProvider:
             return False
         if p2 is not None and p2 <= 0:
             return True
+        # Timer-based win check — timer verified working (counts down, resets to 99)
         if (ADDRESSES_CONFIRMED and state.timer is not None and state.timer <= 0
                 and p1 is not None and p2 is not None):
-            # Fix 4: strict > so equal-health timer-out is NOT labelled P1 win.
-            # Equal health at timeout = draw in MK4; giving win_bonus here biases
-            # the agent to think surviving with tied health = victory.
             return p1 > p2
         return False
 
@@ -385,11 +372,11 @@ def update_addresses(p1_health: int, p2_health: int, timer: int,
                      p1_x: int | None = None, p2_x: int | None = None,
                      round_state: int | None = None) -> None:
     """
-    Call this after find_fight_addrs.py confirms the scan results.
+    Override the default traced addresses for a custom probe or new scan.
 
     Example:
         from n64train.reverse.mk4_tracing import update_addresses
-        update_addresses(p1_health=0x800F3A2C, p2_health=0x800F4A2C, timer=0x80048D40)
+        update_addresses(p1_health=0x800FE0D8, p2_health=0x80126F54, timer=0x80105118)
     """
     import n64train.reverse.mk4_tracing as _m
     _m.P1_HEALTH_ADDR  = p1_health

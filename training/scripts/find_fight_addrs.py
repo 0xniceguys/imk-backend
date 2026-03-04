@@ -4,7 +4,14 @@ find_fight_addrs.py — MK4 Fight-State RAM Scanner (v2, fast dumpmem)
 ───────────────────────────────────────────────────────────────────────
 Uses the debugger's `dumpmem` command to dump full RDRAM to a binary
 file in one shot (fast, no timeout), then diffs two snapshots to find
-health and timer addresses.
+health and timer candidates.
+
+Important:
+  - Byte-diff scans tend to surface animated HUD health bytes first.
+  - The canonical internal MK4 health words are:
+      P1 = 0x800FE0D8
+      P2 = 0x80126F54
+    where full health = 0x00010000.
 
 Usage:
     # 1. Start emulator + load fight state manually first

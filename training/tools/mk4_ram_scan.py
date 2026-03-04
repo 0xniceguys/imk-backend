@@ -39,8 +39,10 @@ SOCK = str(N64_ROOT / 'training/data/bridge/mk4-visible.sock')
 
 # ── Known confirmed addresses (for reference) ─────────────────────────────────
 KNOWN = {
-    'p1_health':  0x36E729,   # byte
-    'p2_health':  0x36E72E,   # byte
+    'p1_health_word':  0x0FE0D8,  # u32 fixed-point (0x00010000 = full)
+    'p2_health_word':  0x126F54,  # u32 fixed-point
+    'p1_health_hud':   0x36E729,  # animated HUD byte
+    'p2_health_hud':   0x36E72E,  # animated HUD byte
     'timer':      0x105118,   # byte
     'p1_x_hi':    0x0F87FC,   # int16 (hi word of 32-bit fixed-point)
     'p2_x_hi':    0x06A064,   # int16
@@ -54,8 +56,10 @@ SCAN_WINDOWS = [
     ('P1_struct',  0x0F8780, 256),
     # P2 struct region — X confirmed at 0x06A064, scan ±128 words
     ('P2_struct',  0x06A000, 256),
-    # Health/timer region — scan ±128 bytes
-    ('health_rgn', 0x36E700, 128),
+    # Internal health words and HUD bytes
+    ('p1_health_word_rgn', 0x0FE0C0, 0x40),
+    ('p2_health_word_rgn', 0x126F40, 0x40),
+    ('health_hud_rgn', 0x36E700, 128),
     # Wild card — common MK4 state machine region
     ('state_rgn',  0x36E000, 512),
 ]
@@ -139,6 +143,9 @@ def try_direct_reads(bridge) -> None:
     from n64train.reverse.mk4_debug_helpers import Mk4BridgeHelper
     h = Mk4BridgeHelper(bridge)
 
+    def _health160(word: int) -> int:
+        return int(round(max(0.0, min(1.0, word / 0x00010000)) * 160))
+
     # Based on P1_X_ADDR = 0x800F87F8 and P2_X_ADDR = 0x8006A060
     # N64 character structs often layout: X (4 bytes), Y (4 bytes), Z (4 bytes), then state
     candidates = {
@@ -160,9 +167,11 @@ def try_direct_reads(bridge) -> None:
         'P2_anim_+16':         0x8006A070,
         'P2_state_+20':        0x8006A074,
 
-        # Health region (0x8036E729 confirmed P1, 0x8036E72E confirmed P2)
-        'P1_health (known)':   0x8036E729,
-        'P2_health (known)':   0x8036E72E,
+        # Internal health words plus HUD references
+        'P1_health_word':      0x800FE0D8,
+        'P2_health_word':      0x80126F54,
+        'P1_health_hud':       0x8036E729,
+        'P2_health_hud':       0x8036E72E,
         'hitstun_-3':          0x8036E726,
         'hitstun_-6':          0x8036E723,
         'hitstun_+5':          0x8036E72B,   # between P1+P2 health
@@ -172,15 +181,16 @@ def try_direct_reads(bridge) -> None:
         'p2_anim_near_health': 0x8036E740,
     }
 
-    print(f'\n  {"Name":<26}  {"Addr":<12}  {"byte":>5}  {"u32":>10}  {"i16":>7}')
-    print('  ' + '-' * 65)
+    print(f'\n  {"Name":<26}  {"Addr":<12}  {"byte":>5}  {"u32":>10}  {"hp":>5}  {"i16":>7}')
+    print('  ' + '-' * 73)
     for name, addr in candidates.items():
         try:
             b_val = h.read_u8(addr)
             u32   = h.read_u32(addr)
             i16   = (u32 >> 16)
             if i16 >= 0x8000: i16 -= 0x10000
-            print(f'  {name:<26}  0x{addr:08X}  {b_val:>5d}  {u32:>10d}  {i16:>+7d}')
+            hp160 = _health160(u32) if 'health_word' in name else ''
+            print(f'  {name:<26}  0x{addr:08X}  {b_val:>5d}  {u32:>10d}  {str(hp160):>5s}  {i16:>+7d}')
         except Exception as e:
             print(f'  {name:<26}  0x{addr:08X}  ERR: {e}')
 

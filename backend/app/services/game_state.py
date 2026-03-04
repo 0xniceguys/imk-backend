@@ -7,19 +7,20 @@ Memory addresses confirmed via reverse engineering (see training/src/n64train/re
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.services.bridge import EmulatorBridge, read_u8, read_u32
 
 # ── Confirmed MK4 memory addresses (N64 virtual RDRAM) ──
 
-P1_HEALTH_ADDR = 0x8036E729   # u8, 0=KO, 160=full
-P2_HEALTH_ADDR = 0x8036E72E   # u8, same range
+P1_HEALTH_ADDR = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
+P2_HEALTH_ADDR = 0x80126F54   # u32 fixed-point, same scale
 FIGHT_TIMER_ADDR = 0x80105118  # u8, counts down from 99
 P1_X_ADDR = 0x800F87F8         # u32, position in upper halfword (signed i16)
 P2_X_ADDR = 0x8006A060         # u32, position in upper halfword (signed i16)
 
 HEALTH_MAX = 160  # 0xA0
+HEALTH_FP_ONE = 0x00010000
 
 
 @dataclass
@@ -49,8 +50,10 @@ class FightState:
 def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
     """Read the current fight state from emulator RAM."""
     try:
-        p1_hp = read_u8(bridge, P1_HEALTH_ADDR)
-        p2_hp = read_u8(bridge, P2_HEALTH_ADDR)
+        p1_word = read_u32(bridge, P1_HEALTH_ADDR)
+        p2_word = read_u32(bridge, P2_HEALTH_ADDR)
+        p1_hp = int(round(max(0.0, min(1.0, p1_word / HEALTH_FP_ONE)) * HEALTH_MAX))
+        p2_hp = int(round(max(0.0, min(1.0, p2_word / HEALTH_FP_ONE)) * HEALTH_MAX))
         timer = read_u8(bridge, FIGHT_TIMER_ADDR)
 
         # Positions: upper 16 bits of 32-bit word, interpreted as signed int16

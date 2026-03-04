@@ -177,8 +177,216 @@ MK4_MENU_SCREEN_STATE = Mk4MemorySymbol(
     enum_labels=_MENU_SCREEN_STATE_LABELS,
 )
 
+MK4_FIGHT_TIMER = Mk4MemorySymbol(
+    key="fight_timer",
+    label="Fight -> Round Timer",
+    virtual_address=0x80105118,
+    width_bytes=1,
+    kind="u8",
+    description="Round timer byte during active fights",
+    confidence=0.98,
+    notes=(
+        "Repeated live probes show a clean countdown from 99 toward 0 in fight states. "
+        "Used directly by the current tracer."
+    ),
+)
+
+MK4_P1_HEALTH_WORD = Mk4MemorySymbol(
+    key="p1_health_word",
+    label="Fight -> P1 Internal Health Word",
+    virtual_address=0x800FE0D8,
+    width_bytes=4,
+    kind="u32_fixed16_16_health160",
+    description="P1 internal 16.16 health word; 0x00010000 decodes to 160 HP",
+    confidence=0.99,
+    notes=(
+        "Matches the local GameShark infinite-health word and repeated deterministic live "
+        "probes on both p1p2state.st and arcade_training_scorpion.st."
+    ),
+)
+
+MK4_P2_HEALTH_WORD = Mk4MemorySymbol(
+    key="p2_health_word",
+    label="Fight -> P2 Internal Health Word",
+    virtual_address=0x80126F54,
+    width_bytes=4,
+    kind="u32_fixed16_16_health160",
+    description="P2 internal 16.16 health word; 0x00010000 decodes to 160 HP",
+    confidence=0.99,
+    notes=(
+        "Matches the local GameShark infinite-health word and repeated deterministic live "
+        "probes on both p1p2state.st and arcade_training_scorpion.st."
+    ),
+)
+
+MK4_P1_X_POSITION = Mk4MemorySymbol(
+    key="p1_x_position",
+    label="Fight -> P1 X Position",
+    virtual_address=0x800F87F8,
+    width_bytes=2,
+    kind="s16hi",
+    description="P1 X position stored in the upper signed halfword of a 32-bit word",
+    confidence=0.95,
+    notes=(
+        "Confirmed by monotonic left/right movement scans and used directly by the current tracer."
+    ),
+)
+
+MK4_P2_X_POSITION = Mk4MemorySymbol(
+    key="p2_x_position",
+    label="Fight -> P2 X Position",
+    virtual_address=0x8006A060,
+    width_bytes=2,
+    kind="s16hi",
+    description="P2 X position stored in the upper signed halfword of a 32-bit word",
+    confidence=0.95,
+    notes=(
+        "Confirmed by CPU idle-walk and monotonic movement scans and used directly by the current tracer."
+    ),
+)
+
+MK4_P1_GROUND_FLAG = Mk4MemorySymbol(
+    key="p1_ground_flag",
+    label="Fight -> P1 Ground/Air Flag",
+    virtual_address=0x800FE0F8,
+    width_bytes=4,
+    kind="u32_flag",
+    description="Candidate P1 ground/air flag; observed 4=ground and 1=airborne",
+    confidence=0.85,
+    notes=(
+        "Repeated deterministic jump probes show it flipping from 4 to 1 during a P1 jump. "
+        "Used as the current P1 airborne signal."
+    ),
+)
+
+MK4_P2_GROUND_FLAG_CANDIDATE = Mk4MemorySymbol(
+    key="p2_ground_flag_candidate",
+    label="Fight -> P2 Ground/Air Candidate",
+    virtual_address=0x80126F78,
+    width_bytes=2,
+    kind="s16hi",
+    description="P2 jump/air indicator in the upper halfword; 0 on ground and non-zero during P2 jump",
+    confidence=0.86,
+    notes=(
+        "Repeated deterministic probes show the upper halfword staying at 0 through neutral and "
+        "P1-only actions, then flipping to 3068 (0x0BFC) during P2 jump frames. This is the "
+        "current traced P2 airborne signal."
+    ),
+)
+
+MK4_P1_Y_VELOCITY = Mk4MemorySymbol(
+    key="p1_y_velocity",
+    label="Fight -> P1 Y Velocity",
+    virtual_address=0x800FE90C,
+    width_bytes=4,
+    kind="s32",
+    description="P1 Y velocity / vertical motion word",
+    confidence=0.87,
+    notes=(
+        "Deterministic jump probes show a clean sign-changing arc: idle positive baseline, then "
+        "negative while rising. Used as the current P1 vertical-motion signal."
+    ),
+)
+
+MK4_P1_ATTACK_PRIMARY = Mk4MemorySymbol(
+    key="p1_attack_primary",
+    label="Fight -> P1 Primary Attack Register",
+    virtual_address=0x800FE090,
+    width_bytes=4,
+    kind="s32",
+    description="Primary P1 attack register used as a conservative attack-active signal",
+    confidence=0.4,
+    notes=(
+        "Deterministic probes show clean non-zero values for some attacks such as high punch, "
+        "but the register can also change during the opponent's punch phase. It is currently a candidate only, "
+        "not a trusted player-isolated action feature."
+    ),
+)
+
+MK4_P2_ATTACK_PRIMARY = Mk4MemorySymbol(
+    key="p2_attack_primary",
+    label="Fight -> P2 Primary Attack Register",
+    virtual_address=0x80126E94,
+    width_bytes=4,
+    kind="s32",
+    description="Primary P2 attack register used as a conservative attack-active signal",
+    confidence=0.4,
+    notes=(
+        "Deterministic probes show clean non-zero values for some attacks such as high punch, "
+        "but the register can also change during the opponent's punch phase. It is currently a candidate only, "
+        "not a trusted player-isolated action feature."
+    ),
+)
+
+MK4_P1_LK_CANDIDATE = Mk4MemorySymbol(
+    key="p1_lk_candidate",
+    label="Fight -> P1 Low-Kick Candidate Register",
+    virtual_address=0x800FE144,
+    width_bytes=4,
+    kind="u32",
+    description="Reverse-engineering candidate for a P1 low-kick side register",
+    confidence=0.25,
+    notes=(
+        "Drifts at idle in deterministic live probes, so it is not safe to use as a traced feature yet."
+    ),
+)
+
+MK4_P2_LK_CANDIDATE = Mk4MemorySymbol(
+    key="p2_lk_candidate",
+    label="Fight -> P2 Low-Kick Candidate Register",
+    virtual_address=0x80126F30,
+    width_bytes=4,
+    kind="u32",
+    description="Reverse-engineering candidate for a P2 low-kick side register",
+    confidence=0.2,
+    notes=(
+        "Drifts steadily during neutral in deterministic live probes, so it is not safe to use as a traced feature yet."
+    ),
+)
+
+MK4_P1_HITBOX_CANDIDATE = Mk4MemorySymbol(
+    key="p1_hitbox_candidate",
+    label="Fight -> P1 Hitbox/Block Candidate",
+    virtual_address=0x800FE310,
+    width_bytes=4,
+    kind="u32",
+    description="Early-scan candidate for a P1 attack/block side signal",
+    confidence=0.3,
+    notes=(
+        "Retained for reverse-engineering notes only. Deterministic probes did not yet show a stable "
+        "idle->active->idle pattern across the training states."
+    ),
+)
+
+MK4_P2_HITBOX_CANDIDATE = Mk4MemorySymbol(
+    key="p2_hitbox_candidate",
+    label="Fight -> P2 Hitbox/Block Candidate",
+    virtual_address=0x80126F9C,
+    width_bytes=4,
+    kind="u32",
+    description="Early-scan candidate for a P2 attack/block side signal",
+    confidence=0.15,
+    notes=(
+        "Currently reads non-zero at idle in deterministic probes, so it is not trustworthy as a traced feature."
+    ),
+)
+
 
 _SYMBOLS: dict[str, Mk4MemorySymbol] = {
+    MK4_FIGHT_TIMER.key: MK4_FIGHT_TIMER,
+    MK4_P1_ATTACK_PRIMARY.key: MK4_P1_ATTACK_PRIMARY,
+    MK4_P1_GROUND_FLAG.key: MK4_P1_GROUND_FLAG,
+    MK4_P1_HEALTH_WORD.key: MK4_P1_HEALTH_WORD,
+    MK4_P1_HITBOX_CANDIDATE.key: MK4_P1_HITBOX_CANDIDATE,
+    MK4_P1_LK_CANDIDATE.key: MK4_P1_LK_CANDIDATE,
+    MK4_P1_X_POSITION.key: MK4_P1_X_POSITION,
+    MK4_P1_Y_VELOCITY.key: MK4_P1_Y_VELOCITY,
+    MK4_P2_ATTACK_PRIMARY.key: MK4_P2_ATTACK_PRIMARY,
+    MK4_P2_GROUND_FLAG_CANDIDATE.key: MK4_P2_GROUND_FLAG_CANDIDATE,
+    MK4_P2_HEALTH_WORD.key: MK4_P2_HEALTH_WORD,
+    MK4_P2_HITBOX_CANDIDATE.key: MK4_P2_HITBOX_CANDIDATE,
+    MK4_P2_LK_CANDIDATE.key: MK4_P2_LK_CANDIDATE,
+    MK4_P2_X_POSITION.key: MK4_P2_X_POSITION,
     MK4_ARCADE_PLAYER_COUNT_CURSOR.key: MK4_ARCADE_PLAYER_COUNT_CURSOR,
     MK4_MENU_SCREEN_STATE.key: MK4_MENU_SCREEN_STATE,
     MK4_TOP_LEVEL_MENU_CURSOR.key: MK4_TOP_LEVEL_MENU_CURSOR,
