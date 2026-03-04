@@ -12,6 +12,17 @@ class GameState {
   final int roundsWonP1;
   final int roundsWonP2;
   final int bestOf;
+  // Round lifecycle (from backend broadcast)
+  final bool roundOver;
+  final bool p1Won;
+  // Combat signals (from training update 2026-03-04)
+  final double p1Action;
+  final double p2Action;
+  final double p1YVel;
+  final double p1Hitstun;
+  final double p2Hitstun;
+  final double p1Airborne;
+  final double p2Airborne;
 
   const GameState({
     this.frameId = 0,
@@ -26,6 +37,15 @@ class GameState {
     this.roundsWonP1 = 0,
     this.roundsWonP2 = 0,
     this.bestOf = 3,
+    this.roundOver = false,
+    this.p1Won = false,
+    this.p1Action = 0.0,
+    this.p2Action = 0.0,
+    this.p1YVel = 0.0,
+    this.p1Hitstun = 0.0,
+    this.p2Hitstun = 0.0,
+    this.p1Airborne = 0.0,
+    this.p2Airborne = 0.0,
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) {
@@ -42,6 +62,15 @@ class GameState {
       roundsWonP1: json['rounds_won_p1'] as int? ?? 0,
       roundsWonP2: json['rounds_won_p2'] as int? ?? 0,
       bestOf: json['best_of'] as int? ?? 3,
+      roundOver: json['round_over'] as bool? ?? false,
+      p1Won: json['p1_won'] as bool? ?? false,
+      p1Action: (json['p1_action'] as num?)?.toDouble() ?? 0.0,
+      p2Action: (json['p2_action'] as num?)?.toDouble() ?? 0.0,
+      p1YVel: (json['p1_y_vel'] as num?)?.toDouble() ?? 0.0,
+      p1Hitstun: (json['p1_hitstun'] as num?)?.toDouble() ?? 0.0,
+      p2Hitstun: (json['p2_hitstun'] as num?)?.toDouble() ?? 0.0,
+      p1Airborne: (json['p1_airborne'] as num?)?.toDouble() ?? 0.0,
+      p2Airborne: (json['p2_airborne'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

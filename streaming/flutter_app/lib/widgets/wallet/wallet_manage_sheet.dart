@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +8,6 @@ import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../providers/match_provider.dart';
 import '../../providers/wallet_provider.dart';
-import '../../services/api_service.dart';
 import '../shared/pressable.dart';
 import '../shared/ik_loader.dart';
 
