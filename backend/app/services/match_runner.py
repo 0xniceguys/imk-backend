@@ -43,6 +43,30 @@ from app.services.ram_debug import RamDebugRecorder
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
+KO_CONFIRM_FRAMES = 5
+
+
+def apply_round_end_policy(
+    state: FightState,
+    *,
+    sample_flags: list[str],
+    round_done: bool,
+    round_over_reason: str | None,
+    ko_streaks: dict[str, int],
+    ko_confirm_frames: int = KO_CONFIRM_FRAMES,
+) -> tuple[bool, bool, str | None, dict[str, int]]:
+    next_streaks = {"p1_ko": 0, "p2_ko": 0, "double_ko": 0}
+    invalid_ko_sample = any(flag in {"p1_health_out_of_range", "p2_health_out_of_range", "fallback_state"} for flag in sample_flags)
+
+    if round_over_reason in next_streaks and not invalid_ko_sample:
+        next_streaks[round_over_reason] = int(ko_streaks.get(round_over_reason, 0)) + 1
+        confirmed = next_streaks[round_over_reason] >= ko_confirm_frames
+        return confirmed, p1_won(state) if confirmed else False, round_over_reason if confirmed else None, next_streaks
+
+    if round_done:
+        return True, p1_won(state), round_over_reason, next_streaks
+
+    return False, False, None, next_streaks
 
 class RunnerState(str, Enum):
     IDLE = "idle"
@@ -566,6 +590,8 @@ class MatchRunner:
         step_count = 0
         winner_p1 = False
         consecutive_errors = 0
+        previous_state: FightState | None = None
+        ko_streaks = {"p1_ko": 0, "p2_ko": 0, "double_ko": 0}
 
         step_count = 0
         winner_p1 = False
@@ -585,8 +611,9 @@ class MatchRunner:
 
                 # 1. Read game state from RAM (free-running — parse fix handles correct values)
                 state: FightState = await loop.run_in_executor(
-                    None, read_fight_state, self._bridge, step_count
+                    None, read_fight_state, self._bridge, step_count, previous_state
                 )
+                previous_state = state
 
                 # 3. Agent decisions
                 p1_action = self.p1_agent.choose_action(state, player=1)
@@ -611,14 +638,19 @@ class MatchRunner:
 
                 # 5. Check round status (grace period set above)
                 if step_count > ROUND_OVER_GRACE_STEPS:
-                    round_done = is_round_over(state)
-                    winner_p1 = p1_won(state) if round_done else False
+                    raw_round_done = is_round_over(state)
                 else:
-                    round_done = False
-                    winner_p1 = False
+                    raw_round_done = False
 
                 sample_flags = self._sample_flags(state)
-                round_over_reason = self._round_over_reason(state, round_done)
+                raw_round_over_reason = self._round_over_reason(state, raw_round_done)
+                round_done, winner_p1, round_over_reason, ko_streaks = apply_round_end_policy(
+                    state,
+                    sample_flags=sample_flags,
+                    round_done=raw_round_done,
+                    round_over_reason=raw_round_over_reason,
+                    ko_streaks=ko_streaks,
+                )
 
                 # 5. Update snapshot and broadcast game state
                 self.latest_snapshot = GameSnapshot(
@@ -668,6 +700,10 @@ class MatchRunner:
                         "round_done": round_done,
                         "winner_p1": winner_p1,
                         "round_over_reason": round_over_reason,
+                        "raw_round_done": raw_round_done,
+                        "raw_round_over_reason": raw_round_over_reason,
+                        "ko_streaks": dict(ko_streaks),
+                        "ko_confirm_frames": KO_CONFIRM_FRAMES,
                         "sample_flags": sample_flags,
                         "logic_trusted": not sample_flags,
                         "debug_info": state.debug_info,

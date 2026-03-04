@@ -15,8 +15,10 @@ from app.services.bridge import EmulatorBridge, read_u8, read_u32
 
 # ── Canonical MK4 memory addresses (N64 virtual RDRAM) ──────────────────────
 
-P1_HEALTH_ADDR = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
-P2_HEALTH_ADDR = 0x80126F54   # u32 fixed-point, same scale
+# Backend branch slot mapping: the observed live Linux flow currently presents
+# these health words reversed relative to the training-side canonical labels.
+P1_HEALTH_ADDR = 0x80126F54   # u32 fixed-point, full health = 0x00010000
+P2_HEALTH_ADDR = 0x800FE0D8   # u32 fixed-point, same scale
 FIGHT_TIMER_ADDR = 0x80105118  # u8, counts down from 99
 P1_X_ADDR = 0x800F87F8         # u32, position in upper halfword (signed i16)
 P2_X_ADDR = 0x8006A060         # u32, position in upper halfword (signed i16)

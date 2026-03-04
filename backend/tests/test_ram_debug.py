@@ -83,8 +83,8 @@ def test_read_fight_state_direct_debug_info():
     state = read_fight_state(DirectBridge(), frame_id=9)
 
     assert state.timer == 0x56
-    assert state.p1_health == 160
-    assert state.p2_health == 80
+    assert state.p1_health == 80
+    assert state.p2_health == 160
     assert state.debug_info["state_source"] == "direct"
     assert state.debug_info["direct_probe"]["timer_raw"]["value"] == 0x56
     assert state.debug_info["direct_probe"]["timer_word_u32"]["value"] == 0x56
@@ -94,8 +94,8 @@ def test_read_fight_state_prefers_direct_probe_over_bad_contract():
     state = read_fight_state(MixedBridge(), frame_id=11)
 
     assert state.debug_info["state_source"] == "direct"
-    assert state.p1_health == 160
-    assert state.p2_health == 80
+    assert state.p1_health == 80
+    assert state.p2_health == 160
     assert state.timer == 0x56
     assert state.debug_info["contract_payload"]["p1_health"] == 5
 
