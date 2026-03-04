@@ -69,8 +69,103 @@ async def create_match(
     await db.commit()
     await db.refresh(match, attribute_names=["fighter1", "fighter2", "bets", "stream"])
 
+    # ── Create match on-chain ─────────────────────────────────────────────────
+    # Fire-and-forget background task so the HTTP response isn't blocked by RPC.
+    async def _create_on_chain(match_id_str: str, fighter1_name: str, fighter2_name: str) -> None:
+        from solders.pubkey import Pubkey
+        from app.config import settings
+        from app.services import solana_tx
+        from app.services.admin_keypair import get_admin_keypair
+        from app.db.engine import async_session
+        import hashlib
+
+        try:
+            admin_kp = get_admin_keypair()
+        except ValueError as exc:
+            logger.warning("Admin keypair not set — skipping on-chain create_match: %s", exc)
+            return
+
+        rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
+
+        # Derive model hashes from fighter names (deterministic, auditable)
+        model_a_hash = hashlib.sha256(fighter1_name.encode()).digest()
+        model_b_hash = hashlib.sha256(fighter2_name.encode()).digest()
+
+        try:
+            # Need current match_counter from on-chain config to derive correct PDA,
+            # but we call create_match which increments it atomically.
+            # We derive the PDA optimistically from the current counter read from DB-recorded id,
+            # then confirm after the tx.
+            blockhash = await solana_tx.get_recent_blockhash(rpc)
+            prog_pk = Pubkey.from_string(settings.betting_program_id)
+            config_pda = solana_tx.derive_config_pda(prog_pk)
+
+            # Fetch current match_counter from on-chain config
+            payload = {
+                "jsonrpc": "2.0", "id": 1,
+                "method": "getAccountInfo",
+                "params": [str(config_pda), {"encoding": "base64"}],
+            }
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as hclient:
+                resp = await hclient.post(rpc, json=payload)
+            data = resp.json()
+            config_data_b64 = data.get("result", {}).get("value", {}).get("data", [None])[0]
+            if not config_data_b64:
+                logger.error("Could not fetch config account — aborting on-chain create_match")
+                return
+
+            import base64, struct
+            raw = base64.b64decode(config_data_b64)
+            # Config layout after discriminator (8 bytes):
+            # admin(32) + skr_mint(32) + treasury_wallet(32) + fee_bps(2) + min_bet(8) + max_bet(8) + match_counter(8) + paused(1)
+            match_counter = struct.unpack_from("<Q", raw, 8 + 32 + 32 + 32 + 2 + 8 + 8)[0]
+            logger.info("On-chain match_counter before create: %d", match_counter)
+
+            tx = solana_tx.build_create_match_ix(
+                admin_keypair=admin_kp,
+                skr_mint_str=settings.skr_mint,
+                match_counter=match_counter,
+                model_a_hash=model_a_hash,
+                model_b_hash=model_b_hash,
+                blockhash=blockhash,
+                program_id_str=settings.betting_program_id,
+            )
+            sig = await solana_tx.send_transaction(tx, rpc)
+            logger.info("create_match on-chain tx: %s (counter=%d)", sig, match_counter)
+
+            # Derive the match PDA that was created
+            prog_pk = Pubkey.from_string(settings.betting_program_id)
+            match_pda = solana_tx.derive_match_pda(match_counter, prog_pk)
+            match_pda_str = str(match_pda)
+
+            # Store on-chain IDs in DB
+            async with async_session() as fresh_db:
+                from sqlalchemy import select as _sel
+                res = await fresh_db.execute(_sel(Match).where(Match.id == match_id_str))
+                m = res.scalar_one_or_none()
+                if m:
+                    m.on_chain_match_id  = match_counter
+                    m.on_chain_match_pda = match_pda_str
+                    await fresh_db.commit()
+                    logger.info(
+                        "Match %s linked to on-chain PDA %s (id=%d)",
+                        match_id_str, match_pda_str, match_counter,
+                    )
+
+        except Exception as exc:
+            logger.error("on-chain create_match failed for %s: %s", match_id_str, exc, exc_info=True)
+
+    import asyncio as _asyncio
+    _asyncio.create_task(_create_on_chain(
+        str(match.id),
+        match.fighter1.name if match.fighter1 else "fighter1",
+        match.fighter2.name if match.fighter2 else "fighter2",
+    ))
+
     from app.api.matches import _match_to_out
     return _match_to_out(match)
+
 
 
 @router.post("/matches/{match_id}/start")

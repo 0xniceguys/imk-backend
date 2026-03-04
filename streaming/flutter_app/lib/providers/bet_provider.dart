@@ -13,20 +13,39 @@ class BetNotifier extends StateNotifier<List<Bet>> {
     state = bets;
   }
 
-  Future<Bet> placeBet({
+  /// Place a bet on-chain via Privy server-side signing.
+  ///
+  /// [side] is "A" for fighter1, "B" for fighter2.
+  /// [privyJwt] is the user's Privy access token from PrivyProvider.
+  Future<Bet?> placeBet({
     required String matchId,
     required String fighterId,
     required double amount,
+    required String side,
+    required String privyJwt,
   }) async {
     final api = _ref.read(apiServiceProvider);
-    // Let ApiException bubble up to the UI layer
     final bet = await api.placeBet(
       matchId: matchId,
       fighterId: fighterId,
       amount: amount,
+      side: side,
+      privyJwt: privyJwt,
     );
     state = [bet, ...state];
     return bet;
+  }
+
+  /// Claim a won bet's SKR payout via Privy.
+  Future<String?> claimBet({
+    required String betId,
+    required String privyJwt,
+  }) async {
+    final api = _ref.read(apiServiceProvider);
+    final txSig = await api.claimBet(betId: betId, privyJwt: privyJwt);
+    // Refresh to pick up CLAIMED status
+    await refresh();
+    return txSig;
   }
 
   List<Bet> get activeBets =>
@@ -37,6 +56,12 @@ class BetNotifier extends StateNotifier<List<Bet>> {
 
   List<Bet> get lostBets =>
       state.where((b) => b.status == BetStatus.lost).toList();
+
+  List<Bet> get claimableBets =>
+      state.where((b) => b.isClaimable).toList();
+
+  List<Bet> get claimedBets =>
+      state.where((b) => b.isClaimed).toList();
 }
 
 final betProvider = StateNotifierProvider<BetNotifier, List<Bet>>(

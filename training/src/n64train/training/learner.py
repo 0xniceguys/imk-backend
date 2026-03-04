@@ -26,7 +26,7 @@ from n64train.experiments.mk4_agent import (
     N_ACTIONS, OBS_DIM,
     LR_POLICY, LR_VALUE, GAMMA, ENTROPY_COEF, GRAD_CLIP, CKPT_DIR,
 )
-from n64train.training.llm_coach import FighterCoach, RoundStats, MacroStats, MACRO_REVIEW_EVERY
+from n64train.training.llm_coach import FighterCoach, RoundStats, MacroStats, MACRO_REVIEW_EVERY, FIGHTER_DESCRIPTIONS
 
 LOG_DIR        = N64_ROOT / 'training/data/logs'
 STATS_PATH     = CKPT_DIR / 'mk4_training_stats.jsonl'  # fallback for single-run
@@ -93,6 +93,7 @@ class ParallelLearner:
         # dry_run=True if no Ollama available — FighterCoach handles this gracefully
         self.coach = FighterCoach(
             agent_type=agent_type,
+            description=FIGHTER_DESCRIPTIONS.get(agent_type, 'balanced fighter'),
             log_dir=LOG_DIR,
         )
         # Expose the live reward config so workers can consume it
