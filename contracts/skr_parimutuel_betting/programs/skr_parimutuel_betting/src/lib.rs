@@ -1,0 +1,69 @@
+use anchor_lang::prelude::*;
+
+pub mod state;
+pub mod errors;
+pub mod instructions;
+
+use instructions::*;
+
+declare_id!("7woZnJL2FL4yG44EEDgVtY3YX6TqGFF1yuWND4tiDuAv"); // Default localnet placeholder
+
+#[program]
+pub mod skr_parimutuel_betting {
+    use super::*;
+
+    pub fn init_config(ctx: Context<InitConfig>, min_bet: u64, max_bet: u64) -> Result<()> {
+        instructions::admin::init_config(ctx, min_bet, max_bet)
+    }
+
+    pub fn update_config(
+        ctx: Context<UpdateConfig>,
+        new_admin: Option<Pubkey>,
+        new_treasury_wallet: Option<Pubkey>,
+        new_fee_bps: Option<u16>,
+        new_min_bet: Option<u64>,
+        new_max_bet: Option<u64>,
+    ) -> Result<()> {
+        instructions::admin::update_config(ctx, new_admin, new_treasury_wallet, new_fee_bps, new_min_bet, new_max_bet)
+    }
+
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        instructions::admin::set_paused(ctx, paused)
+    }
+
+    pub fn create_match(
+        ctx: Context<CreateMatch>,
+        model_a_hash: [u8; 32],
+        model_b_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::admin::create_match(ctx, model_a_hash, model_b_hash)
+    }
+
+    pub fn place_bet(ctx: Context<PlaceBet>, side: state::WinnerSide, amount: u64) -> Result<()> {
+        instructions::user::place_bet(ctx, side, amount)
+    }
+
+    pub fn lock_match(ctx: Context<LockMatch>) -> Result<()> {
+        instructions::admin::lock_match(ctx)
+    }
+
+    pub fn resolve_match(ctx: Context<ResolveMatch>, winner_side: state::WinnerSide) -> Result<()> {
+        instructions::admin::resolve_match(ctx, winner_side)
+    }
+
+    pub fn claim(ctx: Context<Claim>) -> Result<()> {
+        instructions::user::claim(ctx)
+    }
+
+    pub fn cancel_match(ctx: Context<CancelMatch>) -> Result<()> {
+        instructions::admin::cancel_match(ctx)
+    }
+
+    pub fn refund_bet(ctx: Context<RefundBet>) -> Result<()> {
+        instructions::user::refund_bet(ctx)
+    }
+
+    pub fn close_losing_bet(ctx: Context<CloseLosingBet>) -> Result<()> {
+        instructions::user::close_losing_bet(ctx)
+    }
+}
