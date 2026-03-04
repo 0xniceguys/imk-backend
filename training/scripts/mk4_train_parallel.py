@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -25,6 +26,9 @@ from multiprocessing import Process, Queue
 from pathlib import Path
 
 N64_ROOT = Path(__file__).resolve().parents[2]
+
+# Use the same Python that is running this script (ensures torch is available)
+PYTHON = sys.executable
 sys.path.insert(0, str(N64_ROOT / 'training/src'))
 sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
@@ -84,7 +88,7 @@ def launch_bridge(run_id: str, worker_id: int, log_path: Path) -> subprocess.Pop
     cfg.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        'python3', str(N64_ROOT / 'training/scripts/run_bridge_server.py'),
+        PYTHON, str(N64_ROOT / 'training/scripts/run_bridge_server.py'),
         '--socket-path',         sock,
         '--instance-id',         f'train-{run_id}-{worker_id}',
         '--memory-reader',       'debugger-dump',

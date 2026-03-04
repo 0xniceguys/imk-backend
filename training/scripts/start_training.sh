@@ -24,8 +24,14 @@ echo ""
 
 mkdir -p "$LOG"
 
-PYTHONUNBUFFERED=1 nohup python3 "$N64/training/scripts/watchdog.py" \
+# Use Homebrew Python (has torch installed) instead of Xcode's Python 3.9
+PYTHON="/opt/homebrew/bin/python3"
+if [ ! -x "$PYTHON" ]; then
+    PYTHON="python3"
+fi
+
+PYTHONUNBUFFERED=1 nohup "$PYTHON" "$N64/training/scripts/watchdog.py" \
     > "$LOG/watchdog.log" 2>&1 &
 echo "Watchdog pid=$!"
 echo "Watchdog managing all 4 agents. Logs: $LOG/watchdog.log"
-echo "Check status: python3 $N64/training/scripts/check_training.py"
+echo "Check status: $PYTHON $N64/training/scripts/check_training.py"
