@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../providers/match_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../../services/api_service.dart';
 import '../shared/pressable.dart';
 import '../shared/ik_loader.dart';
 
@@ -62,15 +65,38 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
     setState(() => _isSending = true);
     try {
       final api = ref.read(apiServiceProvider);
+      final walletNotifier = ref.read(walletProvider.notifier);
+
       // Always refresh the Privy JWT before withdrawing — tokens expire
       // and a stale token causes a 401 / 403 from the backend.
-      await ref.read(walletProvider.notifier).syncAuthToken(api);
+      await walletNotifier.syncAuthToken(api);
 
-      final sig = await api.withdrawFunds(
+      debugPrint('[Withdraw] Step 1: Preparing unsigned transaction...');
+      // Step 1: Get unsigned transaction from backend
+      final unsignedTxBase64 = await api.prepareWithdraw(
         token: _token == _WithdrawToken.sol ? 'sol' : 'seeker',
         toAddress: address,
         amount: amount,
       );
+      debugPrint('[Withdraw] Got unsigned tx: ${unsignedTxBase64.substring(0, 50)}...');
+
+      // Step 2: Sign with Privy embedded wallet
+      debugPrint('[Withdraw] Step 2: Signing with Privy wallet...');
+      final txBytes = base64Decode(unsignedTxBase64);
+      final signedTxBase64 = await walletNotifier.signTransaction(txBytes);
+
+      if (signedTxBase64 == null) {
+        throw Exception('Failed to sign transaction with Privy wallet');
+      }
+      debugPrint('[Withdraw] Transaction signed: ${signedTxBase64.substring(0, 50)}...');
+
+      // Step 3: Broadcast signed transaction
+      debugPrint('[Withdraw] Step 3: Broadcasting transaction...');
+      final sig = await api.broadcastWithdraw(
+        signedTransactionBase64: signedTxBase64,
+      );
+
+      debugPrint('[Withdraw] Success! TX: $sig');
       final short = '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}';
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -80,8 +106,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       ));
       _addrCtrl.clear();
       _amountCtrl.clear();
-      ref.read(walletProvider.notifier).refreshBalance();
+      walletNotifier.refreshBalance();
     } catch (e) {
+      debugPrint('[Withdraw] Error: $e');
       final msg = e.toString().replaceFirst('Exception: ', '');
       if (!mounted) return;
       _showError(msg);

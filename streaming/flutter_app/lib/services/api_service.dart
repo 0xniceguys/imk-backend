@@ -195,6 +195,77 @@ class ApiService {
 
   // ── Wallet ──
 
+  /// Step 1: Get unsigned transaction from backend
+  Future<String> prepareWithdraw({
+    required String token,    // "sol" or "seeker"
+    required String toAddress,
+    required double amount,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw/prepare');
+    _log('POST $uri token=$token amount=$amount');
+    try {
+      final resp = await _client.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
+      ).timeout(const Duration(seconds: 30));
+
+      _log('POST $uri → ${resp.statusCode}');
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        return data['transaction_base64'] as String;
+      }
+
+      _handleError(resp, 'prepareWithdraw');
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('prepareWithdraw error: $e');
+      throw ApiException.unexpected('Failed to prepare transaction: $e');
+    }
+  }
+
+  /// Step 3: Broadcast signed transaction to Solana
+  Future<String> broadcastWithdraw({
+    required String signedTransactionBase64,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw/broadcast');
+    _log('POST $uri (broadcasting signed tx)');
+    try {
+      final resp = await _client.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'signed_transaction_base64': signedTransactionBase64}),
+      ).timeout(const Duration(seconds: 30));
+
+      _log('POST $uri → ${resp.statusCode}');
+
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        return data['tx_signature'] as String;
+      }
+
+      _handleError(resp, 'broadcastWithdraw');
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('broadcastWithdraw error: $e');
+      throw ApiException.unexpected('Failed to broadcast transaction: $e');
+    }
+  }
+
+  /// Legacy withdraw endpoint (kept for backward compatibility)
+  /// DEPRECATED: Use prepareWithdraw + sign + broadcastWithdraw instead
+  @Deprecated('Use prepareWithdraw, sign with Privy, then broadcastWithdraw')
   Future<String> withdrawFunds({
     required String token,    // "sol" or "seeker"
     required String toAddress,
