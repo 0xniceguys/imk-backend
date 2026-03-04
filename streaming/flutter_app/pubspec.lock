@@ -158,6 +158,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_boring_avatars:
+    dependency: "direct main"
+    description:
+      name: flutter_boring_avatars
+      sha256: c4439a5e6753db58debd8d85a92e9747727e5f5c05cc1f3a252ba70d2c1df720
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
