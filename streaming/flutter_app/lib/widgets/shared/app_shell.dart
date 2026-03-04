@@ -16,32 +16,68 @@ class AppShell extends StatelessWidget {
   final Widget content;
   final bool scrollable;
   final void Function(ScreenSlug) onNavigate;
+  static const _navBottomInset = 30.0;
+  static const _navGradientHeight = 200.0;
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     final bottom = MediaQuery.of(context).padding.bottom;
-    return Column(
+    return Stack(
       children: [
-        SizedBox(height: top + 22),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 26),
-          child: HeaderWidget(),
+        Column(
+          children: [
+            SizedBox(height: top + 22),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 26),
+              child: HeaderWidget(),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: scrollable
+                  ? SingleChildScrollView(child: content)
+                  : content,
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: scrollable
-              ? SingleChildScrollView(child: content)
-              : content,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SizedBox(
+            height: _navGradientHeight + bottom,
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x00000000),
+                          Color(0xFF000000),
+                        ],
+                        stops: [0.0, 0.5],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _navBottomInset,
+                  child: BottomNavWidget(
+                    active: activeTab,
+                    onTapArena: () => onNavigate(ScreenSlug.arenaList),
+                    onTapFighters: () => onNavigate(ScreenSlug.fighterOverview),
+                    onTapProfile: () => onNavigate(ScreenSlug.profile),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        BottomNavWidget(
-          active: activeTab,
-          onTapArena: () => onNavigate(ScreenSlug.arenaList),
-          onTapFighters: () => onNavigate(ScreenSlug.fighterOverview),
-          onTapProfile: () => onNavigate(ScreenSlug.profile),
-        ),
-        SizedBox(height: bottom > 0 ? bottom : 12),
       ],
     );
   }
