@@ -12,8 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,7 @@ from app.db.models import (
     StreamStatus,
 )
 from app.services.emulator import M64P_ROOT
+from app.services.actions import decode_controller_state
 from app.services.match_runner import get_all_runners, get_runner
 
 router = APIRouter(prefix="/admin", tags=["admin-views"])
@@ -49,6 +50,11 @@ def _require_admin(request: Request) -> RedirectResponse | None:
     if not _is_admin_authed(request):
         return RedirectResponse(url="/admin/login", status_code=303)
     return None
+
+
+def _require_admin_api(request: Request) -> None:
+    if not _is_admin_authed(request):
+        raise HTTPException(status_code=401, detail="Admin auth required")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -156,6 +162,7 @@ async def viewer_no_match(request: Request):
         "request": request,
         "active_page": "viewer",
         "match_id": "",
+        "savestates": _discover_savestates(),
     })
 
 
@@ -167,7 +174,95 @@ async def viewer_with_match(request: Request, match_id: str):
         "request": request,
         "active_page": "viewer",
         "match_id": match_id,
+        "savestates": _discover_savestates(),
     })
+
+
+@router.post("/viewer/control/{match_id}/start")
+async def viewer_control_start(request: Request, match_id: str):
+    _require_admin_api(request)
+    await match_start(UUID(match_id))
+    runner = get_runner(match_id)
+    return JSONResponse({
+        "ok": runner is not None,
+        "match_id": match_id,
+        "runner_state": runner.state.value if runner else None,
+    })
+
+
+@router.post("/viewer/control/{match_id}/stop")
+async def viewer_control_stop(request: Request, match_id: str):
+    _require_admin_api(request)
+    await match_stop(UUID(match_id))
+    runner = get_runner(match_id)
+    return JSONResponse({
+        "ok": runner is None,
+        "match_id": match_id,
+    })
+
+
+@router.post("/viewer/control/{match_id}/load-savestate")
+async def viewer_control_load_savestate(request: Request, match_id: str):
+    _require_admin_api(request)
+    runner = get_runner(match_id)
+    if not runner:
+        raise HTTPException(status_code=404, detail="No active runner for match")
+    payload = await request.json()
+    savestate_path = str(payload.get("savestate_path") or "").strip() or None
+    result = await runner.debug_load_savestate(savestate_path=savestate_path)
+    return JSONResponse(result)
+
+
+@router.post("/viewer/control/{match_id}/manual-mode")
+async def viewer_control_manual_mode(request: Request, match_id: str):
+    _require_admin_api(request)
+    runner = get_runner(match_id)
+    if not runner:
+        raise HTTPException(status_code=404, detail="No active runner for match")
+    payload = await request.json()
+    player = int(payload.get("player", 0))
+    enabled = bool(payload.get("enabled", False))
+    if player not in (1, 2):
+        raise HTTPException(status_code=400, detail="player must be 1 or 2")
+    state = await runner.set_manual_mode(player, enabled)
+    return JSONResponse({"ok": True, "manual_control": state})
+
+
+@router.post("/viewer/control/{match_id}/controller")
+async def viewer_control_controller(request: Request, match_id: str):
+    _require_admin_api(request)
+    runner = get_runner(match_id)
+    if not runner:
+        raise HTTPException(status_code=404, detail="No active runner for match")
+    payload = await request.json()
+    player = int(payload.get("player", 0))
+    if player not in (1, 2):
+        raise HTTPException(status_code=400, detail="player must be 1 or 2")
+    controller_state = decode_controller_state(payload)
+    manual_state = await runner.set_manual_controller_state(
+        player,
+        controller_state,
+        enable=bool(payload.get("enabled", True)),
+    )
+    return JSONResponse({"ok": True, "manual_control": manual_state})
+
+
+@router.post("/viewer/control/{match_id}/release")
+async def viewer_control_release(request: Request, match_id: str):
+    _require_admin_api(request)
+    runner = get_runner(match_id)
+    if not runner:
+        raise HTTPException(status_code=404, detail="No active runner for match")
+    payload = await request.json()
+    player_raw = payload.get("player")
+    player = int(player_raw) if player_raw not in (None, "") else None
+    if player is not None and player not in (1, 2):
+        raise HTTPException(status_code=400, detail="player must be 1 or 2")
+    manual_state = await runner.release_manual_controls(
+        player,
+        disable=bool(payload.get("disable", False)),
+    )
+    return JSONResponse({"ok": True, "manual_control": manual_state})
 
 
 # ── Dashboard ──
