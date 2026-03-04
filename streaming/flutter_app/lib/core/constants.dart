@@ -9,6 +9,8 @@ const _apiHost = String.fromEnvironment('API_HOST', defaultValue: 'immortalkomba
 final _isLocal = _apiHost.contains(':'); // true when a port is specified (local dev)
 final kApiBaseUrl = '${_isLocal ? 'http' : 'https'}://$_apiHost/api';
 final kWsBaseUrl = '${_isLocal ? 'ws' : 'wss'}://$_apiHost';
+// Base for non-API routes (e.g. /stream/audio/...)
+final kStreamBaseUrl = '${_isLocal ? 'http' : 'https'}://$_apiHost';
 
 
 // Privy credentials — App ID from dashboard.privy.io

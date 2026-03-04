@@ -18,21 +18,23 @@ def asymmetric_state():
 def test_build_obs_p1_default(asymmetric_state):
     """P1 perspective: own health at [0], own x at [3]."""
     obs = build_obs(asymmetric_state, player=1)
-    assert len(obs) == 7
+    assert len(obs) == 14
     assert abs(obs[0] - 120 / HEALTH_MAX) < 1e-5, "slot 0 should be P1 health"
     assert abs(obs[1] - 60 / HEALTH_MAX) < 1e-5, "slot 1 should be P2 health"
     assert abs(obs[3] - 5.0 / X_NORM) < 1e-5, "slot 3 should be P1 x"
     assert abs(obs[4] - (-3.0 / X_NORM)) < 1e-5, "slot 4 should be P2 x"
+    assert obs[7:] == [0.0] * 7
 
 
 def test_build_obs_p2_mirrored(asymmetric_state):
     """P2 perspective: own health (60) at [0], opponent health (120) at [1]."""
     obs = build_obs(asymmetric_state, player=2)
-    assert len(obs) == 7
+    assert len(obs) == 14
     assert abs(obs[0] - 60 / HEALTH_MAX) < 1e-5, "slot 0 should be P2 (self) health"
     assert abs(obs[1] - 120 / HEALTH_MAX) < 1e-5, "slot 1 should be P1 (opp) health"
     assert abs(obs[3] - (-3.0 / X_NORM)) < 1e-5, "slot 3 should be P2 (self) x"
     assert abs(obs[4] - 5.0 / X_NORM) < 1e-5, "slot 4 should be P1 (opp) x"
+    assert obs[7:] == [0.0] * 7
 
 
 def test_build_obs_perspectives_differ(asymmetric_state):

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Set
 
 logger = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Track all managed PIDs globally
 _managed_pids: Set[int] = set()
@@ -186,7 +187,7 @@ def cleanup_stale_sockets() -> int:
     """
     removed_count = 0
     socket_dirs = [
-        Path("/home/ubuntu/imk/training/data/bridge"),
+        REPO_ROOT / "training" / "data" / "bridge",
         Path("/tmp/imk"),
     ]
 
