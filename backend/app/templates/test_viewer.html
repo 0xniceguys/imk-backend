@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Live Viewer{% endblock %}
 
+<!-- hls.js for browser HLS audio playback -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+
 {% block content %}
 <div class="flex justify-between items-center mb-2">
   <h1>
@@ -10,12 +13,19 @@
   <div class="flex gap-1 items-center">
     <span class="text-dim text-sm" id="viewer-count">0 viewers</span>
     <span class="text-dim text-sm" id="fps-counter">0 fps</span>
+    <!-- Audio mute toggle -->
+    <button id="audio-mute-btn" class="btn btn-sm" title="Toggle audio" style="padding:4px 8px;font-size:0.8rem;" onclick="toggleAudioMute()">
+      🔊 Audio ON
+    </button>
     <select id="match-selector" style="width:auto;min-width:200px;">
       <option value="">Select match...</option>
     </select>
     <button onclick="refreshMatches()" class="btn btn-sm">Refresh</button>
   </div>
 </div>
+
+<!-- Hidden audio element for HLS audio stream -->
+<audio id="game-audio" autoplay style="display:none;"></audio>
 
 <!-- Game display area -->
 <div class="card" style="padding:0;overflow:hidden;position:relative;background:#000;">
@@ -683,6 +693,66 @@
     Promise.all([releaseManual(1, false), releaseManual(2, false)]).catch(() => {});
   });
 
+  // ── Audio (HLS) ──
+  const gameAudio = document.getElementById('game-audio');
+  const audioMuteBtn = document.getElementById('audio-mute-btn');
+  let hlsInstance = null;
+  let audioMuted = false;
+
+  function startAudio(matchId) {
+    stopAudio();
+    const playlist = `/stream/audio/${matchId}/stream.m3u8`;
+    if (Hls.isSupported()) {
+      hlsInstance = new Hls({ lowLatencyMode: true });
+      hlsInstance.loadSource(playlist);
+      hlsInstance.attachMedia(gameAudio);
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        gameAudio.muted = audioMuted;
+        gameAudio.play().catch(() => {
+          // Autoplay blocked — mark as muted, user can unmute
+          audioMuted = true;
+          gameAudio.muted = true;
+          updateMuteBtn();
+          logEvent('warn', 'Audio autoplay blocked — click 🔇 to unmute');
+        });
+      });
+      hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) {
+          logEvent('warn', `Audio stream error (${data.type}) — will retry`);
+          // Retry after 3s — stream may not be ready yet
+          setTimeout(() => { if (currentMatchId === matchId) startAudio(matchId); }, 3000);
+        }
+      });
+      logEvent('info', `Audio stream loading: ${playlist}`);
+    } else if (gameAudio.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS (Safari)
+      gameAudio.src = playlist;
+      gameAudio.muted = audioMuted;
+      gameAudio.play().catch(() => {});
+    } else {
+      logEvent('warn', 'HLS audio not supported in this browser');
+    }
+  }
+
+  function stopAudio() {
+    if (hlsInstance) {
+      hlsInstance.destroy();
+      hlsInstance = null;
+    }
+    gameAudio.pause();
+    gameAudio.src = '';
+  }
+
+  function updateMuteBtn() {
+    audioMuteBtn.textContent = audioMuted ? '🔇 Unmute' : '🔊 Audio ON';
+  }
+
+  window.toggleAudioMute = function() {
+    audioMuted = !audioMuted;
+    gameAudio.muted = audioMuted;
+    updateMuteBtn();
+  };
+
   // ── WebSocket connection ──
   function connectToMatch(matchId) {
     disconnect();
@@ -690,6 +760,10 @@
     connMatchId.textContent = matchId;
     overlay.style.display = 'none';
     reconnectDelay = 1000;
+
+    // Start audio stream alongside WebSocket
+    // Delay 2s so FFmpeg has time to write the first HLS segment
+    setTimeout(() => { if (currentMatchId === matchId) startAudio(matchId); }, 2000);
 
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${location.host}/ws/match/${matchId}`;
@@ -742,6 +816,7 @@
   }
 
   function disconnect() {
+    stopAudio();
     if (ws) {
       ws.onclose = null; // prevent reconnect
       ws.close();
