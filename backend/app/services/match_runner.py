@@ -39,6 +39,7 @@ from app.services.game_state import (
     p1_won,
     read_fight_state,
 )
+from app.services.ram_debug import RamDebugRecorder
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,7 @@ class MatchRunner:
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
         self._frame_capture: FFmpegCapture | None = None
+        self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
 
     @property
     def rounds_to_win(self) -> int:
@@ -171,6 +173,14 @@ class MatchRunner:
 
         self.state = RunnerState.STARTING
         logger.info("Starting match runner %s (instance=%s)", self.match_id, self.instance_id)
+        logger.info("RAM debug trace: %s", self._ram_debug.file_path)
+        self._ram_debug.record_event(
+            "runner_starting",
+            savestate_path=self.savestate_path,
+            best_of=self.best_of,
+            rounds_to_win=self.rounds_to_win,
+            agent_interval=self.agent_interval,
+        )
 
         try:
             await self._launch_emulator()
@@ -302,6 +312,7 @@ class MatchRunner:
             "type": "match_ended",
             "match_id": self.match_id,
         }
+        self._ram_debug.record_event("runner_stopped", state=self.state.value)
         await ws_manager.broadcast_json(self.match_id, stopped_payload)
         # Cache so reconnecting clients know the match is over
         try:
@@ -374,6 +385,11 @@ class MatchRunner:
             caps.get("frame_step", False),
             caps.get("debugger_command", False),
         )
+        self._ram_debug.record_event(
+            "bridge_connected",
+            capabilities=dict(caps),
+            socket_path=socket_path,
+        )
 
     async def _load_savestate(self) -> None:
         """Load the configured savestate into the emulator."""
@@ -398,6 +414,12 @@ class MatchRunner:
             self.savestate_path,
         )
         logger.info("Savestate loaded: %s → %s", self.savestate_path, result)
+        self._ram_debug.record_event(
+            "savestate_loaded",
+            savestate_path=self.savestate_path,
+            bridge_response=str(result),
+            round=self.current_round,
+        )
 
         # Brief settle time
         await asyncio.sleep(1.0)
@@ -410,6 +432,12 @@ class MatchRunner:
                     "Round %d/%d starting (P1=%d, P2=%d)",
                     self.current_round, self.best_of,
                     self.rounds_won_p1, self.rounds_won_p2,
+                )
+                self._ram_debug.record_event(
+                    "round_started",
+                    round=self.current_round,
+                    rounds_won_p1=self.rounds_won_p1,
+                    rounds_won_p2=self.rounds_won_p2,
                 )
 
                 p1_won_round = await self._round_loop()
@@ -441,6 +469,16 @@ class MatchRunner:
                     "p2_health": self.latest_snapshot.p2_health,
                     "frame_id": self.latest_snapshot.frame_id,
                 })
+                self._ram_debug.record_event(
+                    "round_ended",
+                    round=self.current_round,
+                    p1_won=p1_won_round,
+                    rounds_won_p1=self.rounds_won_p1,
+                    rounds_won_p2=self.rounds_won_p2,
+                    p1_health=self.latest_snapshot.p1_health,
+                    p2_health=self.latest_snapshot.p2_health,
+                    timer=self.latest_snapshot.timer,
+                )
 
                 if match_over:
                     winner_player = 1 if self.rounds_won_p1 >= self.rounds_to_win else 2
@@ -457,6 +495,12 @@ class MatchRunner:
                         "rounds_won_p1": self.rounds_won_p1,
                         "rounds_won_p2": self.rounds_won_p2,
                     }
+                    self._ram_debug.record_event(
+                        "match_completed",
+                        winner_player=winner_player,
+                        rounds_won_p1=self.rounds_won_p1,
+                        rounds_won_p2=self.rounds_won_p2,
+                    )
                     await ws_manager.broadcast_json(self.match_id, ended_payload)
 
                     # Cache terminal event in Redis so cold-start rejoins get it
@@ -573,6 +617,9 @@ class MatchRunner:
                     round_done = False
                     winner_p1 = False
 
+                sample_flags = self._sample_flags(state)
+                round_over_reason = self._round_over_reason(state, round_done)
+
                 # 5. Update snapshot and broadcast game state
                 self.latest_snapshot = GameSnapshot(
                     p1_health=state.p1_health,
@@ -595,6 +642,36 @@ class MatchRunner:
                     p2_hitstun=state.p2_hitstun,
                     p1_airborne=state.p1_airborne,
                     p2_airborne=state.p2_airborne,
+                )
+                self._ram_debug.record(
+                    {
+                        "kind": "sample",
+                        "round": self.current_round,
+                        "step": step_count,
+                        "agent_interval_sec": agent_interval_sec,
+                        "state_source": state.debug_info.get("state_source"),
+                        "frame_id": state.frame_id,
+                        "decoded": {
+                            "p1_health": state.p1_health,
+                            "p2_health": state.p2_health,
+                            "timer": state.timer,
+                            "p1_x": state.p1_x,
+                            "p2_x": state.p2_x,
+                            "p1_airborne": state.p1_airborne,
+                            "p2_airborne": state.p2_airborne,
+                            "p1_y_vel": state.p1_y_vel,
+                        },
+                        "actions": {
+                            "p1": str(p1_resolved.macro_action),
+                            "p2": str(p2_resolved.macro_action),
+                        },
+                        "round_done": round_done,
+                        "winner_p1": winner_p1,
+                        "round_over_reason": round_over_reason,
+                        "sample_flags": sample_flags,
+                        "logic_trusted": not sample_flags,
+                        "debug_info": state.debug_info,
+                    }
                 )
 
                 await ws_manager.broadcast_json(
@@ -701,6 +778,33 @@ class MatchRunner:
             self._session = None
         # Remove from global registry
         _active_runners.pop(self.match_id, None)
+
+    def _sample_flags(self, state: FightState) -> list[str]:
+        flags: list[str] = []
+        if state.timer < 0 or state.timer > 99:
+            flags.append("timer_out_of_range")
+        if state.timer == 0 and state.p1_health > 0 and state.p2_health > 0:
+            flags.append("timer_zero_while_both_alive")
+        if state.p1_health < 0 or state.p1_health > 160:
+            flags.append("p1_health_out_of_range")
+        if state.p2_health < 0 or state.p2_health > 160:
+            flags.append("p2_health_out_of_range")
+        if state.debug_info.get("state_source") == "fallback":
+            flags.append("fallback_state")
+        return flags
+
+    def _round_over_reason(self, state: FightState, round_done: bool) -> str | None:
+        if not round_done:
+            return None
+        if state.p1_health <= 0 and state.p2_health > 0:
+            return "p1_ko"
+        if state.p2_health <= 0 and state.p1_health > 0:
+            return "p2_ko"
+        if state.timer == 0:
+            return "timer_zero"
+        if state.p1_health <= 0 and state.p2_health <= 0:
+            return "double_ko"
+        return "unknown"
 
 
 # ── Global registry of active match runners ──

@@ -35,6 +35,7 @@
     {% if match.fighter1 %}
     <p class="text-dim text-sm">{{ match.fighter1.character }}</p>
     {% endif %}
+    <p class="text-dim text-sm">Current side: <span id="p1-side-text">{% if runner %}{{ 'Left' if runner.p1_x <= runner.p2_x else 'Right' }}{% else %}—{% endif %}</span></p>
     <div class="mt-1">
       <div class="text-sm">Health: <span id="p1-hp-text">{{ runner.p1_health if runner else '—' }}</span>/160</div>
       <div class="health-bar"><div class="health-bar-fill health-p1" id="p1-hp-bar" style="width: {{ ((runner.p1_health if runner else 160) / 160 * 100)|int }}%;transition:width 0.15s ease;"></div></div>
@@ -48,6 +49,7 @@
     {% if match.fighter2 %}
     <p class="text-dim text-sm">{{ match.fighter2.character }}</p>
     {% endif %}
+    <p class="text-dim text-sm">Current side: <span id="p2-side-text">{% if runner %}{{ 'Right' if runner.p1_x <= runner.p2_x else 'Left' }}{% else %}—{% endif %}</span></p>
     <div class="mt-1">
       <div class="text-sm">Health: <span id="p2-hp-text">{{ runner.p2_health if runner else '—' }}</span>/160</div>
       <div class="health-bar"><div class="health-bar-fill health-p2" id="p2-hp-bar" style="width: {{ ((runner.p2_health if runner else 160) / 160 * 100)|int }}%;transition:width 0.15s ease;"></div></div>
@@ -176,11 +178,16 @@
           const state = msg.game_state || msg;
           const p1hp = state.p1_health || 0;
           const p2hp = state.p2_health || 0;
+          const p1x = Number(state.p1_x || 0);
+          const p2x = Number(state.p2_x || 0);
+          const p1IsLeft = p1x <= p2x;
 
           document.getElementById('p1-hp-bar').style.width = ((p1hp / HEALTH_MAX) * 100) + '%';
           document.getElementById('p2-hp-bar').style.width = ((p2hp / HEALTH_MAX) * 100) + '%';
           document.getElementById('p1-hp-text').textContent = p1hp;
           document.getElementById('p2-hp-text').textContent = p2hp;
+          document.getElementById('p1-side-text').textContent = p1IsLeft ? 'Left' : 'Right';
+          document.getElementById('p2-side-text').textContent = p1IsLeft ? 'Right' : 'Left';
 
           document.getElementById('match-timer').textContent = state.timer || '—';
           document.getElementById('match-frame').textContent = state.frame_id || '—';
