@@ -223,17 +223,16 @@ class MatchRunner:
     async def _start_free_running(self) -> None:
         """Let the emulator run freely and start FFmpeg frame capture.
 
-        Linux:  captures Xvfb display via x11grab at 60fps.
-                mupen64plus config must have ScreenWidth/Height set so the
-                window opens at full size (otherwise x11grab gets black).
-        macOS:  captures primary screen via avfoundation.
+        The emulator runs at native 60fps for smooth video output.
+        RAM reads use a brief pause→read→run cycle per iteration so reads are
+        always taken from a deterministic (paused) state, not mid-execution.
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._bridge.debugger_command, "run")
         logger.info("Emulator set to free-running mode")
 
-        # p1p2state.st loads mid-fight — give game 1s to render first frame
-        await asyncio.sleep(1.0)
+        # Give the video plugin time to render the first frame
+        await asyncio.sleep(1.5)
 
         if is_linux():
             display = self._session.display if self._session else ":99"
@@ -241,11 +240,10 @@ class MatchRunner:
                 display=display,
                 width=640,
                 height=480,
-                framerate=30,   # 30fps for smooth streaming (up from 15fps)
-                quality=15,     # Better quality (lower number = higher quality)
+                framerate=30,
+                quality=15,
             )
             logger.info("FFmpeg capture: x11grab on display %s", display)
-
         else:
             self._frame_capture = FFmpegCapture(
                 screen_index="2",
@@ -471,27 +469,24 @@ class MatchRunner:
                     await self._auto_settle(winner_player)
                     break
 
-                # More rounds to play — wait for KO animation, reload savestate
+                # More rounds to play — reload savestate.
                 self.current_round += 1
                 logger.info("Between rounds — reloading savestate for round %d", self.current_round)
 
-                # Pause emulator + stop FFmpeg for savestate reload
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(
-                    None, self._bridge.debugger_command, "pause"
-                )
+                await loop.run_in_executor(None, self._bridge.debugger_command, "pause")
+
                 if self._frame_capture:
                     await self._frame_capture.stop()
                     self._frame_capture = None
 
-                await asyncio.sleep(3.0)  # KO animation + pause
+                await asyncio.sleep(2.0)  # KO animation visible
 
                 await self._load_savestate()
                 self.p1_agent.reset()
                 self.p2_agent.reset()
                 self.state = RunnerState.RUNNING
 
-                # Resume free-running + FFmpeg
                 await self._start_free_running()
 
         except asyncio.CancelledError:
@@ -528,18 +523,28 @@ class MatchRunner:
         winner_p1 = False
         consecutive_errors = 0
 
-        # Agent brain runs at ~10Hz — reads RAM, decides, writes inputs
-        agent_interval_sec = 1.0 / 10.0  # 100ms between decisions
+        step_count = 0
+        winner_p1 = False
+        consecutive_errors = 0
+        agent_interval_sec = 1.0 / 10.0  # 100ms between reads
+
+        # Grace period: skip round-over detection for first N steps.
+        # Use 30 steps (~3s) to allow health addresses to stabilise after
+        # savestate load.
+        ROUND_OVER_GRACE_STEPS = 30
 
         while self.state == RunnerState.RUNNING:
             step_start = time.monotonic()
             try:
-                # 1. Read game state from RAM
+
+                loop = asyncio.get_running_loop()
+
+                # 1. Read game state from RAM (free-running — parse fix handles correct values)
                 state: FightState = await loop.run_in_executor(
                     None, read_fight_state, self._bridge, step_count
                 )
 
-                # 2. Agent decisions
+                # 3. Agent decisions
                 p1_action = self.p1_agent.choose_action(state, player=1)
                 p2_action = self.p2_agent.choose_action(state, player=2)
 
@@ -560,11 +565,7 @@ class MatchRunner:
                         state.p1_health, state.p2_health, state.timer,
                     )
 
-                # 4. Check round status
-                # Grace period: skip round-over detection for the first N steps
-                # so the display stays running after savestate load even if
-                # HP reads temporarily as 0 at startup.
-                ROUND_OVER_GRACE_STEPS = 300  # ~30s at 10Hz
+                # 5. Check round status (grace period set above)
                 if step_count > ROUND_OVER_GRACE_STEPS:
                     round_done = is_round_over(state)
                     winner_p1 = p1_won(state) if round_done else False
@@ -620,7 +621,6 @@ class MatchRunner:
 
                 consecutive_errors = 0
 
-                # Pace the agent brain at ~10Hz
                 elapsed = time.monotonic() - step_start
                 sleep_time = agent_interval_sec - elapsed
                 if sleep_time > 0:
