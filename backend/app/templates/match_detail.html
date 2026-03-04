@@ -123,6 +123,17 @@
   {% endif %}
 </div>
 
+<div class="card mt-2">
+  <h2>RAM Debug</h2>
+  <table>
+    <tr><th style="width:180px;">Source</th><td id="dbg-source-map">{{ runner.debug.state_source if runner and runner.debug else '—' }}</td></tr>
+    <tr><th>Used Words</th><td id="dbg-used-words">{% if runner and runner.debug %}p1={{ runner.debug.p1_health_word_used|default('—', true) }}  p2={{ runner.debug.p2_health_word_used|default('—', true) }}{% else %}—{% endif %}</td></tr>
+    <tr><th>Flags</th><td id="dbg-flags">{% if runner and runner.debug and runner.debug.sample_flags %}{{ runner.debug.sample_flags|join(', ') }}{% else %}—{% endif %}</td></tr>
+    <tr><th>Log Path</th><td id="dbg-log-path" class="text-sm" style="font-family:monospace;">{{ runner.debug.ram_debug_log_path if runner and runner.debug else '—' }}</td></tr>
+  </table>
+  <pre id="dbg-json" style="margin-top:0.75rem;max-height:260px;overflow:auto;background:var(--surface2);padding:0.75rem;border-radius:6px;font-size:0.75rem;color:var(--text-dim);">{% if runner and runner.debug %}{{ runner.debug | tojson(indent=2) }}{% else %}—{% endif %}</pre>
+</div>
+
 <!-- Betting info -->
 {% if bets %}
 <div class="card mt-2">
@@ -154,6 +165,11 @@
   const canvas = document.getElementById('live-canvas');
   const ctx = canvas ? canvas.getContext('2d') : null;
   const HEALTH_MAX = 160;
+  const dbgSourceMap = document.getElementById('dbg-source-map');
+  const dbgUsedWords = document.getElementById('dbg-used-words');
+  const dbgFlags = document.getElementById('dbg-flags');
+  const dbgLogPath = document.getElementById('dbg-log-path');
+  const dbgJson = document.getElementById('dbg-json');
 
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${proto}//${location.host}/ws/match/${matchId}`);
@@ -191,6 +207,8 @@
             document.getElementById('rounds-p1').textContent = state.rounds_won_p1 || 0;
             document.getElementById('rounds-p2').textContent = state.rounds_won_p2 || 0;
           }
+
+          updateDebugPanel(state.debug || {});
         }
 
         if (msg.type === 'round_end') {
@@ -222,6 +240,15 @@
       ws.send(JSON.stringify({ type: 'ping' }));
     }
   }, 15000);
+
+  function updateDebugPanel(debug) {
+    const flags = Array.isArray(debug.sample_flags) ? debug.sample_flags : [];
+    dbgSourceMap.textContent = debug.state_source || '—';
+    dbgUsedWords.textContent = `p1=${debug.p1_health_word_used ?? '—'}  p2=${debug.p2_health_word_used ?? '—'}`;
+    dbgFlags.textContent = flags.length ? flags.join(', ') : '—';
+    dbgLogPath.textContent = debug.ram_debug_log_path || '—';
+    dbgJson.textContent = Object.keys(debug).length ? JSON.stringify(debug, null, 2) : '—';
+  }
 })();
 </script>
 {% endif %}

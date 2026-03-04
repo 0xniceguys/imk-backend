@@ -18,6 +18,8 @@ from app.services.bridge import EmulatorBridge, read_u8, read_u32
 P1_HEALTH_ADDR = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
 P2_HEALTH_ADDR = 0x80126F54   # u32 fixed-point, same scale
 FIGHT_TIMER_ADDR = 0x80105118  # u8, counts down from 99
+P1_HEALTH_HUD_ADDR = 0x8036E729  # u8 animated HUD byte, debug-only
+P2_HEALTH_HUD_ADDR = 0x8036E72E  # u8 animated HUD byte, debug-only
 P1_X_ADDR = 0x800F87F8         # u32, position in upper halfword (signed i16)
 P2_X_ADDR = 0x8006A060         # u32, position in upper halfword (signed i16)
 P1_GROUND_FLAG_ADDR = 0x800FE0F8  # u32: 4=ground, 1=airborne
@@ -100,6 +102,8 @@ def _read_direct_probe(bridge: EmulatorBridge) -> dict[str, object]:
         "timer_debugger_byte_address": FIGHT_TIMER_ADDR ^ 0x3,
         "p1_health_word": _debug_read_u32(bridge, P1_HEALTH_ADDR),
         "p2_health_word": _debug_read_u32(bridge, P2_HEALTH_ADDR),
+        "p1_health_hud": _debug_read_u8(bridge, P1_HEALTH_HUD_ADDR),
+        "p2_health_hud": _debug_read_u8(bridge, P2_HEALTH_HUD_ADDR),
         "timer_raw": _debug_read_u8(bridge, FIGHT_TIMER_ADDR),
         "timer_word_u32": _debug_read_u32(bridge, TIMER_WORD_ADDR),
         "p1_x_word": _debug_read_u32(bridge, P1_X_ADDR),
@@ -460,8 +464,11 @@ def read_fight_state(
     contract_state: dict[str, object] | None = None
     direct_probe: dict[str, object] | None = None
     try:
-        direct_probe = _read_direct_probe(bridge)
         contract_state = _read_contract_state(bridge)
+        try:
+            direct_probe = _read_direct_probe(bridge)
+        except Exception:
+            direct_probe = None
         return _merge_state_sources(contract_state, direct_probe, frame_id, previous_state)
     except Exception as exc:
         return FightState(
