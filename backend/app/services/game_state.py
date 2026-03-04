@@ -101,15 +101,13 @@ def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
     """Read the current fight state from emulator RAM."""
     try:
         # Health: u32 in 16.16 fixed-point (0x10000=65536=full, 0=dead)
+        # NOTE: no clamping — clamping garbage reads (e.g. 0xC0C00000) to 0x10000
+        # was masking bad addresses by making HP always appear as 160.
         p1_hp_raw = read_u32(bridge, P1_HEALTH_ADDR)
         p2_hp_raw = read_u32(bridge, P2_HEALTH_ADDR)
 
-        # Clamp to valid range (in case we read garbage data)
-        p1_hp_raw = min(p1_hp_raw, HEALTH_RAW_MAX)
-        p2_hp_raw = min(p2_hp_raw, HEALTH_RAW_MAX)
-
-        p1_hp = int(p1_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX)
-        p2_hp = int(p2_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX)
+        p1_hp = int(p1_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX) if p1_hp_raw <= HEALTH_RAW_MAX else HEALTH_MAX
+        p2_hp = int(p2_hp_raw * HEALTH_MAX / HEALTH_RAW_MAX) if p2_hp_raw <= HEALTH_RAW_MAX else HEALTH_MAX
 
         timer = read_u8(bridge, FIGHT_TIMER_ADDR)
 
@@ -124,7 +122,8 @@ def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
         # ── Combat signals (same addresses + normalization as mk4_tracing.py) ──
 
         # P1 attack type: 5-class via attack_type + LK register
-        P1_LK_IDLE = 0x8011E2C0
+        # P1_LK_IDLE confirmed via live scan 2026-03-03 (was 0x8011E2C0, now 0x80126B20)
+        P1_LK_IDLE = 0x80126B20
         p1_atk_raw = _safe_u32(bridge, P1_ATTACK_TYPE_ADDR)
         p1_lk_raw  = _safe_u32(bridge, P1_LK_ADDR)
         if p1_atk_raw != 0:
@@ -187,39 +186,46 @@ def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
 def is_round_over(state: FightState) -> bool:
     """True when someone is KO'd or the timer runs out.
 
-    NOTE: This function is only called after the 300-step grace period in
-    match_runner.py (~30s), so we don't need extra guards here.
-    The only safe guard is both-zero which means uninitialized RAM.
+    Guards mirror training/mk4_tracing.py to avoid false triggers:
+    - Both zero → uninitialized RAM
+    - Both at HEALTH_MAX (160) → savestate just loaded / RAM not yet populated
+    - timer == 0 (exact) → round timer has expired (use == not <=, avoids negative timer reads)
     """
     p1, p2, timer = state.p1_health, state.p2_health, state.timer
 
-    # Both zero → uninitialized RAM (shouldn't happen after grace period)
+    # Both zero → uninitialized RAM
     if p1 == 0 and p2 == 0:
+        return False
+
+    # Both at full HP → savestate just loaded, fight hasn't started yet
+    if p1 == HEALTH_MAX and p2 == HEALTH_MAX:
+        return False
+
+    # One side at max while other is 0 → RAM still initializing
+    if (p1 == HEALTH_MAX and p2 == 0) or (p2 == HEALTH_MAX and p1 == 0):
         return False
 
     # KO — one player's health hit zero
     if p1 <= 0 or p2 <= 0:
         return True
 
-    # Timer expired — round ends, highest health wins
-    if timer <= 0:
+    # Timer expired — exact zero (not <=) to avoid negative garbage reads
+    if timer == 0:
         return True
 
     return False
 
 
 def p1_won(state: FightState) -> bool:
-    """True when P1 wins the round (KO or timer expiry)."""
+    """True when P1 wins the round (KO or timer expiry). Mirrors mk4_tracing.py."""
     p1, p2 = state.p1_health, state.p2_health
+    # Guard: uninitialized RAM
     if p1 == 0 and p2 == 0:
         return False
-    # P1 KO'd the opponent
-    if p2 <= 0 and p1 > 0:
+    # P2 KO'd (health at or below zero)
+    if p2 <= 0:
         return True
-    # P2 KO'd P1
-    if p1 <= 0 and p2 > 0:
-        return False
-    # Timer expired — higher health wins (P1 wins ties)
-    if state.timer <= 0:
+    # Timer-based win: higher HP wins (P1 wins ties)
+    if state.timer == 0:
         return p1 >= p2
     return False
