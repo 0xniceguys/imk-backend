@@ -50,11 +50,12 @@ class _FighterCarouselState extends State<FighterCarousel> {
             itemBuilder: (context, index) {
               final isActive = index == _current;
               final f = widget.fighters[index];
-              // Use backend image if available, fall back to static assets
+              // Resolve relative backend image paths
+              final resolvedUrl = f.resolvedImageUrl(kStreamBaseUrl);
               Widget image;
-              if (f.imageUrl != null && f.imageUrl!.isNotEmpty) {
+              if (resolvedUrl != null) {
                 image = Image.network(
-                  f.imageUrl!,
+                  resolvedUrl,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) =>
                       Image.asset(Assets.fighterCenter, fit: BoxFit.contain),
@@ -100,7 +101,7 @@ class _FighterCarouselState extends State<FighterCarousel> {
           }),
         ),
         const SizedBox(height: 8),
-        // Fighter info — crossfade name/model on page change
+        // Fighter name crossfades on page change
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child: Text(fighter.name,
@@ -113,6 +114,22 @@ class _FighterCarouselState extends State<FighterCarousel> {
               key: ValueKey('model_${fighter.id}'),
               style: bodyStyle(size: 16, color: Palette.secondary)),
         ),
+        // Tags row: fight style + origin
+        if (fighter.fightStyle != null || fighter.origin != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (fighter.fightStyle != null)
+                  _FighterTag(label: fighter.fightStyle!),
+                if (fighter.fightStyle != null && fighter.origin != null)
+                  const SizedBox(width: 6),
+                if (fighter.origin != null)
+                  _FighterTag(label: '📍 ${fighter.origin!}'),
+              ],
+            ),
+          ),
         const SizedBox(height: 10),
         SizedBox(
           width: 280,
@@ -125,6 +142,25 @@ class _FighterCarouselState extends State<FighterCarousel> {
         ),
         const SizedBox(height: 8),
       ],
+    );
+  }
+}
+
+class _FighterTag extends StatelessWidget {
+  const _FighterTag({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        border: Border.all(color: Palette.gold.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(4),
+        color: Palette.gold.withOpacity(0.08),
+      ),
+      child: Text(label,
+          style: bodyStyle(size: 11, color: Palette.gold)),
     );
   }
 }

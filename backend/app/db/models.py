@@ -116,6 +116,13 @@ class Fighter(Base):
     llm_model: Mapped[str] = mapped_column(String(100), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # Rich display data
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    origin: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    special_move: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    fight_style: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Agent can be either:
     # 1. Built-in agent (agent_architecture = "random", "cpu", etc.)
     # 2. Custom uploaded agent (agent_id = UUID of Agent record)
