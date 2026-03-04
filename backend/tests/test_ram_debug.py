@@ -46,6 +46,30 @@ class DirectBridge:
         return {"output": self.outputs[command]}
 
 
+class MixedBridge(DirectBridge):
+    def get_ram_features(self):
+        return {
+            "mk4_state_payload": {
+                "version": "mk4_core_v1",
+                "available": True,
+                "frame_id": 0,
+                "p1_health_word": 2916,
+                "p2_health_word": 65536,
+                "p1_health": 5,
+                "p2_health": 160,
+                "timer": 0,
+                "timer_raw": 0,
+                "p1_x": 0.0,
+                "p2_x": -2.0,
+                "p1_airborne": 0.0,
+                "p2_airborne": 0.0,
+                "p1_y_vel": 0.0,
+                "p1_facing": -1,
+                "p2_facing": 1,
+            }
+        }
+
+
 def test_read_fight_state_contract_debug_info():
     state = read_fight_state(ContractBridge(), frame_id=7)
 
@@ -64,6 +88,16 @@ def test_read_fight_state_direct_debug_info():
     assert state.debug_info["state_source"] == "direct"
     assert state.debug_info["direct_probe"]["timer_raw"]["value"] == 0x56
     assert state.debug_info["direct_probe"]["timer_word_u32"]["value"] == 0x56
+
+
+def test_read_fight_state_prefers_direct_probe_over_bad_contract():
+    state = read_fight_state(MixedBridge(), frame_id=11)
+
+    assert state.debug_info["state_source"] == "direct"
+    assert state.p1_health == 160
+    assert state.p2_health == 80
+    assert state.timer == 0x56
+    assert state.debug_info["contract_payload"]["p1_health"] == 5
 
 
 def test_ram_debug_recorder_writes_jsonl(tmp_path):

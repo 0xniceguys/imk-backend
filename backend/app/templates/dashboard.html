@@ -42,21 +42,14 @@
       </div>
     </div>
     {% if m.runner %}
-    {% set p1_left = (m.runner.p1_x <= m.runner.p2_x) %}
-    {% set left_name = (m.fighter1.name if m.fighter1 else m.p1_agent) if p1_left else (m.fighter2.name if m.fighter2 else m.p2_agent) %}
-    {% set right_name = (m.fighter2.name if m.fighter2 else m.p2_agent) if p1_left else (m.fighter1.name if m.fighter1 else m.p1_agent) %}
-    {% set left_slot = 'P1' if p1_left else 'P2' %}
-    {% set right_slot = 'P2' if p1_left else 'P1' %}
-    {% set left_health = m.runner.p1_health if p1_left else m.runner.p2_health %}
-    {% set right_health = m.runner.p2_health if p1_left else m.runner.p1_health %}
     <div class="mt-1 grid grid-2" style="gap: 0.5rem;">
       <div>
-        <div class="text-sm text-dim">Left HUD: {{ left_name }} ({{ left_slot }})</div>
-        <div class="health-bar"><div class="health-bar-fill health-p1" style="width: {{ (left_health / 160 * 100)|int }}%"></div></div>
+        <div class="text-sm text-dim">P1: {{ m.fighter1.name if m.fighter1 else m.p1_agent }}</div>
+        <div class="health-bar"><div class="health-bar-fill health-p1" style="width: {{ (m.runner.p1_health / 160 * 100)|int }}%"></div></div>
       </div>
       <div>
-        <div class="text-sm text-dim">Right HUD: {{ right_name }} ({{ right_slot }})</div>
-        <div class="health-bar"><div class="health-bar-fill health-p2" style="width: {{ (right_health / 160 * 100)|int }}%"></div></div>
+        <div class="text-sm text-dim">P2: {{ m.fighter2.name if m.fighter2 else m.p2_agent }}</div>
+        <div class="health-bar"><div class="health-bar-fill health-p2" style="width: {{ (m.runner.p2_health / 160 * 100)|int }}%"></div></div>
       </div>
     </div>
     {% endif %}
