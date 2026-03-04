@@ -33,7 +33,11 @@ class WalletNotifier extends StateNotifier<WalletState> {
       return;
     }
 
-    state = state.copyWith(solanaAddress: address, isLoading: true);
+    state = state.copyWith(
+      solanaAddress: address,
+      isLoading: true,
+      clearError: true,
+    );
 
     if (kUseMockData) {
       state = WalletState(
@@ -66,10 +70,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
         usdcBalance: 0,
         isLoading: false,
       );
-    } catch (_) {
-      state = WalletState(
+    } catch (e) {
+      debugPrint('[Wallet] loadWallet error: $e');
+      // Preserve last known good balances if we had them
+      state = state.copyWith(
         solanaAddress: address,
         isLoading: false,
+        errorMessage: 'Failed to load wallet balances. Tap refresh to retry.',
       );
     }
   }
@@ -309,7 +316,10 @@ class WalletNotifier extends StateNotifier<WalletState> {
         'jsonrpc': '2.0',
         'id': 1,
         'method': 'getBalance',
-        'params': [address],
+        'params': [
+          address,
+          {'commitment': 'confirmed'},
+        ],
       }),
     );
     if (response.statusCode == 200) {
@@ -332,7 +342,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
           'params': [
             address,
             {'mint': _seekerMint},
-            {'encoding': 'jsonParsed'},
+            {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
           ],
         }),
       );
@@ -353,6 +363,36 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   Future<void> refreshBalance() async => loadWallet();
 
+  /// Polls for an updated balance with exponential backoff.
+  /// Compares against the current (pre-withdrawal) balance snapshot and stops
+  /// once the balance actually changes, or after [maxAttempts] tries.
+  Future<void> refreshWithRetry({int maxAttempts = 3}) async {
+    final address = _privy.walletAddress;
+    if (address == null) return;
+
+    final prevSol = state.solBalance;
+    final prevSeeker = state.seekerBalance;
+    int delay = 2;
+
+    for (int i = 0; i < maxAttempts; i++) {
+      debugPrint('[Wallet] Retry ${i + 1}/$maxAttempts — waiting ${delay}s...');
+      await Future.delayed(Duration(seconds: delay));
+
+      await loadWallet();
+
+      // Check if balance actually changed
+      if (state.solBalance != prevSol || state.seekerBalance != prevSeeker) {
+        debugPrint('[Wallet] Balance updated after ${i + 1} retries');
+        return;
+      }
+
+      delay *= 2; // exponential backoff: 2s → 4s → 8s
+    }
+
+    debugPrint('[Wallet] Balance unchanged after $maxAttempts retries — '
+        'may update on next manual refresh');
+  }
+
   Future<String?> signMessage(String message) async {
     return _privy.signMessage(message);
   }
@@ -363,7 +403,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   Future<String?> signAndSendTransaction(Uint8List transactionBytes) async {
     final sig = await _privy.signAndSendTransaction(transactionBytes);
-    if (sig != null) await refreshBalance();
+    if (sig != null) await refreshWithRetry();
     return sig;
   }
 
