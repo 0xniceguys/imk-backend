@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_boring_avatars/flutter_boring_avatars.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
-import '../core/constants.dart';
 import '../router.dart';
 import '../providers/auth_provider.dart';
 import '../models/bet.dart';
@@ -23,6 +23,7 @@ class ProfileScreen extends ConsumerWidget {
     final bets = ref.watch(betProvider);
     final auth = ref.watch(authProvider);
     final displayName = auth.email?.split('@').first.toUpperCase() ?? 'PLAYER';
+    final avatarSeed = auth.email ?? auth.walletAddress ?? displayName;
     final wonBets = bets.where((b) => b.status == BetStatus.won).length;
     final totalBets = bets.length;
     final winRate = totalBets > 0
@@ -45,8 +46,18 @@ class ProfileScreen extends ConsumerWidget {
               shape: BoxShape.circle,
             ),
             clipBehavior: Clip.antiAlias,
-            child:
-                Image.asset(Assets.profileAvatar, fit: BoxFit.cover),
+            child: BoringAvatar(
+              name: avatarSeed,
+              type: BoringAvatarType.ring,
+              shape: const OvalBorder(),
+              palette: const BoringAvatarPalette([
+                Color(0xFFFFC500),
+                Color(0xFF252525),
+                Color(0xFF1A1A1A),
+                Color(0xFF414141),
+                Color(0xFFFFFFFF),
+              ]),
+            ),
           ),
           const SizedBox(height: 12),
           Padding(

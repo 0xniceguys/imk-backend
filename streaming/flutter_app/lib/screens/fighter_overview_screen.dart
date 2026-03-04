@@ -15,9 +15,14 @@ class FighterOverviewScreen extends ConsumerWidget {
     final fighters = ref.watch(fighterProvider);
     return AppShell(
       activeTab: NavTab.fighters,
+      scrollable: true,
+      contentBottomPadding: 180,
       onNavigate: (slug) => onNavigate(routeFor(slug)),
       content: fighters.isEmpty
-          ? const Center(child: IKLoader(size: 40))
+          ? const SizedBox(
+              height: 560,
+              child: Center(child: IKLoader(size: 40)),
+            )
           : FighterCarousel(
               fighters: fighters,
               onMoreDetails: (id) => onNavigate('/fighter-details/$id'),

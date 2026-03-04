@@ -3,8 +3,7 @@ import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../core/constants.dart';
 import '../../models/fighter.dart';
-import '../shared/stats_columns.dart';
-import '../shared/ornate_button.dart';
+import '../shared/pressable.dart';
 
 class FighterCarousel extends StatefulWidget {
   const FighterCarousel({
@@ -27,7 +26,7 @@ class _FighterCarouselState extends State<FighterCarousel> {
   @override
   void initState() {
     super.initState();
-    _controller = PageController(viewportFraction: 0.55, initialPage: 0);
+    _controller = PageController(viewportFraction: 0.62);
   }
 
   @override
@@ -39,92 +38,230 @@ class _FighterCarouselState extends State<FighterCarousel> {
   @override
   Widget build(BuildContext context) {
     final fighter = widget.fighters[_current];
+
     return Column(
       children: [
-        // Carousel — takes flexible space
-        Expanded(
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.fighters.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (context, index) {
-              final isActive = index == _current;
-              final f = widget.fighters[index];
-              // Use backend image if available, fall back to static assets
-              Widget image;
-              if (f.imageUrl != null && f.imageUrl!.isNotEmpty) {
-                image = Image.network(
-                  f.imageUrl!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) =>
-                      Image.asset(Assets.fighterCenter, fit: BoxFit.contain),
-                );
-              } else {
-                String img;
-                if (isActive) {
-                  img = Assets.fighterCenter;
-                } else if (index < _current) {
-                  img = Assets.fighterLeft;
-                } else {
-                  img = Assets.fighterRight;
-                }
-                image = Image.asset(img, fit: BoxFit.contain);
-              }
-              return AnimatedScale(
-                scale: isActive ? 1.0 : 0.8,
-                duration: const Duration(milliseconds: 250),
-                child: AnimatedOpacity(
-                  opacity: isActive ? 1.0 : 0.5,
-                  duration: const Duration(milliseconds: 250),
-                  child: image,
+        SizedBox(
+          height: 560,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              PageView.builder(
+                controller: _controller,
+                itemCount: widget.fighters.length,
+                onPageChanged: (index) => setState(() => _current = index),
+                itemBuilder: (context, index) {
+                  final active = index == _current;
+                  final item = widget.fighters[index];
+                  final fallback = active
+                      ? Assets.fighterCenter
+                      : index < _current
+                          ? Assets.fighterLeft
+                          : Assets.fighterRight;
+
+                  return Align(
+                    alignment: Alignment.bottomCenter,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      height: active ? 470 : 350,
+                      margin: EdgeInsets.only(
+                        top: active ? 24 : 88,
+                        bottom: active ? 0 : 18,
+                      ),
+                      child: Pressable(
+                        onTap: active
+                            ? () => widget.onMoreDetails(item.id)
+                            : null,
+                        scaleTo: 0.97,
+                        opacityTo: 0.92,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 260),
+                          opacity: active ? 1 : 0.28,
+                          child: _FighterArtwork(
+                            fighter: item,
+                            fallbackAsset: fallback,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 8,
+                child: IgnorePointer(
+                  child: Column(
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: Text(
+                          fighter.name,
+                          key: ValueKey('fighter_name_${fighter.id}'),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: displayStyle(
+                            size: 54,
+                            color: Palette.gold,
+                            height: 0.92,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: Text(
+                          fighter.llmModel,
+                          key: ValueKey('fighter_model_${fighter.id}'),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: bodyStyle(
+                            size: 22,
+                            color: Palette.secondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        // Animated dot indicators
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(widget.fighters.length, (i) {
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: i == _current ? 20 : 8,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: i == _current ? Palette.gold : Palette.muted,
-              ),
-            );
-          }),
+        Container(
+          height: 1,
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          color: Palette.darkGold,
         ),
-        const SizedBox(height: 8),
-        // Fighter info — crossfade name/model on page change
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: Text(fighter.name,
-              key: ValueKey('name_${fighter.id}'),
-              style: displayStyle(size: 36, color: Palette.gold)),
+        const SizedBox(height: 30),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: _FighterOverviewStats(fighter: fighter),
         ),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: Text(fighter.llmModel,
-              key: ValueKey('model_${fighter.id}'),
-              style: bodyStyle(size: 16, color: Palette.secondary)),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: 280,
-          child: StatsColumnsWidget(fighter: fighter),
-        ),
-        const SizedBox(height: 14),
-        OrnateButton(
-          label: 'MORE DETAILS',
+        const SizedBox(height: 28),
+        Pressable(
           onTap: () => widget.onMoreDetails(fighter.id),
+          scaleTo: 0.96,
+          opacityTo: 0.8,
+          child: Text(
+            'MORE DETAILS',
+            style: displayStyle(
+              size: 26,
+              color: Palette.secondary,
+              decoration: TextDecoration.underline,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 20),
       ],
     );
   }
+}
+
+class _FighterArtwork extends StatelessWidget {
+  const _FighterArtwork({
+    required this.fighter,
+    required this.fallbackAsset,
+  });
+
+  final Fighter fighter;
+  final String fallbackAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = fighter.resolvedImageUrl;
+    if (imageUrl != null) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (_, error, stackTrace) =>
+            Image.asset(fallbackAsset, fit: BoxFit.contain),
+      );
+    }
+    return Image.asset(fallbackAsset, fit: BoxFit.contain);
+  }
+}
+
+class _FighterOverviewStats extends StatelessWidget {
+  const _FighterOverviewStats({required this.fighter});
+
+  final Fighter fighter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _StatColumn(
+            stats: [
+              _StatItem('Win Rate', '${(fighter.winRate * 100).toStringAsFixed(0)}%'),
+              _StatItem('Matches Played', '${fighter.matchesPlayed}'),
+              _StatItem('Matches Won', '${fighter.matchesWon}'),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: _StatColumn(
+            stats: [
+              _StatItem('Rank', fighter.rank > 0 ? '#${fighter.rank}' : 'Unranked'),
+              _StatItem('Fight Style', fighter.fightStyle.isEmpty ? 'Unknown' : fighter.fightStyle),
+              _StatItem(
+                'Origin',
+                fighter.origin.isEmpty ? 'Unknown' : fighter.origin,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatColumn extends StatelessWidget {
+  const _StatColumn({required this.stats});
+
+  final List<_StatItem> stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: stats
+          .map(
+            (stat) => Padding(
+              padding: const EdgeInsets.only(bottom: 26),
+              child: Column(
+                children: [
+                  Text(
+                    stat.label,
+                    textAlign: TextAlign.center,
+                    style: bodyStyle(size: 18, color: Palette.statLabel),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    stat.value,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle(size: 20, color: Palette.white),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _StatItem {
+  const _StatItem(this.label, this.value);
+
+  final String label;
+  final String value;
 }
