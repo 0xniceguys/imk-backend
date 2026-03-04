@@ -8,7 +8,8 @@ back to direct debugger RAM reads for the verified core fight-state symbols.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from app.services.bridge import EmulatorBridge, read_u8, read_u32
 
@@ -27,6 +28,7 @@ HEALTH_MAX = 160
 HEALTH_FP_ONE = 0x00010000
 Y_VEL_NORM = 100000.0
 MK4_STATE_CONTRACT_VERSION = "mk4_core_v1"
+TIMER_WORD_ADDR = FIGHT_TIMER_ADDR & ~0x3
 
 
 def _clamp01(value: float) -> float:
@@ -48,20 +50,6 @@ def _decode_s32(word: int) -> int:
     return value if value < 0x80000000 else value - 0x100000000
 
 
-def _safe_u32(bridge: EmulatorBridge, addr: int) -> int:
-    try:
-        return read_u32(bridge, addr)
-    except Exception:
-        return 0
-
-
-def _safe_u8(bridge: EmulatorBridge, addr: int) -> int:
-    try:
-        return read_u8(bridge, addr)
-    except Exception:
-        return 0
-
-
 def _coerce_int(value: object, default: int) -> int:
     if isinstance(value, bool):
         return int(value)
@@ -76,6 +64,71 @@ def _coerce_float(value: object, default: float = 0.0) -> float:
     if isinstance(value, (int, float)):
         return float(value)
     return default
+
+
+@dataclass(frozen=True)
+class _DebugRead:
+    value: int | None
+    error: str | None = None
+
+
+def _debug_read_u8(bridge: EmulatorBridge, addr: int) -> _DebugRead:
+    try:
+        return _DebugRead(value=read_u8(bridge, addr))
+    except Exception as exc:
+        return _DebugRead(value=None, error=f"{type(exc).__name__}: {exc}")
+
+
+def _debug_read_u32(bridge: EmulatorBridge, addr: int) -> _DebugRead:
+    try:
+        return _DebugRead(value=read_u32(bridge, addr))
+    except Exception as exc:
+        return _DebugRead(value=None, error=f"{type(exc).__name__}: {exc}")
+
+
+def _serialize_debug_read(read: _DebugRead) -> dict[str, object]:
+    return {
+        "value": read.value,
+        "error": read.error,
+    }
+
+
+def _read_direct_probe(bridge: EmulatorBridge) -> dict[str, object]:
+    return {
+        "timer_address": FIGHT_TIMER_ADDR,
+        "timer_word_address": TIMER_WORD_ADDR,
+        "timer_debugger_byte_address": FIGHT_TIMER_ADDR ^ 0x3,
+        "p1_health_word": _debug_read_u32(bridge, P1_HEALTH_ADDR),
+        "p2_health_word": _debug_read_u32(bridge, P2_HEALTH_ADDR),
+        "timer_raw": _debug_read_u8(bridge, FIGHT_TIMER_ADDR),
+        "timer_word_u32": _debug_read_u32(bridge, TIMER_WORD_ADDR),
+        "p1_x_word": _debug_read_u32(bridge, P1_X_ADDR),
+        "p2_x_word": _debug_read_u32(bridge, P2_X_ADDR),
+        "p1_ground_flag_raw": _debug_read_u32(bridge, P1_GROUND_FLAG_ADDR),
+        "p2_air_flag_word": _debug_read_u32(bridge, P2_AIR_FLAG_ADDR),
+        "p1_y_vel_raw": _debug_read_u32(bridge, P1_Y_VEL_ADDR),
+    }
+
+
+def _serialize_direct_probe(probe: dict[str, object] | None) -> dict[str, object] | None:
+    if probe is None:
+        return None
+    out: dict[str, object] = {}
+    for key, value in probe.items():
+        if isinstance(value, _DebugRead):
+            out[key] = _serialize_debug_read(value)
+        else:
+            out[key] = value
+    return out
+
+
+def _require_probe_value(probe: dict[str, object], key: str) -> int:
+    value = probe[key]
+    if not isinstance(value, _DebugRead):
+        raise TypeError(f"Probe value for {key!r} is not a debug read")
+    if value.value is None:
+        raise RuntimeError(f"Missing RAM value for {key}: {value.error or 'unknown error'}")
+    return int(value.value)
 
 
 def _read_contract_state(bridge: EmulatorBridge) -> dict | None:
@@ -117,6 +170,7 @@ class FightState:
     p1_hitstun: float = 0.0
     p2_hitstun: float = 0.0
     p1_airborne: float = 0.0
+    debug_info: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -154,22 +208,32 @@ def _state_from_contract(contract: dict, frame_id: int) -> FightState:
         p1_hitstun=0.0,
         p2_hitstun=0.0,
         p1_airborne=_coerce_float(contract.get("p1_airborne"), 0.0),
+        debug_info={
+            "state_source": "contract",
+            "contract_payload": dict(contract),
+            "selected_frame_id": _coerce_int(contract.get("frame_id"), frame_id),
+        },
     )
 
 
-def _state_from_direct_reads(bridge: EmulatorBridge, frame_id: int) -> FightState:
-    p1_health = _decode_health_word(read_u32(bridge, P1_HEALTH_ADDR))
-    p2_health = _decode_health_word(read_u32(bridge, P2_HEALTH_ADDR))
-    timer = read_u8(bridge, FIGHT_TIMER_ADDR)
-    p1_x = _decode_s16hi(read_u32(bridge, P1_X_ADDR))
-    p2_x = _decode_s16hi(read_u32(bridge, P2_X_ADDR))
+def _state_from_direct_reads(probe: dict[str, object], frame_id: int) -> FightState:
+    p1_health_word = _require_probe_value(probe, "p1_health_word")
+    p2_health_word = _require_probe_value(probe, "p2_health_word")
+    timer = _require_probe_value(probe, "timer_raw")
+    p1_x_word = _require_probe_value(probe, "p1_x_word")
+    p2_x_word = _require_probe_value(probe, "p2_x_word")
 
-    p1_ground_word = _safe_u32(bridge, P1_GROUND_FLAG_ADDR)
-    p2_air_word = _safe_u32(bridge, P2_AIR_FLAG_ADDR)
+    p1_health = _decode_health_word(p1_health_word)
+    p2_health = _decode_health_word(p2_health_word)
+    p1_x = _decode_s16hi(p1_x_word)
+    p2_x = _decode_s16hi(p2_x_word)
+
+    p1_ground_word = _require_probe_value(probe, "p1_ground_flag_raw")
+    p2_air_word = _require_probe_value(probe, "p2_air_flag_word")
     p1_airborne = 1.0 if p1_ground_word == 1 else 0.0
     p2_airborne = 1.0 if (((p2_air_word >> 16) & 0xFFFF) != 0) else 0.0
 
-    p1_y_vel_raw = _safe_u32(bridge, P1_Y_VEL_ADDR)
+    p1_y_vel_raw = _require_probe_value(probe, "p1_y_vel_raw")
     p1_y_vel = max(-1.0, min(1.0, _decode_s32(p1_y_vel_raw) / Y_VEL_NORM))
 
     return FightState(
@@ -186,18 +250,36 @@ def _state_from_direct_reads(bridge: EmulatorBridge, frame_id: int) -> FightStat
         p1_hitstun=0.0,
         p2_hitstun=0.0,
         p1_airborne=p1_airborne,
+        debug_info={
+            "state_source": "direct",
+            "selected_frame_id": frame_id,
+            "direct_probe": _serialize_direct_probe(probe),
+        },
     )
 
 
 def read_fight_state(bridge: EmulatorBridge, frame_id: int) -> FightState:
     """Read the current fight state from the bridge."""
+    contract_state: dict[str, object] | None = None
+    direct_probe: dict[str, object] | None = None
     try:
+        direct_probe = _read_direct_probe(bridge)
         contract_state = _read_contract_state(bridge)
         if contract_state is not None:
-            return _state_from_contract(contract_state, frame_id)
-        return _state_from_direct_reads(bridge, frame_id)
-    except Exception:
-        return FightState(frame_id=frame_id)
+            state = _state_from_contract(contract_state, frame_id)
+            state.debug_info["direct_probe"] = _serialize_direct_probe(direct_probe)
+            return state
+        return _state_from_direct_reads(direct_probe, frame_id)
+    except Exception as exc:
+        return FightState(
+            frame_id=frame_id,
+            debug_info={
+                "state_source": "fallback",
+                "error": f"{type(exc).__name__}: {exc}",
+                "contract_payload": dict(contract_state) if isinstance(contract_state, dict) else None,
+                "direct_probe": _serialize_direct_probe(direct_probe),
+            },
+        )
 
 
 def is_round_over(state: FightState) -> bool:
