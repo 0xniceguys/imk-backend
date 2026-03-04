@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'palette.dart';
 
+const kAppFontFamily = 'AdelonSerialLight';
+
 TextStyle displayStyle({
   double size = 24,
   Color color = Palette.white,
@@ -10,7 +12,7 @@ TextStyle displayStyle({
   TextDecoration decoration = TextDecoration.none,
 }) =>
     TextStyle(
-      fontFamily: 'serif',
+      fontFamily: kAppFontFamily,
       fontSize: size,
       fontWeight: weight,
       color: color,
@@ -28,6 +30,7 @@ TextStyle bodyStyle({
   TextDecoration decoration = TextDecoration.none,
 }) =>
     TextStyle(
+      fontFamily: kAppFontFamily,
       fontSize: size,
       fontWeight: weight,
       color: color,

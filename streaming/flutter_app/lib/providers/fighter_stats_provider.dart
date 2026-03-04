@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/api_service.dart';
 import '../screens/fighter_details_screen.dart' show FighterVsParams;
 import 'match_provider.dart';
 
