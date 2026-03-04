@@ -8,15 +8,33 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services.match_runner import get_runner
-from app.services.redis_client import (
-    get_cached_state,
-    get_match_ended,
-)
 from app.ws.connection_manager import manager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def _get_cached_state(match_id: str) -> dict | None:
+    try:
+        from app.services.redis_client import get_cached_state
+    except Exception:
+        return None
+    try:
+        return await get_cached_state(match_id)
+    except Exception:
+        return None
+
+
+async def _get_match_ended(match_id: str) -> dict | None:
+    try:
+        from app.services.redis_client import get_match_ended
+    except Exception:
+        return None
+    try:
+        return await get_match_ended(match_id)
+    except Exception:
+        return None
 
 
 @router.websocket("/ws/match/{match_id}")
@@ -34,7 +52,7 @@ async def match_websocket(ws: WebSocket, match_id: str):
     # ── Check Redis for terminal state before checking runner ──────────────
     # Handles: client connects after match ended AND runner was cleaned up.
     # We need to accept() before close() to avoid HTTP 403 instead of WS close.
-    ended_payload = await get_match_ended(match_id)
+    ended_payload = await _get_match_ended(match_id)
 
     if not runner and not ended_payload:
         # No runner and no cached end — match not started or never existed
@@ -56,7 +74,7 @@ async def match_websocket(ws: WebSocket, match_id: str):
     is_ended = runner.state.value in ("completed", "stopped", "error")
 
     # Build initial connected message with cached or live state
-    cached_state = await get_cached_state(match_id) or runner.latest_snapshot.to_dict()
+    cached_state = await _get_cached_state(match_id) or runner.latest_snapshot.to_dict()
 
     try:
         await ws.send_json({
