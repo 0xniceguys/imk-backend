@@ -1,52 +1,50 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
 import '../core/constants.dart';
+import '../providers/auth_provider.dart';
+import '../providers/wallet_provider.dart';
 
-/// Animated splash screen shown on every cold start.
-/// Calls [onDone] once the intro animation completes (~2 s).
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, required this.onDone});
-  final VoidCallback onDone;
+// ──────────────────────────────────────────────────────────────────────────────
+// Splash page (animated intro → auth check → navigate)
+// ──────────────────────────────────────────────────────────────────────────────
+
+class SplashPage extends ConsumerStatefulWidget {
+  const SplashPage({super.key, required this.postRoute});
+  final String postRoute;
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashPageState extends ConsumerState<SplashPage>
     with TickerProviderStateMixin {
-  // Phase-1: logo scale + fade  (0 – 700 ms)
   late final AnimationController _logoCtrl;
   late final Animation<double> _logoFade;
   late final Animation<double> _logoScale;
-
-  // Phase-2: shimmer sweep  (400 – 1200 ms)
   late final AnimationController _shimmerCtrl;
   late final Animation<double> _shimmerAnim;
-
-  // Phase-3: subtitle + tagline  (700 – 1400 ms)
   late final AnimationController _subtitleCtrl;
   late final Animation<double> _subtitleFade;
   late final Animation<double> _subtitleSlide;
-
-  // Phase-4: glow pulse before exit (1200 – 1800 ms)
   late final AnimationController _glowCtrl;
   late final Animation<double> _glowFade;
 
   @override
   void initState() {
     super.initState();
-
-    // ── Logo ──────────────────────────────────────────────────────────────
     _logoCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
     _logoFade = CurvedAnimation(parent: _logoCtrl, curve: Curves.easeOut);
-    _logoScale = Tween<double>(begin: 0.72, end: 1.0).animate(
-      CurvedAnimation(parent: _logoCtrl, curve: Curves.easeOutBack),
-    );
+    _logoScale = Tween<double>(
+      begin: 0.72,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _logoCtrl, curve: Curves.easeOutBack));
 
-    // ── Shimmer ───────────────────────────────────────────────────────────
     _shimmerCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -56,40 +54,87 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeInOut,
     );
 
-    // ── Subtitle ──────────────────────────────────────────────────────────
     _subtitleCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _subtitleFade =
-        CurvedAnimation(parent: _subtitleCtrl, curve: Curves.easeOut);
+    _subtitleFade = CurvedAnimation(
+      parent: _subtitleCtrl,
+      curve: Curves.easeOut,
+    );
     _subtitleSlide = Tween<double>(begin: 20, end: 0).animate(
       CurvedAnimation(parent: _subtitleCtrl, curve: Curves.easeOutCubic),
     );
 
-    // ── Glow exit ─────────────────────────────────────────────────────────
     _glowCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
     _glowFade = CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut);
 
-    _runSequence();
+    _run();
   }
 
-  Future<void> _runSequence() async {
-    // Logo comes in
+  /// Wait for auth state to leave [AuthStatus.unknown].
+  /// Returns the resolved [AuthStatus].
+  Future<AuthStatus> _waitForAuth() async {
+    final completer = Completer<AuthStatus>();
+    // Check current state first — may already be resolved
+    final current = ref.read(authProvider).status;
+    if (current != AuthStatus.unknown) return current;
+
+    // Listen for the first non-unknown state
+    late final ProviderSubscription<AuthState> sub;
+    sub = ref.listenManual<AuthState>(authProvider, (prev, next) {
+      if (next.status != AuthStatus.unknown && !completer.isCompleted) {
+        completer.complete(next.status);
+        sub.close();
+      }
+    });
+
+    // Safety timeout — if Privy hangs, fall back to sign-in after 8s
+    return completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        sub.close();
+        return AuthStatus.unauthenticated;
+      },
+    );
+  }
+
+  Future<void> _run() async {
+    if (!mounted) return;
+    // Start animation and auth resolution in parallel
+    final authFuture = _waitForAuth();
+
     await _logoCtrl.forward();
-    // Shimmer starts slightly before subtitle
+    if (!mounted) return;
     _shimmerCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
     _subtitleCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 500));
-    // Glow pulse
+    if (!mounted) return;
     await _glowCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 250));
-    // Done — trigger navigation
-    if (mounted) widget.onDone();
+    if (!mounted) return;
+
+    // Wait for auth — animation is done, auth may already be resolved
+    final authStatus = await authFuture;
+    if (!mounted) return;
+
+    if (authStatus == AuthStatus.authenticated) {
+      // Returning user — go straight to arena, no sign-in flash
+      ref.read(walletProvider.notifier).loadWallet();
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil('/arena-list', (_) => false);
+    } else {
+      // New/logged-out user — go to get-started or sign-in
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(widget.postRoute, (_) => false);
+    }
   }
 
   @override
@@ -103,34 +148,35 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Palette.black,
-      child: AnimatedBuilder(
-        animation: Listenable.merge(
-            [_logoCtrl, _shimmerCtrl, _subtitleCtrl, _glowCtrl]),
-        builder: (context, _) {
-          return Stack(
+    return Scaffold(
+      backgroundColor: Palette.black,
+      body: AnimatedBuilder(
+        animation: Listenable.merge([
+          _logoCtrl,
+          _shimmerCtrl,
+          _subtitleCtrl,
+          _glowCtrl,
+        ]),
+        builder: (ctx, child) => Container(
+          color: Palette.black,
+          child: Stack(
             fit: StackFit.expand,
             children: [
-              // Background radial glow (subtle gold haze)
+              // Radial ambient glow
               Positioned.fill(
                 child: Opacity(
                   opacity: _logoFade.value * 0.35,
-                  child: DecoratedBox(
+                  child: const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
                         center: Alignment.center,
                         radius: 0.6,
-                        colors: [
-                          Palette.gold.withValues(alpha: 0.18),
-                          Colors.transparent,
-                        ],
+                        colors: [Color(0x2EFFC500), Colors.transparent],
                       ),
                     ),
                   ),
                 ),
               ),
-
               // Exit glow burst
               if (_glowFade.value > 0)
                 Positioned.fill(
@@ -143,7 +189,8 @@ class _SplashScreenState extends State<SplashScreen>
                           radius: 0.9,
                           colors: [
                             Palette.gold.withValues(
-                                alpha: _glowFade.value * 0.5),
+                              alpha: _glowFade.value * 0.5,
+                            ),
                             Colors.transparent,
                           ],
                         ),
@@ -151,25 +198,20 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
-
-              // Center content
               Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Logo with scale + fade + shimmer
+                    // Logo: scale bounce + fade
                     Opacity(
                       opacity: _logoFade.value,
                       child: Transform.scale(
                         scale: _logoScale.value,
-                        child: _ShimmerLogo(
-                          shimmerProgress: _shimmerAnim.value,
-                        ),
+                        child: _buildShimmerLogo(),
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Tagline fades + slides up
+                    // Tagline: slide up + fade
                     Transform.translate(
                       offset: Offset(0, _subtitleSlide.value),
                       child: Opacity(
@@ -178,15 +220,16 @@ class _SplashScreenState extends State<SplashScreen>
                           children: [
                             Container(
                               height: 1,
-                              width: 120,
-                              margin:
-                                  const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: [
-                                  Colors.transparent,
-                                  Palette.gold.withValues(alpha: 0.6),
-                                  Colors.transparent,
-                                ]),
+                              width: 200,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    Color(0xFFFFC500),
+                                    Colors.transparent,
+                                  ],
+                                ),
                               ),
                             ),
                             const Text(
@@ -194,8 +237,7 @@ class _SplashScreenState extends State<SplashScreen>
                               style: TextStyle(
                                 color: Palette.muted,
                                 fontSize: 14,
-                                letterSpacing: 1.5,
-                                fontFamily: 'SF Pro Display',
+                                letterSpacing: -0.1,
                               ),
                             ),
                           ],
@@ -206,46 +248,31 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
-}
 
-/// Logo widget with an optional shimmer sweep overlay using ShaderMask.
-class _ShimmerLogo extends StatelessWidget {
-  const _ShimmerLogo({required this.shimmerProgress});
-  final double shimmerProgress;
-
-  @override
-  Widget build(BuildContext context) {
-    // Shimmer highlight: a bright band that sweeps left → right
-    final shimmerGradient = LinearGradient(
-      colors: const [
-        Colors.transparent,
-        Color(0xFFFFE066),
-        Colors.transparent,
-      ],
-      stops: [
-        (shimmerProgress - 0.25).clamp(0.0, 1.0),
-        shimmerProgress.clamp(0.0, 1.0),
-        (shimmerProgress + 0.25).clamp(0.0, 1.0),
-      ],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    );
-
+  Widget _buildShimmerLogo() {
+    final p = _shimmerAnim.value;
     return ShaderMask(
       blendMode: BlendMode.srcATop,
-      shaderCallback: (bounds) => shimmerProgress > 0 && shimmerProgress < 1
-          ? shimmerGradient.createShader(bounds)
-          : const LinearGradient(colors: [Colors.transparent, Colors.transparent])
-              .createShader(bounds),
-      child: Image.asset(
-        Assets.logoVector,
-        width: 200,
-      ),
+      shaderCallback: (bounds) => LinearGradient(
+        colors: const [
+          Colors.transparent,
+          Color(0xFFFFE066),
+          Colors.transparent,
+        ],
+        stops: [
+          (p - 0.25).clamp(0.0, 1.0),
+          p.clamp(0.0, 1.0),
+          (p + 0.25).clamp(0.0, 1.0),
+        ],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      ).createShader(bounds),
+      child: Image.asset(Assets.logoVector, width: 200),
     );
   }
 }
