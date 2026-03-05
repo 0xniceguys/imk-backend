@@ -57,16 +57,18 @@ class AppShell extends StatelessWidget {
             child: Stack(
               children: [
                 const Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0x00000000),
-                          Color(0xFF000000),
-                        ],
-                        stops: [0.0, 0.5],
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0x00000000),
+                            Color(0xFF000000),
+                          ],
+                          stops: [0.0, 0.5],
+                        ),
                       ),
                     ),
                   ),
