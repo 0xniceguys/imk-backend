@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Read(//opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/bin/**)"
+      "Read(//opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/bin/**)",
+      "Bash(flutter analyze)",
+      "Bash(wc -l /Users/ichiropractic/code/imk-backend/streaming/flutter_app/lib/providers/*.dart)",
+      "Bash(grep -n \"\\\\.first\" /Users/ichiropractic/code/imk-backend/streaming/flutter_app/lib/screens/*.dart)"
     ]
   }
 }

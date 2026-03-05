@@ -60,7 +60,8 @@ class ApiService {
       }
       final list = jsonDecode(resp.body) as List;
       return list
-          .map((j) => Match.fromJson(j as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map((j) => Match.fromJson(j))
           .toList();
     } catch (e) {
       _log('fetchMatches error: $e');
@@ -91,7 +92,8 @@ class ApiService {
       if (resp.statusCode != 200) return [];
       final list = jsonDecode(resp.body) as List;
       return list
-          .map((j) => Fighter.fromJson(j as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map((j) => Fighter.fromJson(j))
           .toList();
     } catch (e) {
       _log('fetchFighters error: $e');
@@ -121,7 +123,7 @@ class ApiService {
       final resp = await _client.get(uri, headers: _headers);
       if (resp.statusCode != 200) return [];
       final list = jsonDecode(resp.body) as List;
-      return list.cast<Map<String, dynamic>>();
+      return list.whereType<Map<String, dynamic>>().toList();
     } catch (e) {
       _log('fetchFighterMatches error: $e');
       return [];
@@ -153,7 +155,8 @@ class ApiService {
       if (resp.statusCode != 200) return [];
       final list = jsonDecode(resp.body) as List;
       return list
-          .map((j) => Bet.fromJson(j as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map((j) => Bet.fromJson(j))
           .toList();
     } catch (e) {
       _log('fetchMyBets error: $e');
@@ -218,7 +221,11 @@ class ApiService {
         _handleError(resp, 'claimBet');
       }
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      return data['tx_signature'] as String;
+      final sig = data['tx_signature'] as String?;
+      if (sig == null) {
+        throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+      }
+      return sig;
     } on SocketException {
       throw ApiException.networkError();
     } on TimeoutException {
@@ -298,7 +305,7 @@ class ApiService {
       final resp = await _client.get(uri, headers: _headers);
       if (resp.statusCode != 200) return [];
       final list = jsonDecode(resp.body) as List;
-      return list.cast<Map<String, dynamic>>();
+      return list.whereType<Map<String, dynamic>>().toList();
     } catch (e) {
       _log('fetchLiveStreams error: $e');
       return [];
@@ -325,8 +332,12 @@ class ApiService {
       _log('POST $uri → ${resp.statusCode}');
 
       if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        return data['transaction_base64'] as String;
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final tx = data['transaction_base64'] as String?;
+        if (tx == null) {
+          throw ApiException(code: 'MissingField', message: 'Server response missing transaction_base64', statusCode: resp.statusCode);
+        }
+        return tx;
       }
 
       _handleError(resp, 'prepareWithdraw');
@@ -358,8 +369,12 @@ class ApiService {
       _log('POST $uri → ${resp.statusCode}');
 
       if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        return data['tx_signature'] as String;
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final sig = data['tx_signature'] as String?;
+        if (sig == null) {
+          throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+        }
+        return sig;
       }
 
       _handleError(resp, 'broadcastWithdraw');
@@ -395,7 +410,12 @@ class ApiService {
       _log('POST $uri → ${resp.statusCode} ${resp.body}');
 
       if (resp.statusCode == 200) {
-        return jsonDecode(resp.body)['tx_signature'] as String;
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final sig = data['tx_signature'] as String?;
+        if (sig == null) {
+          throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+        }
+        return sig;
       }
 
       _handleError(resp, 'withdrawFunds');

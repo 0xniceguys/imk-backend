@@ -13,7 +13,7 @@ import '../router.dart';
 import '../providers/auth_provider.dart';
 import '../models/bet.dart';
 import '../providers/bet_provider.dart';
-import '../services/api_service.dart';
+import '../providers/match_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/wallet/wallet_action.dart';
 import '../widgets/shared/profile_stats.dart';
@@ -76,6 +76,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) {
         await ref.read(authProvider.notifier).updateAvatar(dest);
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update avatar: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _pickingAvatar = false);
     }
@@ -117,6 +123,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
+    ctrl.dispose();
     if (result != null && result.isNotEmpty && mounted) {
       final ok = await ref.read(authProvider.notifier).updateDisplayName(result);
       if (mounted && !ok) {

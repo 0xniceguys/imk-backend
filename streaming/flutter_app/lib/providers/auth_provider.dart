@@ -72,6 +72,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _init() async {
+    try {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
 
@@ -117,10 +118,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         hasSeenIntro: true,
       );
     } else {
-      state = AuthState(
+      state = state.copyWith(
         status: AuthStatus.unauthenticated,
         hasSeenIntro: true,
       );
+    }
+    } catch (e) {
+      _log('_init failed: $e');
+      state = state.copyWith(status: AuthStatus.unauthenticated);
     }
   }
 
@@ -193,7 +198,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (ok) {
       await _privy.createSolanaWallet();
       await _syncBackendAuth();
-      state = AuthState(
+      state = state.copyWith(
         status: AuthStatus.authenticated,
         email: _privy.email,
         walletAddress: _privy.walletAddress,
@@ -211,7 +216,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (ok) {
       await _privy.createSolanaWallet();
       await _syncBackendAuth();
-      state = AuthState(
+      state = state.copyWith(
         status: AuthStatus.authenticated,
         email: _privy.email,
         walletAddress: _privy.walletAddress,
@@ -230,7 +235,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (ok) {
       await _privy.createSolanaWallet();
       await _syncBackendAuth();
-      state = AuthState(
+      state = state.copyWith(
         status: AuthStatus.authenticated,
         email: _privy.email,
         walletAddress: _privy.walletAddress,
@@ -249,7 +254,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (ok) {
       await _privy.createSolanaWallet();
       await _syncBackendAuth();
-      state = AuthState(
+      state = state.copyWith(
         status: AuthStatus.authenticated,
         walletAddress: _privy.walletAddress,
       );
@@ -322,7 +327,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         // the embedded wallet is what the app uses for transactions.
         await _privy.createSolanaWallet();
         await _syncBackendAuth();
-        state = AuthState(
+        state = state.copyWith(
           status: AuthStatus.authenticated,
           walletAddress: _privy.walletAddress,
         );
@@ -356,9 +361,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> deleteAccount() async {
     await _privy.deleteAccount();
-    state = AuthState(
+    _api.setAuthToken(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('displayName');
+    await prefs.remove('avatarPath');
+    state = state.copyWith(
       status: AuthStatus.unauthenticated,
-      hasSeenIntro: state.hasSeenIntro,
+      clearDisplayName: true,
+      clearAvatarPath: true,
     );
   }
 }
