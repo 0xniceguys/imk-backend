@@ -18,7 +18,8 @@ class PostMatchScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final matches = ref.watch(matchProvider);
+    final matchState = ref.watch(matchProvider);
+    final matches = matchState.matches;
     final bets = ref.watch(betProvider);
 
     // Find the specific match or first completed match

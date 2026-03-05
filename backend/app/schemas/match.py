@@ -17,8 +17,8 @@ class OddsOut(BaseModel):
 
 class MatchOut(BaseModel):
     id: UUID
-    fighter1: FighterOut
-    fighter2: FighterOut
+    fighter1: FighterOut | None = None
+    fighter2: FighterOut | None = None
     status: str
     label: str
     scheduled_at: datetime

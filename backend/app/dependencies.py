@@ -18,6 +18,24 @@ async def get_current_user(
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # DEV BYPASS: DEV_USER_BYPASS=true skips Privy for local testing.
+    if os.getenv("DEV_USER_BYPASS", "").lower() == "true":
+        result = await db.execute(
+            select(User).where(User.privy_user_id == "dev-test-user")
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(
+                privy_user_id="dev-test-user",
+                wallet_address="DevTestWallet123",
+                display_name="Dev Test User",
+                is_admin=False,
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        return user
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing or invalid Authorization header")
 
