@@ -259,6 +259,37 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> updateDisplayName(String name) async {
+    final uri = Uri.parse('$kApiBaseUrl/auth/me');
+    try {
+      final resp = await _client.patch(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'display_name': name}),
+      );
+      if (resp.statusCode != 200) {
+        _log('updateDisplayName failed: ${resp.statusCode}');
+        return null;
+      }
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (e) {
+      _log('updateDisplayName error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchBetsSummary() async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/summary');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return null;
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (e) {
+      _log('fetchBetsSummary error: $e');
+      return null;
+    }
+  }
+
   // ── Stream (HTTP polling fallback) ──
 
   Future<List<Map<String, dynamic>>> fetchLiveStreams() async {

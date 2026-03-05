@@ -85,7 +85,7 @@ class BattleDetailScreen extends ConsumerWidget {
                   flex: 3,
                   child: Pressable(
                     onTap: () =>
-                        onNavigate('/fighter-details/${match.fighter1.id}'),
+                        onNavigate('/fighter-details/${match.fighter1?.id}'),
                     scaleTo: 0.96,
                     child: Image.asset(Assets.battleLeft,
                         fit: BoxFit.contain),
@@ -101,14 +101,14 @@ class BattleDetailScreen extends ConsumerWidget {
                       children: [
                         Pressable(
                           onTap: () => onNavigate(
-                              '/fighter-details/${match.fighter1.id}'),
+                              '/fighter-details/${match.fighter1?.id}'),
                           child: Column(
                             children: [
-                              Text(match.fighter1.name,
+                              Text(match.fighter1?.name ?? '?',
                                   style: displayStyle(
                                       size: 22, color: Palette.gold),
                                   textAlign: TextAlign.center),
-                              Text(match.fighter1.llmModel,
+                              Text(match.fighter1?.llmModel ?? '',
                                   style: bodyStyle(
                                       size: 13,
                                       color: Palette.secondary),
@@ -121,14 +121,14 @@ class BattleDetailScreen extends ConsumerWidget {
                         const SizedBox(height: 8),
                         Pressable(
                           onTap: () => onNavigate(
-                              '/fighter-details/${match.fighter2.id}'),
+                              '/fighter-details/${match.fighter2?.id}'),
                           child: Column(
                             children: [
-                              Text(match.fighter2.name,
+                              Text(match.fighter2?.name ?? '?',
                                   style: displayStyle(
                                       size: 22, color: Palette.gold),
                                   textAlign: TextAlign.center),
-                              Text(match.fighter2.llmModel,
+                              Text(match.fighter2?.llmModel ?? '',
                                   style: bodyStyle(
                                       size: 13,
                                       color: Palette.secondary),
@@ -147,7 +147,7 @@ class BattleDetailScreen extends ConsumerWidget {
                   flex: 3,
                   child: Pressable(
                     onTap: () =>
-                        onNavigate('/fighter-details/${match.fighter2.id}'),
+                        onNavigate('/fighter-details/${match.fighter2?.id}'),
                     scaleTo: 0.96,
                     child: Image.asset(Assets.battleRight,
                         fit: BoxFit.contain),

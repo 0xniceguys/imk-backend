@@ -122,7 +122,7 @@ class ArenaCard extends StatelessWidget {
               height: 26,
               child: Center(
                 child: Text(
-                  '${match.fighter1.character} V/S ${match.fighter2.character} [${match.label}]',
+                  '${match.fighter1?.character ?? '?'} V/S ${match.fighter2?.character ?? '?'} [${match.label}]',
                   style: bodyStyle(size: 12, color: Palette.white),
                 ),
               ),

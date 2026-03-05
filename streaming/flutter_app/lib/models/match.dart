@@ -5,8 +5,8 @@ enum MatchStatus { upcoming, live, completed, cancelled }
 
 class Match {
   final String id;
-  final Fighter fighter1;
-  final Fighter fighter2;
+  final Fighter? fighter1;  // null if fighter was deleted
+  final Fighter? fighter2;  // null if fighter was deleted
   final MatchStatus status;
   final String? streamUrl;
   final DateTime scheduledAt;
@@ -24,8 +24,8 @@ class Match {
 
   const Match({
     required this.id,
-    required this.fighter1,
-    required this.fighter2,
+    this.fighter1,
+    this.fighter2,
     required this.status,
     this.streamUrl,
     required this.scheduledAt,
@@ -48,8 +48,12 @@ class Match {
 
     return Match(
       id: json['id'] as String,
-      fighter1: Fighter.fromJson(json['fighter1'] as Map<String, dynamic>),
-      fighter2: Fighter.fromJson(json['fighter2'] as Map<String, dynamic>),
+      fighter1: json['fighter1'] != null
+          ? Fighter.fromJson(json['fighter1'] as Map<String, dynamic>)
+          : null,
+      fighter2: json['fighter2'] != null
+          ? Fighter.fromJson(json['fighter2'] as Map<String, dynamic>)
+          : null,
       status: _parseStatus(json['status'] as String),
       streamUrl: json['stream_url'] as String?,
       scheduledAt: DateTime.parse(json['scheduled_at'] as String),
