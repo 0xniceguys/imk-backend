@@ -364,7 +364,7 @@ async def match_new_submit(
     p1_agent: str = Form(...),
     p2_agent: str = Form(...),
     label: str = Form("MK4-Classic"),
-    savestate_path: str = Form(...),
+    savestate_path: str | None = Form(None),
     best_of: int = Form(3),
 ):
     async for db in _get_db():
@@ -756,7 +756,12 @@ async def fighter_new(request: Request):
 async def fighter_edit(request: Request, fighter_id: UUID):
     """Edit a fighter — accepts JSON body with any updatable fields."""
     _require_admin_api(request)
-    data = await request.json()
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(400, "Request body must be valid JSON")
+    if not data:
+        raise HTTPException(400, "No fields provided to update")
 
     async for db in _get_db():
         from sqlalchemy.orm import selectinload as _sli

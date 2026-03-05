@@ -117,6 +117,14 @@ async def place_bet(
     db: AsyncSession = Depends(get_db),
 ):
     """Place a bet on a match. Calls the Solana contract via Privy server-side signing."""
+    from uuid import UUID as _UUID
+    # Validate UUID formats up-front — asyncpg crashes on empty/invalid UUIDs
+    try:
+        _UUID(body.match_id)
+        _UUID(body.fighter_id)
+    except (ValueError, AttributeError):
+        raise HTTPException(422, "match_id and fighter_id must be valid UUIDs")
+
     # Validate match
     result = await db.execute(
         select(Match)

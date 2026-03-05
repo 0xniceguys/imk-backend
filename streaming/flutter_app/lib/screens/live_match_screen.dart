@@ -92,7 +92,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     if (matchId == _lastConnectedMatchId) return;
 
     // If the match is already completed/cancelled, skip WS and go to post-match
-    final match = ref.read(matchProvider).cast<Match?>().firstWhere(
+    final match = ref.read(matchProvider).matches.cast<Match?>().firstWhere(
       (m) => m?.id == matchId,
       orElse: () => null,
     );
@@ -113,7 +113,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   /// Never falls back to non-live matches to avoid connecting a WS
   /// that the backend will immediately close with 4004.
   String? _findLiveMatchId() {
-    final matches = ref.read(matchProvider);
+    final matches = ref.read(matchProvider).matches;
     try {
       return matches.firstWhere((m) => m.status == MatchStatus.live).id;
     } catch (_) {
@@ -157,7 +157,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   @override
   Widget build(BuildContext context) {
-    final matches = ref.watch(matchProvider);
+    final matchState = ref.watch(matchProvider);
+    final matches = matchState.matches;
 
     // FPS counter — fires every time a new binary frame arrives from WebSocket
     ref.listen<AsyncValue<Uint8List>>(frameProvider, (prev, next) {
@@ -168,10 +169,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // where matchProvider is still empty when initState fires).
     // Also catches the case where REST polling flips the match to completed
     // after we missed the WS match_ended event (e.g. cold-start onto ended match).
-    ref.listen<List<Match>>(matchProvider, (prev, next) {
+    ref.listen<MatchState>(matchProvider, (prev, next) {
       final id = widget.matchId ?? _findLiveMatchId();
       if (id != null) {
-        final updated = next.cast<Match?>().firstWhere(
+        final updated = next.matches.cast<Match?>().firstWhere(
           (m) => m?.id == id,
           orElse: () => null,
         );
@@ -200,7 +201,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     });
 
     if (match == null) {
-      final isStillLoading = matches.isEmpty;
+      final isStillLoading = !matchState.hasLoaded;
       return AppShell(
         activeTab: NavTab.arena,
         onNavigate: (slug) => widget.onNavigate(routeFor(slug)),

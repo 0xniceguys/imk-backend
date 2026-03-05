@@ -46,12 +46,13 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allMatches = ref.watch(matchProvider);
+    final matchState = ref.watch(matchProvider);
+    final allMatches = matchState.matches;
     final live = allMatches.where((m) => m.status == MatchStatus.live).toList();
     final upcoming = allMatches.where((m) => m.status == MatchStatus.upcoming).toList();
 
     // Auto-select Upcoming if no live matches (only once)
-    if (!_tabInitialized && allMatches.isNotEmpty) {
+    if (!_tabInitialized && matchState.hasLoaded) {
       _tabInitialized = true;
       if (live.isEmpty && _tab == 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -99,13 +100,13 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
               children: [
                 _MatchList(
                   matches: live,
-                  allLoaded: allMatches.isNotEmpty,
+                  allLoaded: matchState.hasLoaded,
                   emptyLabel: 'No live matches',
                   onTap: (m) => widget.onNavigate('/live-match/${m.id}'),
                 ),
                 _MatchList(
                   matches: upcoming,
-                  allLoaded: allMatches.isNotEmpty,
+                  allLoaded: matchState.hasLoaded,
                   emptyLabel: 'No upcoming matches',
                   onTap: (m) => widget.onNavigate('/battle-detail/${m.id}'),
                 ),
