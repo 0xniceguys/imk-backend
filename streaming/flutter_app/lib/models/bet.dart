@@ -15,6 +15,7 @@ class Bet {
   final String? claimTxSignature; // claim tx signature
   final double? payout;
   final String? onChainSide;      // "A" or "B"
+  final DateTime? settledAt;
 
   const Bet({
     required this.id,
@@ -31,6 +32,7 @@ class Bet {
     this.claimTxSignature,
     this.payout,
     this.onChainSide,
+    this.settledAt,
   });
 
   factory Bet.fromJson(Map<String, dynamic> json) {
@@ -49,16 +51,25 @@ class Bet {
       claimTxSignature: json['claim_tx_signature'] as String?,
       payout: (json['payout'] as num?)?.toDouble(),
       onChainSide: json['on_chain_side'] as String?,
+      settledAt: DateTime.tryParse(json['settled_at'] as String? ?? ''),
     );
   }
 
   static BetStatus _parseStatus(String s) {
-    switch (s) {
+    final v = s.trim().toLowerCase();
+    if (v == 'won' || v == 'win' || v == 'settled_won') {
+      return BetStatus.won;
+    }
+    if (v == 'lost' || v == 'lose' || v == 'settled_lost') {
+      return BetStatus.lost;
+    }
+    switch (v) {
       case 'won':
         return BetStatus.won;
       case 'lost':
         return BetStatus.lost;
       case 'cancelled':
+      case 'canceled':
         return BetStatus.cancelled;
       case 'claimed':
         return BetStatus.claimed;

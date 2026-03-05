@@ -209,7 +209,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         padding: EdgeInsets.only(left: 24, right: 24, top: 18, bottom: bottom),
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: Palette.border.withValues(alpha: 0.75)),
+          // border: Border.all(color: Palette.border.withValues(alpha: 0.75)),
           color: Palette.sheetBg,
           boxShadow: const [
             BoxShadow(
@@ -254,7 +254,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(2),
                         border: Border.all(color: Palette.border),
                         color: Palette.cardBg.withValues(alpha: 0.45),
                       ),
@@ -273,7 +273,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                   decoration: BoxDecoration(
                     color: Palette.red.withValues(alpha: 0.1),
                     border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                   child: Row(
                     children: [
@@ -346,7 +346,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                         vertical: 12, horizontal: 14),
                     decoration: BoxDecoration(
                       border: Border.all(color: Palette.border),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(2),
                       color: Palette.cardBg.withValues(alpha: 0.2),
                     ),
                     child: Row(
@@ -435,7 +435,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                           decoration: BoxDecoration(
                             border: Border.all(
                                 color: Palette.gold.withValues(alpha: 0.7)),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(2),
                             color: Palette.gold.withValues(alpha: 0.08),
                           ),
                           child: Text('MAX',
@@ -461,7 +461,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                         color: Palette.gold.withValues(alpha: 0.06),
                         border:
                             Border.all(color: Palette.gold.withValues(alpha: 0.28)),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                       child: Column(
                         children: [
@@ -514,7 +514,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                         decoration: BoxDecoration(
                           border: Border.all(
                               color: Palette.gold.withValues(alpha: 0.75)),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(2),
                           gradient: const LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -628,7 +628,7 @@ class _TokenToggle extends StatelessWidget {
             color: selected ? Palette.gold : Palette.border,
             width: selected ? 1.1 : 1,
           ),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(2),
         ),
         child: Text(label,
             style: bodyStyle(
@@ -655,7 +655,7 @@ class _InputBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         border: Border.all(color: Palette.border),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(2),
         color: Palette.cardBg.withValues(alpha: 0.25),
       ),
       child: TextField(
