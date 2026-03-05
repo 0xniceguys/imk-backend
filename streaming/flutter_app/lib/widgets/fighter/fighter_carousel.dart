@@ -21,12 +21,40 @@ class FighterCarousel extends StatefulWidget {
 
 class _FighterCarouselState extends State<FighterCarousel> {
   late final PageController _controller;
-  int _current = 0;
+  int _currentPage = 0;
+  static const int _loopBase = 10000;
+  static const List<double> _greyscaleMatrix = <double>[
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0, 0, 0, 1, 0,
+  ];
+
+  int _realIndexForPage(int page) {
+    final count = widget.fighters.length;
+    if (count == 0) return 0;
+    final mod = page % count;
+    return mod < 0 ? mod + count : mod;
+  }
+
+  Future<void> _goToRelativePage(int delta) async {
+    final target = _currentPage + delta;
+    await _controller.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    _controller = PageController(viewportFraction: 0.62);
+    final initialPage = widget.fighters.isEmpty ? 0 : widget.fighters.length * _loopBase;
+    _currentPage = initialPage;
+    _controller = PageController(
+      viewportFraction: 0.5,
+      initialPage: initialPage,
+    );
   }
 
   @override
@@ -37,139 +65,163 @@ class _FighterCarouselState extends State<FighterCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final fighter = widget.fighters[_current];
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragEnd: (details) {
+        final vx = details.primaryVelocity ?? 0;
+        if (vx <= -120) {
+          _goToRelativePage(1);
+        } else if (vx >= 120) {
+          _goToRelativePage(-1);
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final currentRealIndex = _realIndexForPage(_currentPage);
+          final fighter = widget.fighters[currentRealIndex];
+          final heroHeight = (constraints.maxHeight - 190).clamp(220.0, 420.0).toDouble();
+          final activeCardHeight = (heroHeight * 0.95).clamp(220.0, 380.0).toDouble();
+          final inactiveCardHeight = (heroHeight * 0.70).clamp(170.0, 300.0).toDouble();
 
-    return Column(
-      children: [
-        SizedBox(
-          height: 560,
-          child: Stack(
-            alignment: Alignment.bottomCenter,
+          return Column(
             children: [
-              PageView.builder(
-                controller: _controller,
-                itemCount: widget.fighters.length,
-                onPageChanged: (index) => setState(() => _current = index),
-                itemBuilder: (context, index) {
-                  final active = index == _current;
-                  final item = widget.fighters[index];
-                  final fallback = active
-                      ? Assets.fighterCenter
-                      : index < _current
-                          ? Assets.fighterLeft
-                          : Assets.fighterRight;
+              SizedBox(
+                height: heroHeight,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    PageView.builder(
+                      controller: _controller,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onPageChanged: (index) => setState(() => _currentPage = index),
+                      itemBuilder: (context, index) {
+                        final active = index == _currentPage;
+                        final item = widget.fighters[_realIndexForPage(index)];
+                        Widget artwork = _FighterArtwork(fighter: item);
+                        if (!active) {
+                          artwork = ColorFiltered(
+                            colorFilter: const ColorFilter.matrix(_greyscaleMatrix),
+                            child: artwork,
+                          );
+                        }
 
-                  return Align(
-                    alignment: Alignment.bottomCenter,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      height: active ? 470 : 350,
-                      margin: EdgeInsets.only(
-                        top: active ? 24 : 88,
-                        bottom: active ? 0 : 18,
-                      ),
-                      child: Pressable(
-                        onTap: active
-                            ? () => widget.onMoreDetails(item.id)
-                            : null,
-                        scaleTo: 0.97,
-                        opacityTo: 0.92,
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 260),
-                          opacity: active ? 1 : 0.28,
-                          child: _FighterArtwork(
-                            fighter: item,
-                            fallbackAsset: fallback,
+                        return Align(
+                          alignment: Alignment.bottomCenter,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                            height: active ? activeCardHeight : inactiveCardHeight,
+                            margin: EdgeInsets.only(
+                              top: active ? 16 : 56,
+                              bottom: active ? 0 : 10,
+                            ),
+                            child: Pressable(
+                              onTap: () => widget.onMoreDetails(item.id),
+                              scaleTo: 0.97,
+                              opacityTo: 0.92,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 260),
+                                opacity: active ? 1 : 0.55,
+                                child: artwork,
+                              ),
+                            ),
                           ),
+                        );
+                      },
+                    ),
+                    Positioned(
+                      left: 20,
+                      right: 20,
+                      bottom: 16,
+                      child: IgnorePointer(
+                        child: Column(
+                          children: [
+                            _CarouselIndicators(
+                              count: widget.fighters.length,
+                              activeIndex: currentRealIndex,
+                            ),
+                            const SizedBox(height: 8),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: Text(
+                                fighter.name,
+                                key: ValueKey('fighter_name_${fighter.id}'),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: displayStyle(
+                                  size: 30,
+                                  color: Palette.gold,
+                                  height: 0.92,
+                                ),
+                              ),
+                            ),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: Text(
+                                fighter.llmModel,
+                                key: ValueKey('fighter_model_${fighter.id}'),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: bodyStyle(
+                                  size: 15,
+                                  color: Palette.secondary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 8,
-                child: IgnorePointer(
-                  child: Column(
-                    children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: Text(
-                          fighter.name,
-                          key: ValueKey('fighter_name_${fighter.id}'),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: displayStyle(
-                            size: 54,
-                            color: Palette.gold,
-                            height: 0.92,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: Text(
-                          fighter.llmModel,
-                          key: ValueKey('fighter_model_${fighter.id}'),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: bodyStyle(
-                            size: 22,
-                            color: Palette.secondary,
-                          ),
-                        ),
-                      ),
+              Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Color(0xFFFFC500),
+                      Colors.transparent,
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: _FighterOverviewStats(fighter: fighter),
+              ),
+              const SizedBox(height: 14),
+              Pressable(
+                onTap: () => widget.onMoreDetails(fighter.id),
+                scaleTo: 0.96,
+                opacityTo: 0.8,
+                child: Text(
+                  'MORE DETAILS',
+                  style: displayStyle(
+                    size: 16,
+                    color: Palette.secondary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
             ],
-          ),
-        ),
-        Container(
-          height: 1,
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          color: Palette.darkGold,
-        ),
-        const SizedBox(height: 30),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: _FighterOverviewStats(fighter: fighter),
-        ),
-        const SizedBox(height: 28),
-        Pressable(
-          onTap: () => widget.onMoreDetails(fighter.id),
-          scaleTo: 0.96,
-          opacityTo: 0.8,
-          child: Text(
-            'MORE DETAILS',
-            style: displayStyle(
-              size: 26,
-              color: Palette.secondary,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-      ],
+          );
+        },
+      ),
     );
   }
 }
 
 class _FighterArtwork extends StatelessWidget {
-  const _FighterArtwork({
-    required this.fighter,
-    required this.fallbackAsset,
-  });
+  const _FighterArtwork({required this.fighter});
 
   final Fighter fighter;
-  final String fallbackAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -179,10 +231,49 @@ class _FighterArtwork extends StatelessWidget {
         imageUrl,
         fit: BoxFit.contain,
         errorBuilder: (_, error, stackTrace) =>
-            Image.asset(fallbackAsset, fit: BoxFit.contain),
+            Image.asset(Assets.photoUnavailable, fit: BoxFit.contain),
       );
     }
-    return Image.asset(fallbackAsset, fit: BoxFit.contain);
+    return Image.asset(Assets.photoUnavailable, fit: BoxFit.contain);
+  }
+}
+
+class _CarouselIndicators extends StatelessWidget {
+  const _CarouselIndicators({
+    required this.count,
+    required this.activeIndex,
+  });
+
+  final int count;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(
+            count,
+            (index) => Container(
+              width: 4,
+              height: 4,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color:
+                    index == activeIndex ? Palette.gold : const Color(0xFF555555),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${activeIndex + 1}/$count',
+          style: bodyStyle(size: 9, color: Palette.statLabel),
+        ),
+      ],
+    );
   }
 }
 
@@ -193,65 +284,41 @@ class _FighterOverviewStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _StatColumn(
-            stats: [
-              _StatItem('Win Rate', '${(fighter.winRate * 100).toStringAsFixed(0)}%'),
-              _StatItem('Matches Played', '${fighter.matchesPlayed}'),
-              _StatItem('Matches Won', '${fighter.matchesWon}'),
-            ],
-          ),
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: _StatColumn(
-            stats: [
-              _StatItem('Rank', fighter.rank > 0 ? '#${fighter.rank}' : 'Unranked'),
-              _StatItem(
-                'Fight Style',
-                fighter.fightStyle.isEmpty ? 'Unknown' : fighter.fightStyle,
-              ),
-              _StatItem(
-                'Origin',
-                fighter.origin.isEmpty ? 'Unknown' : fighter.origin,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+    final stats = [
+      _StatItem('Win Rate', _winRate(fighter.winRate)),
+      _StatItem(
+        'Matches Played',
+        fighter.matchesPlayed >= 0 ? '${fighter.matchesPlayed}' : 'null',
+      ),
+      const _StatItem('Bet Volume', 'null'),
+      _StatItem(
+        'Fight Style',
+        fighter.fightStyle.trim().isEmpty ? 'null' : fighter.fightStyle,
+      ),
+    ];
 
-class _StatColumn extends StatelessWidget {
-  const _StatColumn({required this.stats});
-
-  final List<_StatItem> stats;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 18,
+      runSpacing: 12,
       children: stats
           .map(
-            (stat) => Padding(
-              padding: const EdgeInsets.only(bottom: 26),
+            (stat) => SizedBox(
+              width: 128,
               child: Column(
                 children: [
                   Text(
                     stat.label,
                     textAlign: TextAlign.center,
-                    style: bodyStyle(size: 18, color: Palette.statLabel),
+                    style: bodyStyle(size: 14, color: Palette.statLabel),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 5),
                   Text(
                     stat.value,
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: bodyStyle(size: 20, color: Palette.white),
+                    style: bodyStyle(size: 16, color: Palette.white),
                   ),
                 ],
               ),
@@ -259,6 +326,11 @@ class _StatColumn extends StatelessWidget {
           )
           .toList(),
     );
+  }
+
+  static String _winRate(double value) {
+    if (value.isNaN || value.isInfinite) return 'null';
+    return '${(value * 100).toStringAsFixed(0)}%';
   }
 }
 
