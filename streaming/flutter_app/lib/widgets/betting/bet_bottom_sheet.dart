@@ -11,21 +11,32 @@ import '../shared/pressable.dart';
 import 'bet_confirmation.dart';
 
 class BetBottomSheet extends ConsumerStatefulWidget {
-  const BetBottomSheet({super.key, required this.match});
+  const BetBottomSheet({
+    super.key,
+    required this.match,
+    this.initialSelectedFighter = 0,
+  });
 
   final Match match;
+  final int initialSelectedFighter;
 
   @override
   ConsumerState<BetBottomSheet> createState() => _BetBottomSheetState();
 }
 
 class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
-  int _selectedFighter = 0; // 0 = fighter1 (side A), 1 = fighter2 (side B)
+  late int _selectedFighter; // 0 = fighter1 (side A), 1 = fighter2 (side B)
   final _amountController = TextEditingController(text: '1.0');
   bool _loading = false;
   bool _confirmed = false;
   Bet? _placedBet;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFighter = widget.initialSelectedFighter.clamp(0, 1);
+  }
 
   @override
   void dispose() {
@@ -35,20 +46,17 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
 
   double get _amount => double.tryParse(_amountController.text) ?? 0;
 
-  double get _selectedOdds =>
-      _selectedFighter == 0
-          ? widget.match.odds.fighter1Odds
-          : widget.match.odds.fighter2Odds;
+  double get _selectedOdds => _selectedFighter == 0
+      ? widget.match.odds.fighter1Odds
+      : widget.match.odds.fighter2Odds;
 
-  String get _selectedName =>
-      _selectedFighter == 0
-          ? widget.match.fighter1?.name ?? 'Fighter 1'
-          : widget.match.fighter2?.name ?? 'Fighter 2';
+  String get _selectedName => _selectedFighter == 0
+      ? widget.match.fighter1?.name ?? 'Fighter 1'
+      : widget.match.fighter2?.name ?? 'Fighter 2';
 
-  String get _selectedId =>
-      _selectedFighter == 0
-          ? widget.match.fighter1?.id ?? ''
-          : widget.match.fighter2?.id ?? '';
+  String get _selectedId => _selectedFighter == 0
+      ? widget.match.fighter1?.id ?? ''
+      : widget.match.fighter2?.id ?? '';
 
   /// "A" for fighter1, "B" for fighter2
   String get _selectedSide => _selectedFighter == 0 ? 'A' : 'B';
@@ -67,13 +75,15 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
     });
 
     try {
-      final bet = await ref.read(betProvider.notifier).placeBet(
-        matchId: widget.match.id,
-        fighterId: _selectedId,
-        amount: _amount,
-        side: _selectedSide,
-        privyJwt: privyJwt,
-      );
+      final bet = await ref
+          .read(betProvider.notifier)
+          .placeBet(
+            matchId: widget.match.id,
+            fighterId: _selectedId,
+            amount: _amount,
+            side: _selectedSide,
+            privyJwt: privyJwt,
+          );
       if (bet != null && mounted) {
         setState(() {
           _confirmed = true;
@@ -109,10 +119,7 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
         ),
       ),
       child: _confirmed && _placedBet != null
-          ? BetConfirmation(
-              key: const ValueKey('confirm'),
-              bet: _placedBet!,
-            )
+          ? BetConfirmation(key: const ValueKey('confirm'), bet: _placedBet!)
           : _buildForm(wallet, bottom),
     );
   }
@@ -121,7 +128,11 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
     return Container(
       key: const ValueKey('form'),
       padding: EdgeInsets.only(
-          left: 24, right: 24, top: 24, bottom: bottom + 24),
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: bottom + 24,
+      ),
       decoration: const BoxDecoration(
         color: Palette.sheetBg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -140,8 +151,10 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
           const SizedBox(height: 20),
           Text('Place Your Bet', style: displayStyle(size: 28)),
           const SizedBox(height: 4),
-          Text('Bets are placed on-chain with SKR',
-              style: bodyStyle(size: 12, color: Palette.muted)),
+          Text(
+            'Bets are placed on-chain with SKR',
+            style: bodyStyle(size: 12, color: Palette.muted),
+          ),
           const SizedBox(height: 20),
           // Fighter selection — A = fighter1, B = fighter2
           Row(
@@ -190,17 +203,24 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Potential Payout',
-                  style: bodyStyle(size: 14, color: Palette.muted)),
-              Text('${(_amount * _selectedOdds).toStringAsFixed(2)} SKR',
-                  style: bodyStyle(size: 14, color: Palette.green)),
+              Text(
+                'Potential Payout',
+                style: bodyStyle(size: 14, color: Palette.muted),
+              ),
+              Text(
+                '${(_amount * _selectedOdds).toStringAsFixed(2)} SKR',
+                style: bodyStyle(size: 14, color: Palette.green),
+              ),
             ],
           ),
           const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Platform Fee', style: bodyStyle(size: 14, color: Palette.muted)),
+              Text(
+                'Platform Fee',
+                style: bodyStyle(size: 14, color: Palette.muted),
+              ),
               Text('5%', style: bodyStyle(size: 14, color: Palette.muted)),
             ],
           ),
@@ -220,7 +240,8 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                 foregroundColor: Palette.black,
                 disabledBackgroundColor: Palette.border,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
               child: _loading
                   ? const SizedBox(
@@ -231,11 +252,14 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                         color: Colors.black,
                       ),
                     )
-                  : Text('Confirm Bet on $_selectedName (Side $_selectedSide)',
+                  : Text(
+                      'Confirm Bet on $_selectedName (Side $_selectedSide)',
                       style: bodyStyle(
-                          size: 15,
-                          color: Palette.black,
-                          weight: FontWeight.w600)),
+                        size: 15,
+                        color: Palette.black,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -284,23 +308,29 @@ class _FighterCard extends StatelessWidget {
                 color: selected ? Palette.gold : Palette.border,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text('Side $side',
-                  style: bodyStyle(
-                      size: 10,
-                      color: selected ? Palette.black : Palette.muted,
-                      weight: FontWeight.w700)),
+              child: Text(
+                'Side $side',
+                style: bodyStyle(
+                  size: 10,
+                  color: selected ? Palette.black : Palette.muted,
+                  weight: FontWeight.w700,
+                ),
+              ),
             ),
             const SizedBox(height: 6),
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               style: displayStyle(
-                  size: 15,
-                  color: selected ? Palette.gold : Palette.white),
+                size: 15,
+                color: selected ? Palette.gold : Palette.white,
+              ),
               child: Text(name, textAlign: TextAlign.center),
             ),
             const SizedBox(height: 4),
-            Text('${odds.toStringAsFixed(1)}×',
-                style: bodyStyle(size: 14, color: Palette.secondary)),
+            Text(
+              '${odds.toStringAsFixed(1)}×',
+              style: bodyStyle(size: 14, color: Palette.secondary),
+            ),
           ],
         ),
       ),
