@@ -33,6 +33,7 @@ class ProfileScreen extends ConsumerWidget {
     return AppShell(
       activeTab: NavTab.profile,
       scrollable: true,
+      contentBottomPadding: 180,
       onNavigate: (slug) => onNavigate(routeFor(slug)),
       content: Column(
         children: [
