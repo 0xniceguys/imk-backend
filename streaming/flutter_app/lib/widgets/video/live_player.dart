@@ -29,9 +29,9 @@ class _LivePlayerState extends State<LivePlayer> {
     try {
       await _controller.initialize();
       _controller.play();
-      setState(() => _initialized = true);
+      if (mounted) setState(() => _initialized = true);
     } catch (_) {
-      setState(() => _hasError = true);
+      if (mounted) setState(() => _hasError = true);
     }
   }
 

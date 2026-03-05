@@ -26,7 +26,7 @@ class OddsDisplay extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  flex: (odds.fighter1PoolPct * 100).round(),
+                  flex: (odds.fighter1PoolPct * 100).round().clamp(1, 100),
                   child: Container(
                     decoration: const BoxDecoration(
                       borderRadius: BorderRadius.horizontal(
@@ -36,7 +36,7 @@ class OddsDisplay extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  flex: (odds.fighter2PoolPct * 100).round(),
+                  flex: (odds.fighter2PoolPct * 100).round().clamp(1, 100),
                   child: const SizedBox(),
                 ),
               ],
@@ -47,21 +47,27 @@ class OddsDisplay extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                children: [
-                  Text(match.fighter1?.name ?? '?',
-                      style: bodyStyle(size: 11, color: Palette.secondary)),
-                  Text('${odds.fighter1Odds.toStringAsFixed(1)}x',
-                      style: displayStyle(size: 16, color: Palette.gold)),
-                ],
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(match.fighter1?.name ?? '?',
+                        style: bodyStyle(size: 11, color: Palette.secondary),
+                        overflow: TextOverflow.ellipsis),
+                    Text('${odds.fighter1Odds.toStringAsFixed(1)}x',
+                        style: displayStyle(size: 16, color: Palette.gold)),
+                  ],
+                ),
               ),
-              Column(
-                children: [
-                  Text(match.fighter2?.name ?? '?',
-                      style: bodyStyle(size: 11, color: Palette.secondary)),
-                  Text('${odds.fighter2Odds.toStringAsFixed(1)}x',
-                      style: displayStyle(size: 16, color: Palette.gold)),
-                ],
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(match.fighter2?.name ?? '?',
+                        style: bodyStyle(size: 11, color: Palette.secondary),
+                        overflow: TextOverflow.ellipsis),
+                    Text('${odds.fighter2Odds.toStringAsFixed(1)}x',
+                        style: displayStyle(size: 16, color: Palette.gold)),
+                  ],
+                ),
               ),
             ],
           ),

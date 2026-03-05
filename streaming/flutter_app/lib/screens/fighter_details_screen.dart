@@ -8,6 +8,7 @@ import '../providers/fighter_stats_provider.dart';
 import '../widgets/shared/bottom_nav.dart';
 import '../widgets/shared/pressable.dart';
 import '../widgets/shared/stats_columns.dart';
+import '../router.dart';
 
 class FighterDetailsScreen extends ConsumerStatefulWidget {
   const FighterDetailsScreen({
@@ -177,7 +178,7 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                             '${stats['flawless_matches'] ?? 0}'),
                         _SI('Left Side (P1) Win Rate', '$p1r%'),
                         _SI('Right Side (P2) Win Rate', '$p2r%'),
-                      ]),
+                      ]);
                     },
                   ),
                 ),
@@ -306,32 +307,43 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Pressable(
-                          onTap: () => widget.onNavigate(
-                              '/fighter-details/${fighters[prevIdx].id}'),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.arrow_back_ios,
-                                  size: 14, color: Palette.muted),
-                              Text(fighters[prevIdx].name,
-                                  style: displayStyle(
-                                      size: 18, color: Palette.muted)),
-                            ],
+                        Flexible(
+                          child: Pressable(
+                            onTap: () => widget.onNavigate(
+                                '/fighter-details/${fighters[prevIdx].id}'),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.arrow_back_ios,
+                                    size: 14, color: Palette.muted),
+                                Flexible(
+                                  child: Text(fighters[prevIdx].name,
+                                      style: displayStyle(
+                                          size: 18, color: Palette.muted),
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        Pressable(
-                          onTap: () => widget.onNavigate(
-                              '/fighter-details/${fighters[nextIdx].id}'),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(fighters[nextIdx].name,
-                                  style: displayStyle(
-                                      size: 18, color: Palette.muted)),
-                              const Icon(Icons.arrow_forward_ios,
-                                  size: 14, color: Palette.muted),
-                            ],
+                        const SizedBox(width: 16),
+                        Flexible(
+                          child: Pressable(
+                            onTap: () => widget.onNavigate(
+                                '/fighter-details/${fighters[nextIdx].id}'),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(fighters[nextIdx].name,
+                                      style: displayStyle(
+                                          size: 18, color: Palette.muted),
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                                const Icon(Icons.arrow_forward_ios,
+                                    size: 14, color: Palette.muted),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -489,8 +501,8 @@ class _MatchRow extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
               color: isWin
-                  ? Palette.green.withOpacity(0.12)
-                  : Palette.red.withOpacity(0.12),
+                  ? Palette.green.withValues(alpha: 0.12)
+                  : Palette.red.withValues(alpha: 0.12),
               border: Border.all(
                   color: isWin ? Palette.green : Palette.red,
                   width: 0.8),
@@ -534,9 +546,9 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: Palette.gold.withOpacity(0.4)),
+        border: Border.all(color: Palette.gold.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(4),
-        color: Palette.gold.withOpacity(0.08),
+        color: Palette.gold.withValues(alpha: 0.08),
       ),
       child: Text(label, style: bodyStyle(size: 12, color: Palette.gold)),
     );

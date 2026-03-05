@@ -37,7 +37,11 @@ class MatchNotifier extends StateNotifier<MatchState> {
   void _schedulePoll(int seconds) {
     _pollTimer?.cancel();
     _pollTimer = Timer(Duration(seconds: seconds), () async {
-      await refresh();
+      try {
+        await refresh();
+      } catch (_) {
+        _failureCount = (_failureCount + 1).clamp(0, 4);
+      }
       final next = _failureCount == 0
           ? _basePollSeconds
           : (_basePollSeconds * (1 << _failureCount))
