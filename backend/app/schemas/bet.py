@@ -22,6 +22,7 @@ class BetOut(BaseModel):
     status: str
     payout: float | None = None
     tx_signature: str | None = None
+    on_chain_side: str | None = None   # "A" or "B" — set when bet was placed on-chain
     placed_at: datetime
     settled_at: datetime | None = None
 

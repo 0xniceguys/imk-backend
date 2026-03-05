@@ -16,6 +16,10 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdate(BaseModel):
+    display_name: str | None = None
+
+
 class LoginRequest(BaseModel):
     token: str
     walletAddress: str | None = None

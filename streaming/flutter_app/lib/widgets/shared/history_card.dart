@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../models/bet.dart';
@@ -15,69 +16,108 @@ class HistoryCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color amountColor;
+    final Color statusColor;
     final String statusText;
     switch (bet.status) {
       case BetStatus.active:
-        amountColor = Palette.white;
-        statusText = 'Active';
+        statusColor = Palette.gold;
+        statusText = 'ACTIVE';
       case BetStatus.won:
-        amountColor = Palette.green;
-        statusText = 'Won';
+        statusColor = Palette.green;
+        statusText = 'WON';
       case BetStatus.lost:
-        amountColor = Palette.red;
-        statusText = 'Lost';
+        statusColor = Palette.red;
+        statusText = 'LOST';
       case BetStatus.cancelled:
-        amountColor = Palette.muted;
-        statusText = 'Cancelled';
+        statusColor = Palette.muted;
+        statusText = 'CANCELLED';
       case BetStatus.claimed:
-        amountColor = Palette.green;
-        statusText = 'Claimed';
+        statusColor = Palette.green;
+        statusText = 'CLAIMED';
     }
 
+    // P&L delta
+    final double? pnl = switch (bet.status) {
+      BetStatus.won || BetStatus.claimed =>
+        (bet.payout ?? 0) - bet.amount,
+      BetStatus.lost => -bet.amount,
+      _ => null,
+    };
+
+    final dateStr = DateFormat('MMM d, yy').format(bet.placedAt.toLocal());
+
     return SizedBox(
-      width: 260,
+      width: double.infinity,
       child: Card(
-        margin: EdgeInsets.zero,
+        margin: const EdgeInsets.symmetric(horizontal: 0),
         color: Colors.transparent,
         elevation: 0,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
-          side: BorderSide(color: Palette.muted, width: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+          side: BorderSide(color: statusColor.withValues(alpha: 0.35), width: 1),
         ),
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(4),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 70,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('\$${bet.amount.toStringAsFixed(0)}',
-                          style: bodyStyle(size: 16, color: amountColor)),
-                      Text(statusText,
+                // Top row: fighters + status badge
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${bet.fighterName} V/S ${bet.opponentName}',
+                        style: bodyStyle(size: 15, weight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(statusText,
                           style: bodyStyle(
-                              size: 12, color: Palette.statLabel)),
-                    ],
-                  ),
+                              size: 11,
+                              color: statusColor,
+                              weight: FontWeight.w700)),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                          '${bet.fighterName} V/S ${bet.opponentName}',
-                          style: bodyStyle(size: 16)),
-                      Text('Singles Battle',
-                          style: bodyStyle(
-                              size: 12, color: Palette.statLabel)),
+                const SizedBox(height: 8),
+                // Bottom row: date | wagered | payout/P&L
+                Row(
+                  children: [
+                    // Date
+                    Text(dateStr,
+                        style: bodyStyle(size: 12, color: Palette.muted)),
+                    const SizedBox(width: 12),
+                    // Bet amount
+                    Text('${bet.amount.toStringAsFixed(2)} SOL',
+                        style: bodyStyle(size: 12, color: Palette.secondary)),
+                    if (bet.payout != null) ...[
+                      Text('  →  ',
+                          style: bodyStyle(size: 12, color: Palette.muted)),
+                      Text('${bet.payout!.toStringAsFixed(2)} SOL',
+                          style: bodyStyle(size: 12, color: Palette.green)),
                     ],
-                  ),
+                    const Spacer(),
+                    // P&L delta chip
+                    if (pnl != null)
+                      Text(
+                        '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(2)} SOL',
+                        style: bodyStyle(
+                            size: 13,
+                            color: pnl >= 0 ? Palette.green : Palette.red,
+                            weight: FontWeight.w700),
+                      ),
+                  ],
                 ),
               ],
             ),
