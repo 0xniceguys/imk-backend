@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
@@ -19,8 +20,7 @@ class HeaderWidget extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Container(width: 22, height: 22, color: Palette.gold),
-            const SizedBox(width: 7),
+            SvgPicture.asset(Assets.skullIcon, width: 32, height: 32),
             Text(
               'IMK',
               style: displayStyle(
