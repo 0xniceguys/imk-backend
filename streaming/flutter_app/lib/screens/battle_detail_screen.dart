@@ -24,8 +24,9 @@ class BattleDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final matches = ref.watch(matchProvider);
-    if (matches.isEmpty) {
+    final matchState = ref.watch(matchProvider);
+    final matches = matchState.matches;
+    if (!matchState.hasLoaded) {
       return const Scaffold(
         backgroundColor: Palette.black,
         body: Center(child: IKLoader(size: 40)),

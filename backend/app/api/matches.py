@@ -42,13 +42,13 @@ def _compute_odds(bets: list[Bet], fighter1_id: UUID, fighter2_id: UUID) -> Odds
 
 
 def _match_to_out(match: Match) -> MatchOut:
-    odds = _compute_odds(match.bets, match.fighter1_id, match.fighter2_id)
+    # fighter IDs may be None if fighter was deleted
+    f1_id = match.fighter1_id or match.id  # fallback prevents div-by-zero
+    f2_id = match.fighter2_id or match.id
+    odds = _compute_odds(match.bets, f1_id, f2_id)
 
-    # ✅ FIX: Populate stream_url for LIVE matches with active runners
-    # Previously only set if hls_path existed, but live streaming uses in-memory frames
     stream_url = None
     if match.status == MatchStatus.LIVE:
-        # Check if there's an active runner for this match
         from app.services.match_runner import get_runner
         runner = get_runner(str(match.id))
         if runner:
