@@ -13,6 +13,15 @@ import '../shared/ik_loader.dart';
 
 enum _WithdrawToken { sol, seeker }
 
+Future<void> showWalletManageSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const WalletManageSheet(),
+  );
+}
+
 class WalletManageSheet extends ConsumerStatefulWidget {
   const WalletManageSheet({super.key});
 
@@ -25,6 +34,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
   final _addrCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
   bool _isSending = false;
+  bool _withdrawExpanded = false;
 
   // Solana base fee for a simple transfer: 5000 lamports = 0.000005 SOL.
   // This is the network protocol constant — no backend call needed.
@@ -193,285 +203,344 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         ? wallet.solBalance
         : wallet.seekerBalance;
 
-    return Container(
-      padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: bottom),
-      decoration: const BoxDecoration(
-        color: Palette.sheetBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Palette.muted,
-                borderRadius: BorderRadius.circular(2),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: EdgeInsets.only(left: 24, right: 24, top: 18, bottom: bottom),
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: Palette.border.withValues(alpha: 0.75)),
+          color: Palette.sheetBg,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xA0000000),
+              blurRadius: 28,
+              offset: Offset(0, -8),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Manage Wallet', style: displayStyle(size: 28)),
-                GestureDetector(
-                  onTap: () =>
-                      ref.read(walletProvider.notifier).refreshBalance(),
-                  child: const Icon(Icons.refresh, color: Palette.muted,
-                      size: 20),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // ── Balances ──────────────────────────────────────────────────
-            // ── Error banner ─────────────────────────────────────────────
-            if (wallet.errorMessage != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Palette.red.withValues(alpha: 0.1),
-                  border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, size: 16, color: Palette.red),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        wallet.errorMessage!,
-                        style: bodyStyle(size: 12, color: Palette.red),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => ref.read(walletProvider.notifier).refreshBalance(),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('Retry', style: bodyStyle(size: 11, color: Palette.red)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (wallet.isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: IKLoader(size: 24),
-              )
-            else ...[
-              _BalanceRow(
-                label: 'SOL',
-                usdValue: wallet.solUsdValue,
-                subLabel: '${wallet.solBalance.toStringAsFixed(4)} SOL',
-              ),
-              const SizedBox(height: 8),
-              _BalanceRow(
-                label: kUseDevnet ? 'USDC (devnet)' : 'SEEKER',
-                usdValue: wallet.seekerUsdValue,
-                subLabel: '${wallet.seekerBalance.toStringAsFixed(2)} $seekerUnit',
-              ),
-            ],
-            const SizedBox(height: 20),
-
-            // ── Deposit — copy address ────────────────────────────────────
-            Container(height: 1, color: Palette.border),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Deposit', style: bodyStyle(size: 14, color: Palette.muted)),
-            ),
-            const SizedBox(height: 12),
-            // Address row — tap to copy
-            Pressable(
-              onTap: () {
-                if (address.isEmpty) return;
-                Clipboard.setData(ClipboardData(text: address));
-                HapticFeedback.lightImpact();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Address copied'),
-                  duration: Duration(seconds: 1),
-                ));
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Palette.border),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(truncated,
-                        style: bodyStyle(size: 14, color: Palette.secondary)),
-                    const Icon(Icons.copy, size: 16, color: Palette.muted),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Withdraw form ─────────────────────────────────────────────
-            Container(height: 1, color: Palette.border),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Withdraw', style: bodyStyle(size: 14, color: Palette.muted)),
-            ),
-            const SizedBox(height: 12),
-
-            // Token toggle
-            Row(
-              children: [
-                _TokenToggle(
-                  label: 'SOL',
-                  selected: _token == _WithdrawToken.sol,
-                  onTap: () => setState(() => _token = _WithdrawToken.sol),
-                ),
-                const SizedBox(width: 8),
-                _TokenToggle(
-                  label: seekerLabel,
-                  selected: _token == _WithdrawToken.seeker,
-                  onTap: () => setState(() => _token = _WithdrawToken.seeker),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // To address
-            Text('To address', style: bodyStyle(size: 12, color: Palette.muted)),
-            const SizedBox(height: 6),
-            _InputBox(
-              controller: _addrCtrl,
-              hint: 'Solana wallet address',
-              keyboardType: TextInputType.text,
-            ),
-            const SizedBox(height: 10),
-
-            // Amount + MAX
-            Text('Amount', style: bodyStyle(size: 12, color: Palette.muted)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: _InputBox(
-                    controller: _amountCtrl,
-                    hint: _token == _WithdrawToken.sol ? 'SOL' : seekerLabel,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Pressable(
-                  onTap: () => setState(
-                      () => _amountCtrl.text = maxAmount.toString()),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Palette.border),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text('MAX',
-                        style: bodyStyle(size: 12, color: Palette.gold)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // ── Fee estimate ─────────────────────────────────────────────
-            Builder(builder: (context) {
-              final wallet = ref.watch(walletProvider);
-              // Derive SOL price from wallet state (avoids extra API call).
-              final solPrice = wallet.solBalance > 0
-                  ? wallet.solUsdValue / wallet.solBalance
-                  : 0.0;
-              final feeUsd = _networkFeeSol * solPrice;
-              final typedAmount = double.tryParse(_amountCtrl.text.trim());
-              final isSol = _token == _WithdrawToken.sol;
-
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Palette.gold.withValues(alpha: 0.05),
-                  border: Border.all(color: Palette.border),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Network fee (est.)',
-                            style: bodyStyle(size: 12, color: Palette.muted)),
-                        Text(
-                          '${_networkFeeSol.toStringAsFixed(6)} SOL'  
-                          '${solPrice > 0 ? '  ≈ \$${feeUsd.toStringAsFixed(4)}' : ''}',
-                          style: bodyStyle(size: 12, color: Palette.secondary),
-                        ),
-                      ],
-                    ),
-                    if (typedAmount != null && typedAmount > 0 && isSol) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('You send (incl. fee)',
-                              style: bodyStyle(size: 12, color: Palette.muted)),
-                          Text(
-                            '${(typedAmount + _networkFeeSol).toStringAsFixed(6)} SOL',
-                            style: bodyStyle(size: 12, color: Palette.gold),
-                          ),
-                        ],
-                      ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Container(
+              //   width: 72,
+              //   height: 3,
+              //   decoration: BoxDecoration(
+              //     borderRadius: BorderRadius.circular(999),
+              //     gradient: const LinearGradient(
+              //       colors: [
+              //         Colors.transparent,
+              //         Color(0xFFFFC500),
+              //         Colors.transparent,
+              //       ],
+              //     ),
+              //   ),
+              // ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.account_balance_wallet_rounded,
+                          size: 20, color: Palette.gold),
+                      const SizedBox(width: 8),
+                      Text('Manage Wallet', style: displayStyle(size: 24)),
                     ],
-                  ],
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-
-
-            // Send / spinner
-            if (_isSending)
-              const Center(child: IKLoader(size: 28))
-            else
-              Pressable(
-                onTap: _onSend,
-                haptic: true,
-                child: Container(
+                  ),
+                  Pressable(
+                    onTap: () => ref.read(walletProvider.notifier).refreshBalance(),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Palette.border),
+                        color: Palette.cardBg.withValues(alpha: 0.45),
+                      ),
+                      child:
+                          const Icon(Icons.refresh, color: Palette.muted, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              if (wallet.errorMessage != null) ...[
+                Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Palette.gold),
-                    borderRadius: BorderRadius.circular(4),
+                    color: Palette.red.withValues(alpha: 0.1),
+                    border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.send, size: 18, color: Palette.gold),
+                      const Icon(Icons.error_outline, size: 16, color: Palette.red),
                       const SizedBox(width: 8),
-                      Text('Send',
-                          style: bodyStyle(size: 14, color: Palette.gold)),
+                      Expanded(
+                        child: Text(
+                          wallet.errorMessage!,
+                          style: bodyStyle(size: 12, color: Palette.red),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Pressable(
+                        onTap: () =>
+                            ref.read(walletProvider.notifier).refreshBalance(),
+                        child: Text(
+                          'Retry',
+                          style: bodyStyle(size: 12, color: Palette.red),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            const SizedBox(height: 8),
-          ],
+                const SizedBox(height: 10),
+              ],
+              if (wallet.isLoading) ...[
+                const _GoldLine(),
+                const SizedBox(height: 24),
+                const IKLoader(size: 18),
+                const SizedBox(height: 10),
+                Text(
+                  'Loading wallet...',
+                  style: bodyStyle(size: 13, color: Palette.muted),
+                ),
+                const SizedBox(height: 24),
+              ] else ...[
+                _BalanceRow(
+                  label: 'SOL',
+                  usdValue: wallet.solUsdValue,
+                  subLabel: '${wallet.solBalance.toStringAsFixed(4)} SOL',
+                ),
+                const SizedBox(height: 8),
+                _BalanceRow(
+                  label: kUseDevnet ? 'USDC (devnet)' : 'SEEKER',
+                  usdValue: wallet.seekerUsdValue,
+                  subLabel: '${wallet.seekerBalance.toStringAsFixed(2)} $seekerUnit',
+                ),
+                const SizedBox(height: 16),
+                const _GoldLine(),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child:
+                      Text('Deposit', style: bodyStyle(size: 13, color: Palette.muted)),
+                ),
+                const SizedBox(height: 10),
+                Pressable(
+                  onTap: () {
+                    if (address.isEmpty) return;
+                    Clipboard.setData(ClipboardData(text: address));
+                    HapticFeedback.lightImpact();
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Address copied'),
+                      duration: Duration(seconds: 1),
+                    ));
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Palette.border),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Palette.cardBg.withValues(alpha: 0.2),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(truncated,
+                            style: bodyStyle(size: 14, color: Palette.secondary)),
+                        const Icon(Icons.copy_rounded,
+                            size: 16, color: Palette.muted),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const _GoldLine(),
+                const SizedBox(height: 14),
+                Pressable(
+                  onTap: () =>
+                      setState(() => _withdrawExpanded = !_withdrawExpanded),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Withdraw',
+                          style: bodyStyle(size: 13, color: Palette.muted),
+                        ),
+                      ),
+                      Icon(
+                        _withdrawExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: Palette.secondary,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_withdrawExpanded) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _TokenToggle(
+                        label: 'SOL',
+                        selected: _token == _WithdrawToken.sol,
+                        onTap: () => setState(() => _token = _WithdrawToken.sol),
+                      ),
+                      const SizedBox(width: 8),
+                      _TokenToggle(
+                        label: seekerLabel,
+                        selected: _token == _WithdrawToken.seeker,
+                        onTap: () => setState(() => _token = _WithdrawToken.seeker),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'To address',
+                    style: bodyStyle(size: 12, color: Palette.muted),
+                  ),
+                  const SizedBox(height: 6),
+                  _InputBox(
+                    controller: _addrCtrl,
+                    hint: 'Solana wallet address',
+                    keyboardType: TextInputType.text,
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Amount', style: bodyStyle(size: 12, color: Palette.muted)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _InputBox(
+                          controller: _amountCtrl,
+                          hint: _token == _WithdrawToken.sol ? 'SOL' : seekerLabel,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Pressable(
+                        onTap: () =>
+                            setState(() => _amountCtrl.text = maxAmount.toString()),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Palette.gold.withValues(alpha: 0.7)),
+                            borderRadius: BorderRadius.circular(10),
+                            color: Palette.gold.withValues(alpha: 0.08),
+                          ),
+                          child: Text('MAX',
+                              style: bodyStyle(size: 12, color: Palette.gold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Builder(builder: (context) {
+                    final wallet = ref.watch(walletProvider);
+                    final solPrice = wallet.solBalance > 0
+                        ? wallet.solUsdValue / wallet.solBalance
+                        : 0.0;
+                    final feeUsd = _networkFeeSol * solPrice;
+                    final typedAmount = double.tryParse(_amountCtrl.text.trim());
+                    final isSol = _token == _WithdrawToken.sol;
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Palette.gold.withValues(alpha: 0.06),
+                        border:
+                            Border.all(color: Palette.gold.withValues(alpha: 0.28)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Network fee (est.)',
+                                  style:
+                                      bodyStyle(size: 12, color: Palette.muted)),
+                              Text(
+                                '${_networkFeeSol.toStringAsFixed(6)} SOL'
+                                '${solPrice > 0 ? '  ≈ \$${feeUsd.toStringAsFixed(4)}' : ''}',
+                                style:
+                                    bodyStyle(size: 12, color: Palette.secondary),
+                              ),
+                            ],
+                          ),
+                          if (typedAmount != null && typedAmount > 0 && isSol) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('You send (incl. fee)',
+                                    style:
+                                        bodyStyle(size: 12, color: Palette.muted)),
+                                Text(
+                                  '${(typedAmount + _networkFeeSol).toStringAsFixed(6)} SOL',
+                                  style: bodyStyle(size: 12, color: Palette.gold),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                  if (_isSending)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: IKLoader(size: 18),
+                    )
+                  else
+                    Pressable(
+                      onTap: _onSend,
+                      haptic: true,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: Palette.gold.withValues(alpha: 0.75)),
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x33FFC500),
+                              Color(0x11FFC500),
+                            ],
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.send_rounded,
+                                size: 18, color: Palette.gold),
+                            const SizedBox(width: 8),
+                            Text('Send',
+                                style: bodyStyle(size: 14, color: Palette.gold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -479,6 +548,26 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
+
+class _GoldLine extends StatelessWidget {
+  const _GoldLine();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.transparent,
+            Color(0xFFFFC500),
+            Colors.transparent,
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _BalanceRow extends StatelessWidget {
   const _BalanceRow({
@@ -504,11 +593,11 @@ class _BalanceRow extends StatelessWidget {
             Text(label, style: bodyStyle(size: 16, color: Palette.muted)),
             if (subLabel != null)
               Text(subLabel!,
-                  style: bodyStyle(size: 11, color: Palette.muted)),
+                  style: bodyStyle(size: 11, color: Palette.statLabel)),
           ],
         ),
         Text(_usd.format(usdValue),
-            style: displayStyle(size: 20, color: Palette.gold)),
+            style: displayStyle(size: 18, color: Palette.gold)),
       ],
     );
   }
@@ -530,13 +619,16 @@ class _TokenToggle extends StatelessWidget {
     return Pressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
           color: selected
-              ? Palette.gold.withValues(alpha: 0.12)
+              ? Palette.gold.withValues(alpha: 0.16)
               : Colors.transparent,
-          border: Border.all(color: selected ? Palette.gold : Palette.border),
-          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: selected ? Palette.gold : Palette.border,
+            width: selected ? 1.1 : 1,
+          ),
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Text(label,
             style: bodyStyle(
@@ -563,7 +655,8 @@ class _InputBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         border: Border.all(color: Palette.border),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(10),
+        color: Palette.cardBg.withValues(alpha: 0.25),
       ),
       child: TextField(
         controller: controller,
