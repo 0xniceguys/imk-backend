@@ -47,16 +47,16 @@ class Match {
     final odds = oddsJson != null ? Odds.fromJson(oddsJson) : Odds.zero;
 
     return Match(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       fighter1: json['fighter1'] != null
           ? Fighter.fromJson(json['fighter1'] as Map<String, dynamic>)
           : null,
       fighter2: json['fighter2'] != null
           ? Fighter.fromJson(json['fighter2'] as Map<String, dynamic>)
           : null,
-      status: _parseStatus(json['status'] as String),
+      status: _parseStatus(json['status'] as String? ?? 'upcoming'),
       streamUrl: json['stream_url'] as String?,
-      scheduledAt: DateTime.parse(json['scheduled_at'] as String),
+      scheduledAt: DateTime.tryParse(json['scheduled_at'] as String? ?? '') ?? DateTime.now(),
       completedAt: json['completed_at'] != null
           ? DateTime.parse(json['completed_at'] as String)
           : null,

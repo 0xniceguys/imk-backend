@@ -1,6 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/api_exception.dart';
 import '../models/bet.dart';
 import 'match_provider.dart';
+
+void _log(String msg) {
+  // ignore: avoid_print
+  if (kDebugMode) print('[Bet] $msg');
+}
 
 class BetNotifier extends StateNotifier<List<Bet>> {
   final Ref _ref;
@@ -24,16 +31,24 @@ class BetNotifier extends StateNotifier<List<Bet>> {
     required String side,
     required String privyJwt,
   }) async {
-    final api = _ref.read(apiServiceProvider);
-    final bet = await api.placeBet(
-      matchId: matchId,
-      fighterId: fighterId,
-      amount: amount,
-      side: side,
-      privyJwt: privyJwt,
-    );
-    state = [bet, ...state];
-    return bet;
+    try {
+      final api = _ref.read(apiServiceProvider);
+      final bet = await api.placeBet(
+        matchId: matchId,
+        fighterId: fighterId,
+        amount: amount,
+        side: side,
+        privyJwt: privyJwt,
+      );
+      state = [bet, ...state];
+      return bet;
+    } on ApiException catch (e) {
+      _log('placeBet failed: ${e.code} ${e.message}');
+      rethrow;
+    } catch (e) {
+      _log('placeBet unexpected error: $e');
+      rethrow;
+    }
   }
 
   /// Claim a won bet's SKR payout via Privy.
@@ -41,11 +56,19 @@ class BetNotifier extends StateNotifier<List<Bet>> {
     required String betId,
     required String privyJwt,
   }) async {
-    final api = _ref.read(apiServiceProvider);
-    final txSig = await api.claimBet(betId: betId, privyJwt: privyJwt);
-    // Refresh to pick up CLAIMED status
-    await refresh();
-    return txSig;
+    try {
+      final api = _ref.read(apiServiceProvider);
+      final txSig = await api.claimBet(betId: betId, privyJwt: privyJwt);
+      // Refresh to pick up CLAIMED status
+      await refresh();
+      return txSig;
+    } on ApiException catch (e) {
+      _log('claimBet failed: ${e.code} ${e.message}');
+      rethrow;
+    } catch (e) {
+      _log('claimBet unexpected error: $e');
+      rethrow;
+    }
   }
 
   List<Bet> get activeBets =>

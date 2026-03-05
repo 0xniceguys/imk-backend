@@ -32,6 +32,15 @@ class BattleDetailScreen extends ConsumerWidget {
         body: Center(child: IKLoader(size: 40)),
       );
     }
+    if (matches.isEmpty) {
+      return const Scaffold(
+        backgroundColor: Palette.black,
+        body: Center(
+          child: Text('No matches available',
+              style: TextStyle(color: Palette.muted, fontSize: 16)),
+        ),
+      );
+    }
     final match = matchId != null
         ? matches.firstWhere((m) => m.id == matchId,
             orElse: () => matches.first)

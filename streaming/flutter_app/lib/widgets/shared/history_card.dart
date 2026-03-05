@@ -99,13 +99,19 @@ class HistoryCardWidget extends StatelessWidget {
                         style: bodyStyle(size: 12, color: Palette.muted)),
                     const SizedBox(width: 12),
                     // Bet amount
-                    Text('${bet.amount.toStringAsFixed(2)} SOL',
-                        style: bodyStyle(size: 12, color: Palette.secondary)),
+                    Flexible(
+                      child: Text('${bet.amount.toStringAsFixed(2)} SOL',
+                          style: bodyStyle(size: 12, color: Palette.secondary),
+                          overflow: TextOverflow.ellipsis),
+                    ),
                     if (bet.payout != null) ...[
                       Text('  →  ',
                           style: bodyStyle(size: 12, color: Palette.muted)),
-                      Text('${bet.payout!.toStringAsFixed(2)} SOL',
-                          style: bodyStyle(size: 12, color: Palette.green)),
+                      Flexible(
+                        child: Text('${bet.payout!.toStringAsFixed(2)} SOL',
+                            style: bodyStyle(size: 12, color: Palette.green),
+                            overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                     const Spacer(),
                     // P&L delta chip

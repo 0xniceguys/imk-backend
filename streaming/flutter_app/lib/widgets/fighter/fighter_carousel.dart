@@ -155,9 +155,9 @@ class _FighterTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        border: Border.all(color: Palette.gold.withOpacity(0.4)),
+        border: Border.all(color: Palette.gold.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(4),
-        color: Palette.gold.withOpacity(0.08),
+        color: Palette.gold.withValues(alpha: 0.08),
       ),
       child: Text(label,
           style: bodyStyle(size: 11, color: Palette.gold)),

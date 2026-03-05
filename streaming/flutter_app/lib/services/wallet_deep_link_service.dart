@@ -146,9 +146,12 @@ class WalletDeepLinkService {
 
     // Parse and decrypt response
     final phantomPkB58 =
-        callbackUri.queryParameters['phantom_encryption_public_key']!;
-    final nonceB58 = callbackUri.queryParameters['nonce']!;
-    final dataB58 = callbackUri.queryParameters['data']!;
+        callbackUri.queryParameters['phantom_encryption_public_key'];
+    final nonceB58 = callbackUri.queryParameters['nonce'];
+    final dataB58 = callbackUri.queryParameters['data'];
+    if (phantomPkB58 == null || nonceB58 == null || dataB58 == null) {
+      throw Exception('Wallet response missing required parameters');
+    }
 
     final theirPublicKey = base58Decode(phantomPkB58);
 
@@ -259,8 +262,13 @@ class WalletDeepLinkService {
     });
 
     // Decrypt response
-    final respNonce = base58Decode(callbackUri.queryParameters['nonce']!);
-    final respData = base58Decode(callbackUri.queryParameters['data']!);
+    final respNonceB58 = callbackUri.queryParameters['nonce'];
+    final respDataB58 = callbackUri.queryParameters['data'];
+    if (respNonceB58 == null || respDataB58 == null) {
+      throw Exception('Sign response missing required parameters');
+    }
+    final respNonce = base58Decode(respNonceB58);
+    final respData = base58Decode(respDataB58);
 
     _log('signMessage: decrypting response...');
     _log('signMessage: respNonce=${respNonce.length}B respData=${respData.length}B');

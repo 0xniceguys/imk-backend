@@ -46,10 +46,11 @@ class Fighter {
   }
 
   factory Fighter.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] as String? ?? 'UNKNOWN';
     return Fighter(
-      id: json['id'] as String,
-      name: (json['name'] as String).toUpperCase(),
-      character: json['character'] as String? ?? json['name'] as String,
+      id: json['id'] as String? ?? '',
+      name: name.toUpperCase(),
+      character: json['character'] as String? ?? name,
       characterId: json['character_id'] as int? ?? 0,
       llmModel: json['llm_model'] as String? ?? '',
       imageUrl: json['image_url'] as String?,

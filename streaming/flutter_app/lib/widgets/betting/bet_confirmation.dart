@@ -107,7 +107,7 @@ class _BetConfirmationState extends State<BetConfirmation>
                             style: bodyStyle(
                                 size: 14, color: Palette.muted)),
                         Text(
-                          '${bet.txSignature!.substring(0, 8)}...',
+                          '${bet.txSignature!.substring(0, bet.txSignature!.length.clamp(0, 8))}...',
                           style: bodyStyle(
                               size: 14, color: Palette.secondary),
                         ),

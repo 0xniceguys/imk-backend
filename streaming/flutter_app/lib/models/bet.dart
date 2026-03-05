@@ -35,16 +35,16 @@ class Bet {
 
   factory Bet.fromJson(Map<String, dynamic> json) {
     return Bet(
-      id: json['id'] as String,
-      matchId: json['match_id'] as String,
-      fighterId: json['fighter_id'] as String,
+      id: json['id'] as String? ?? '',
+      matchId: json['match_id'] as String? ?? '',
+      fighterId: json['fighter_id'] as String? ?? '',
       fighterName: json['fighter_name'] as String? ?? '',
       opponentName: json['opponent_name'] as String? ?? '',
-      amount: (json['amount'] as num).toDouble(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency'] as String? ?? 'SKR',
       oddsAtPlacement: (json['odds_at_placement'] as num?)?.toDouble() ?? 0.0,
-      status: _parseStatus(json['status'] as String),
-      placedAt: DateTime.parse(json['placed_at'] as String),
+      status: _parseStatus(json['status'] as String? ?? 'active'),
+      placedAt: DateTime.tryParse(json['placed_at'] as String? ?? '') ?? DateTime.now(),
       txSignature: json['tx_signature'] as String?,
       claimTxSignature: json['claim_tx_signature'] as String?,
       payout: (json['payout'] as num?)?.toDouble(),
