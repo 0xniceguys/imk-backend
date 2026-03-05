@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
-import '../../core/constants.dart';
 import '../../models/fighter.dart';
 import '../shared/pressable.dart';
+import 'fighter_image.dart';
 
 class FighterCarousel extends StatefulWidget {
   const FighterCarousel({
@@ -225,16 +225,7 @@ class _FighterArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = fighter.resolvedImageUrl;
-    if (imageUrl != null) {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (_, error, stackTrace) =>
-            Image.asset(Assets.photoUnavailable, fit: BoxFit.contain),
-      );
-    }
-    return Image.asset(Assets.photoUnavailable, fit: BoxFit.contain);
+    return FighterImage(fighter: fighter, fit: BoxFit.contain);
   }
 }
 

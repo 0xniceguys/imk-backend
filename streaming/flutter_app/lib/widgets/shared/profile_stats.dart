@@ -7,12 +7,14 @@ class ProfileStatsWidget extends StatelessWidget {
     super.key,
     this.winRate = '10%',
     this.plOverall = '+\$5150',
+    this.plOverallColor = Palette.green,
     this.totalBets = '51',
     this.bettingFor = '41days',
   });
 
   final String winRate;
   final String plOverall;
+  final Color plOverallColor;
   final String totalBets;
   final String bettingFor;
 
@@ -28,7 +30,7 @@ class ProfileStatsWidget extends StatelessWidget {
             _Stat(
               title: 'P/L Overall',
               value: plOverall,
-              valueColor: Palette.green,
+              valueColor: plOverallColor,
             ),
           ],
         ),

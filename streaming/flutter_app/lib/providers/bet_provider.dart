@@ -87,6 +87,39 @@ class BetNotifier extends StateNotifier<List<Bet>> {
       state.where((b) => b.isClaimed).toList();
 }
 
+class BetSummary {
+  final int totalBets;
+  final double totalWagered;
+  final double totalWon;
+  final double netPnl;
+  final double winRate;
+
+  const BetSummary({
+    required this.totalBets,
+    required this.totalWagered,
+    required this.totalWon,
+    required this.netPnl,
+    required this.winRate,
+  });
+
+  factory BetSummary.fromJson(Map<String, dynamic> json) {
+    return BetSummary(
+      totalBets: json['total_bets'] as int? ?? 0,
+      totalWagered: (json['total_wagered'] as num?)?.toDouble() ?? 0,
+      totalWon: (json['total_won'] as num?)?.toDouble() ?? 0,
+      netPnl: (json['net_pnl'] as num?)?.toDouble() ?? 0,
+      winRate: (json['win_rate'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
 final betProvider = StateNotifierProvider<BetNotifier, List<Bet>>(
   (ref) => BetNotifier(ref),
 );
+
+final betSummaryProvider = FutureProvider<BetSummary?>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final raw = await api.fetchBetsSummary();
+  if (raw == null) return null;
+  return BetSummary.fromJson(raw);
+});

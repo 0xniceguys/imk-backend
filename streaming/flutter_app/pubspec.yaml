@@ -37,6 +37,8 @@ dependencies:
   path: ^1.9.0
   flutter_svg: ^2.2.0
   flutter_boring_avatars: ^2.1.0
+  cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.1
 
 dev_dependencies:
   flutter_test:
