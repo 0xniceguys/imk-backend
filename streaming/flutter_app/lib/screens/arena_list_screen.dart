@@ -7,119 +7,105 @@ import '../models/match.dart';
 import '../providers/match_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
-import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_shimmer.dart';
+import '../widgets/shared/gold_gradient_divider.dart';
 
-class ArenaListScreen extends ConsumerStatefulWidget {
+class ArenaListScreen extends ConsumerWidget {
   const ArenaListScreen({super.key, required this.onNavigate});
   final void Function(String) onNavigate;
 
   @override
-  ConsumerState<ArenaListScreen> createState() => _ArenaListScreenState();
-}
-
-class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
-  late final PageController _pageCtrl;
-  int _tab = 0;
-  bool _tabInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageCtrl = PageController();
-  }
-
-  @override
-  void dispose() {
-    _pageCtrl.dispose();
-    super.dispose();
-  }
-
-  void _goToTab(int index) {
-    setState(() => _tab = index);
-    _pageCtrl.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final matchState = ref.watch(matchProvider);
     final allMatches = matchState.matches;
-    final live = allMatches.where((m) => m.status == MatchStatus.live).toList();
-    final upcoming = allMatches.where((m) => m.status == MatchStatus.upcoming).toList();
-
-    // Auto-select Upcoming if no live matches (only once)
-    if (!_tabInitialized && matchState.hasLoaded) {
-      _tabInitialized = true;
-      if (live.isEmpty && _tab == 0) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _goToTab(1);
-        });
-      }
-    }
+    final feed = _sortedFeed(allMatches);
 
     return AppShell(
       activeTab: NavTab.arena,
-      scrollable: false, // each page scrolls independently
-      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
+      scrollable: false,
+      onNavigate: (slug) => onNavigate(routeFor(slug)),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Tab chips ──────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                _TabChip(
-                  label: 'LIVE',
-                  count: live.length,
-                  active: _tab == 0,
-                  onTap: () => _goToTab(0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ARENA',
+                        style: displayStyle(size: 24, color: Palette.gold),
+                      ),
+                      // const SizedBox(height: 2),
+                      // Text(
+                      //   'One s2tream. Next fights in queue.',
+                      //   style: bodyStyle(size: 13, color: Palette.muted),
+                      // ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 10),
-                _TabChip(
-                  label: 'UPCOMING',
-                  count: upcoming.length,
-                  active: _tab == 1,
-                  onTap: () => _goToTab(1),
+                Text(
+                  '${feed.length} MATCHES',
+                  style: bodyStyle(size: 12, color: Palette.secondary),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '•',
+                  style: displayStyle(size: 14, color: Palette.statLabel),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${feed.where((m) => m.status == MatchStatus.live).length} LIVE',
+                  style: bodyStyle(size: 12, color: Palette.gold),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // ── Swipeable page content ─────────────────────────────────────
+          // const GoldGradientDivider(
+          //   margin: EdgeInsets.fromLTRB(16, 12, 16, 12),
+          // ),
           Expanded(
-            child: PageView(
-              controller: _pageCtrl,
-              physics: const BouncingScrollPhysics(),
-              onPageChanged: (index) => setState(() => _tab = index),
-              children: [
-                _MatchList(
-                  matches: live,
-                  allLoaded: matchState.hasLoaded,
-                  emptyLabel: 'No live matches',
-                  onTap: (m) => widget.onNavigate('/live-match/${m.id}'),
-                ),
-                _MatchList(
-                  matches: upcoming,
-                  allLoaded: matchState.hasLoaded,
-                  emptyLabel: 'No upcoming matches',
-                  onTap: (m) => widget.onNavigate('/battle-detail/${m.id}'),
-                ),
-              ],
+            child: _MatchList(
+              matches: feed,
+              allLoaded: matchState.hasLoaded,
+              emptyLabel: 'No matches available',
+              onTap: (m) {
+                if (m.status == MatchStatus.live) {
+                  onNavigate('/live-match/${m.id}');
+                } else {
+                  onNavigate('/battle-detail/${m.id}');
+                }
+              },
             ),
           ),
         ],
       ),
     );
   }
-}
 
-// ── Scrollable list for one page ───────────────────────────────────────────────
+  static List<Match> _sortedFeed(List<Match> matches) {
+    final sorted = [...matches];
+    sorted.sort((a, b) {
+      final aRank = _statusRank(a.status);
+      final bRank = _statusRank(b.status);
+      if (aRank != bRank) return aRank.compareTo(bRank);
+      return a.scheduledAt.compareTo(b.scheduledAt);
+    });
+    return sorted;
+  }
+
+  static int _statusRank(MatchStatus status) {
+    return switch (status) {
+      MatchStatus.live => 0,
+      MatchStatus.upcoming => 1,
+      MatchStatus.completed => 2,
+      MatchStatus.cancelled => 3,
+    };
+  }
+}
 
 class _MatchList extends StatelessWidget {
   const _MatchList({
@@ -139,9 +125,9 @@ class _MatchList extends StatelessWidget {
     // Still loading
     if (!allLoaded) {
       return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
         itemCount: 3,
-        separatorBuilder: (context, i) => const SizedBox(height: 28),
+        separatorBuilder: (context, i) => const SizedBox(height: 18),
         itemBuilder: (_, i) => TweenAnimationBuilder<double>(
           key: ValueKey('skeleton_$i'),
           tween: Tween(begin: 0.0, end: 1.0),
@@ -156,14 +142,17 @@ class _MatchList extends StatelessWidget {
     // Empty state
     if (matches.isEmpty) {
       return Center(
-        child: Text(emptyLabel, style: bodyStyle(size: 16, color: Palette.muted)),
+        child: Text(
+          emptyLabel,
+          style: bodyStyle(size: 16, color: Palette.muted),
+        ),
       );
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       itemCount: matches.length,
-      separatorBuilder: (context, idx) => const SizedBox(height: 28),
+      separatorBuilder: (context, idx) => const SizedBox(height: 18),
       itemBuilder: (_, i) => TweenAnimationBuilder<double>(
         key: ValueKey(matches[i].id),
         tween: Tween(begin: 0.0, end: 1.0),
@@ -171,68 +160,13 @@ class _MatchList extends StatelessWidget {
         curve: Curves.easeOut,
         builder: (context, v, child) => Opacity(
           opacity: v,
-          child: Transform.translate(offset: Offset(0, 12 * (1 - v)), child: child),
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - v)),
+            child: child,
+          ),
         ),
-        child: ArenaCard(
-          match: matches[i],
-          onTap: () => onTap(matches[i]),
-        ),
+        child: ArenaCard(match: matches[i], onTap: () => onTap(matches[i])),
       ),
     );
   }
 }
-
-// ── Tab chip ────────────────────────────────────────────────────────────────────
-
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    required this.count,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final int count;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onTap,
-      scaleTo: 0.95,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          border: Border.all(color: active ? Palette.gold : Palette.border),
-          borderRadius: BorderRadius.circular(4),
-          color: active ? Palette.gold.withValues(alpha: 0.12) : Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: displayStyle(size: 14, color: active ? Palette.gold : Palette.muted),
-              child: Text(label),
-            ),
-            const SizedBox(width: 6),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: active ? Palette.gold : Palette.muted,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('$count', style: bodyStyle(size: 11, color: Palette.black)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-

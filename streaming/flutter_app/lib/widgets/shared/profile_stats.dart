@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
+import 'gold_gradient_divider.dart';
 
 class ProfileStatsWidget extends StatelessWidget {
   const ProfileStatsWidget({
@@ -54,19 +55,9 @@ class _ProfileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 1,
+    return const GoldGradientDivider(
       width: 1000,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.transparent,
-            Color(0xFFFFC500),
-            Colors.transparent,
-          ],
-        ),
-      ),
+      margin: EdgeInsets.only(bottom: 12),
     );
   }
 }
@@ -88,8 +79,7 @@ class _Stat extends StatelessWidget {
       width: 102,
       child: Column(
         children: [
-          Text(title,
-              style: bodyStyle(size: 16, color: Palette.statLabel)),
+          Text(title, style: bodyStyle(size: 16, color: Palette.statLabel)),
           const SizedBox(height: 8),
           Text(value, style: bodyStyle(size: 16, color: valueColor)),
         ],
