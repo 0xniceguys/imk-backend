@@ -10,6 +10,7 @@ import '../providers/match_provider.dart';
 import '../providers/bet_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
+import '../widgets/shared/gold_gradient_divider.dart';
 import '../widgets/fighter/fighter_image.dart';
 
 class PostMatchScreen extends ConsumerWidget {
@@ -41,8 +42,7 @@ class PostMatchScreen extends ConsumerWidget {
         activeTab: NavTab.arena,
         onNavigate: (slug) => onNavigate(routeFor(slug)),
         content: Center(
-          child:
-              Text('No match data', style: bodyStyle(color: Palette.muted)),
+          child: Text('No match data', style: bodyStyle(color: Palette.muted)),
         ),
       );
     }
@@ -61,8 +61,14 @@ class PostMatchScreen extends ConsumerWidget {
       activeTab: NavTab.arena,
       onNavigate: (slug) => onNavigate(routeFor(slug)),
       scrollable: true,
+      contentBottomPadding: 180,
       content: Column(
         children: [
+          const SizedBox(height: 8),
+          Text(
+            'MATCH RESULT',
+            style: bodyStyle(size: 13, color: Palette.secondary),
+          ),
           const SizedBox(height: 12),
           // Winner avatar
           Container(
@@ -78,45 +84,61 @@ class PostMatchScreen extends ConsumerWidget {
                 : Image.asset(Assets.detailsHero, fit: BoxFit.cover),
           ),
           const SizedBox(height: 16),
-          Text('WINNER', style: displayStyle(size: 20, color: Palette.gold)),
+          Text('WINNER', style: displayStyle(size: 18, color: Palette.gold)),
           const SizedBox(height: 4),
-          Text(winner?.name ?? 'Unknown',
-              style: displayStyle(size: 44, color: Palette.gold)),
-          Text(winner?.llmModel ?? '',
-              style: bodyStyle(size: 18, color: Palette.secondary)),
-          const SizedBox(height: 24),
+          Text(
+            winner?.name ?? 'Unknown',
+            style: displayStyle(size: 36, color: Palette.gold),
+          ),
+          Text(
+            winner?.llmModel ?? '',
+            style: bodyStyle(size: 15, color: Palette.secondary),
+          ),
+          const GoldGradientDivider(
+            margin: EdgeInsets.fromLTRB(20, 18, 20, 14),
+          ),
           // Match stats
           Container(
             width: 260,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               border: Border.all(color: Palette.border),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Palette.sheetBg.withValues(alpha: 0.45),
+                  Colors.transparent,
+                ],
+              ),
             ),
             child: Column(
               children: [
                 _StatRow(label: 'Match', value: match.label),
                 const SizedBox(height: 8),
                 _StatRow(
-                    label: 'Fighters',
-                    value:
-                        '${match.fighter1?.name ?? '?'} vs ${match.fighter2?.name ?? '?'}'),
+                  label: 'Fighters',
+                  value:
+                      '${match.fighter1?.name ?? '?'} vs ${match.fighter2?.name ?? '?'}',
+                ),
                 const SizedBox(height: 8),
                 _StatRow(
-                    label: 'Total Pool',
-                    value: '${match.totalPool.toStringAsFixed(1)} SOL'),
+                  label: 'Total Pool',
+                  value: '${match.totalPool.toStringAsFixed(1)} SOL',
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           // Bet result
           if (userBet != null) _BetResult(bet: userBet) else _NoBetPlaced(),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
           OrnateButton(
             label: 'Back to Arena',
             onTap: () => onNavigate('/arena-list'),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -131,18 +153,19 @@ class _BetResult extends StatelessWidget {
   Widget build(BuildContext context) {
     final isWon = bet.status == BetStatus.won;
     final isLost = bet.status == BetStatus.lost;
-    final color =
-        isWon ? Palette.green : (isLost ? Palette.red : Palette.muted);
+    final color = isWon
+        ? Palette.green
+        : (isLost ? Palette.red : Palette.muted);
     final label = isWon
         ? 'You Won!'
         : isLost
-            ? 'You Lost'
-            : 'Bet ${bet.status.name}';
+        ? 'You Lost'
+        : 'Bet ${bet.status.name}';
     final payoutText = isWon && bet.payout != null
         ? '+${bet.payout!.toStringAsFixed(2)} SOL'
         : isLost
-            ? '-${bet.amount.toStringAsFixed(2)} SOL'
-            : '${bet.amount.toStringAsFixed(2)} SOL';
+        ? '-${bet.amount.toStringAsFixed(2)} SOL'
+        : '${bet.amount.toStringAsFixed(2)} SOL';
 
     return Container(
       width: 260,
@@ -157,8 +180,10 @@ class _BetResult extends StatelessWidget {
           const SizedBox(height: 4),
           Text(payoutText, style: bodyStyle(size: 18, color: color)),
           const SizedBox(height: 4),
-          Text('Bet on ${bet.fighterName}',
-              style: bodyStyle(size: 12, color: Palette.muted)),
+          Text(
+            'Bet on ${bet.fighterName}',
+            style: bodyStyle(size: 12, color: Palette.muted),
+          ),
         ],
       ),
     );
@@ -197,9 +222,11 @@ class _StatRow extends StatelessWidget {
       children: [
         Text(label, style: bodyStyle(size: 14, color: Palette.muted)),
         Flexible(
-          child: Text(value,
-              style: bodyStyle(size: 14),
-              textAlign: TextAlign.right),
+          child: Text(
+            value,
+            style: bodyStyle(size: 14),
+            textAlign: TextAlign.right,
+          ),
         ),
       ],
     );

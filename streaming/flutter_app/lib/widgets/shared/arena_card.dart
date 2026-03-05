@@ -4,6 +4,7 @@ import '../../core/typography.dart';
 import '../../core/constants.dart';
 import '../../models/match.dart';
 import '../fighter/fighter_image.dart';
+import 'gold_gradient_divider.dart';
 
 class ArenaCard extends StatelessWidget {
   const ArenaCard({super.key, required this.match, required this.onTap});
@@ -14,169 +15,239 @@ class ArenaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLive = match.status == MatchStatus.live;
-    final statusText = isLive ? 'Live' : 'Upcoming';
-    return Card(
-      margin: EdgeInsets.zero,
+    final statusText = _statusText(match.status);
+    return Material(
       color: Colors.transparent,
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-        side: BorderSide(color: Palette.border),
-      ),
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Status bar
-            Container(
-              height: 26,
-              decoration: BoxDecoration(
-                color: isLive
-                    ? Palette.liveStatusBg
-                    : Palette.upcomingStatusBg,
-              ),
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                statusText,
-                style: displayStyle(
-                  size: 16,
-                  color: isLive ? Palette.green : Palette.gold,
+        borderRadius: BorderRadius.circular(2),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Palette.sheetBg.withValues(alpha: 0.22),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const GoldGradientDivider(),
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      (isLive ? Palette.liveStatusBg : Palette.upcomingStatusBg)
+                          .withValues(alpha: 0.95),
+                      Palette.black.withValues(alpha: 0.8),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (isLive)
+                      _StatusPill(label: statusText, live: true)
+                    else
+                      Text(
+                        statusText,
+                        style: displayStyle(
+                          size: 14,
+                          color: Palette.gold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    const Spacer(),
+                    Text(
+                      _timeLabel(match.scheduledAt),
+                      style: bodyStyle(size: 11, color: Palette.secondary),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Container(height: 1, color: Palette.border),
-            // Content row
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tile image
-                  Container(
-                    width: 147,
-                    height: 94,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Palette.cardBg),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 140,
+                      height: 98,
+                      clipBehavior: Clip.hardEdge,
+                      decoration: const BoxDecoration(),
+                      child: match.fighter1 != null && match.fighter2 != null
+                          ? Row(
+                              children: [
+                                Expanded(
+                                  child: FighterImage(
+                                    fighter: match.fighter1!,
+                                    fit: BoxFit.cover,
+                                    alignment: Alignment.topCenter,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: FighterImage(
+                                    fighter: match.fighter2!,
+                                    fit: BoxFit.cover,
+                                    alignment: Alignment.topCenter,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Stack(
+                              children: [
+                                Positioned(
+                                  left: -28.55,
+                                  top: 0,
+                                  child: Image.asset(
+                                    Assets.arenaTile,
+                                    width: 208.811,
+                                    height: 117.456,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  left: -0.94,
+                                  top: -2.06,
+                                  child: Image.asset(
+                                    Assets.arenaTileAlt,
+                                    width: 145,
+                                    height: 98,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
-                    clipBehavior: Clip.hardEdge,
-                    child: match.fighter1 != null && match.fighter2 != null
-                        ? Row(
-                            children: [
-                              Expanded(
-                                child: FighterImage(
-                                  fighter: match.fighter1!,
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.topCenter,
-                                ),
-                              ),
-                              Expanded(
-                                child: FighterImage(
-                                  fighter: match.fighter2!,
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.topCenter,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Stack(
-                            children: [
-                              Positioned(
-                                left: -28.55,
-                                top: 0,
-                                child: Image.asset(
-                                  Assets.arenaTile,
-                                  width: 208.811,
-                                  height: 117.456,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              Positioned(
-                                left: -0.94,
-                                top: -2.06,
-                                child: Image.asset(
-                                  Assets.arenaTileAlt,
-                                  width: 145,
-                                  height: 98,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _StatCell(
+                            label: 'Volume',
+                            value: '\$${match.totalPool.toStringAsFixed(0)}',
                           ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Stats columns
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _StatsCol(
-                            label1: 'Total Volume',
-                            value1:
-                                '\$${match.totalPool.toStringAsFixed(0)}',
-                            label2: 'active Bets',
-                            value2: '${match.activeBets}',
+                          _StatCell(
+                            label: 'Bets',
+                            value: '${match.activeBets}',
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _StatsCol(
-                            label1: 'ROI Limit',
-                            value1:
+                          _StatCell(
+                            label: 'ROI',
+                            value:
                                 '${match.odds.fighter1Odds.toStringAsFixed(1)}-${match.odds.fighter2Odds.toStringAsFixed(1)}x',
-                            label2: 'Players',
-                            value2: '${match.activeBets}',
                           ),
-                        ),
-                      ],
+                          _StatCell(label: 'Best Of', value: '${match.bestOf}'),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Container(height: 1, color: Palette.border),
-            // Footer label
-            SizedBox(
-              height: 26,
-              child: Center(
-                child: Text(
-                  '${match.fighter1?.character ?? '?'} V/S ${match.fighter2?.character ?? '?'} [${match.label}]',
-                  style: bodyStyle(size: 12, color: Palette.white),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const GoldGradientDivider(
+                margin: EdgeInsets.symmetric(horizontal: 10),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${match.fighter1?.character ?? '?'} VS ${match.fighter2?.character ?? '?'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: bodyStyle(size: 13, color: Palette.white),
+                      ),
+                    ),
+                    Text(
+                      '[${match.label}]',
+                      style: bodyStyle(size: 11, color: Palette.secondary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _timeLabel(DateTime at) {
+    final local = at.toLocal();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    return '${local.day}/${local.month} $hh:$mm';
+  }
+
+  static String _statusText(MatchStatus status) {
+    return switch (status) {
+      MatchStatus.live => 'LIVE',
+      MatchStatus.upcoming => 'COMING',
+      MatchStatus.completed => 'COMPLETED',
+      MatchStatus.cancelled => 'CANCELLED',
+    };
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.live});
+
+  final String label;
+  final bool live;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: (live ? Palette.green : Palette.gold).withValues(alpha: 0.15),
+        border: Border.all(
+          color: live ? Palette.green : Palette.gold,
+          width: 0.8,
+        ),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: bodyStyle(
+          size: 10,
+          color: live ? Palette.green : Palette.gold,
+          letterSpacing: 0.6,
         ),
       ),
     );
   }
 }
 
-class _StatsCol extends StatelessWidget {
-  const _StatsCol({
-    required this.label1,
-    required this.value1,
-    required this.label2,
-    required this.value2,
-  });
+class _StatCell extends StatelessWidget {
+  const _StatCell({required this.label, required this.value});
 
-  final String label1, value1, label2, value2;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label1,
-            style: bodyStyle(size: 12, color: Palette.statLabel)),
-        Text(value1, style: bodyStyle(size: 12)),
-        const SizedBox(height: 10),
-        Text(label2,
-            style: bodyStyle(size: 12, color: Palette.statLabel)),
-        Text(value2, style: bodyStyle(size: 12)),
-      ],
+    return SizedBox(
+      width: 72,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: bodyStyle(size: 11, color: Palette.statLabel)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: bodyStyle(size: 14, color: Palette.white),
+          ),
+        ],
+      ),
     );
   }
 }
