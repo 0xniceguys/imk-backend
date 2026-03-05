@@ -40,6 +40,7 @@ class Assets {
   static const fighterLeft = 'assets/figma/fighterLeft.png';
   static const fighterCenter = 'assets/figma/fighterCenter.png';
   static const fighterRight = 'assets/figma/fighterRight.png';
+  static const photoUnavailable = 'assets/figma/photounavailable.png';
   static const profileAvatar = 'assets/figma/profileAvatar.png';
   static const detailsHero = 'assets/figma/detailsHero.png';
 
