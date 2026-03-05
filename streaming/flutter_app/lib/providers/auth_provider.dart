@@ -20,6 +20,8 @@ class AuthState {
   final AuthStatus status;
   final String? email;
   final String? walletAddress;
+  final String? displayName;  // persisted to backend + SharedPreferences
+  final String? avatarPath;   // local file path, SharedPreferences only
   final String? error;
   final String? pendingEmail;
   final bool hasSeenIntro;
@@ -28,6 +30,8 @@ class AuthState {
     this.status = AuthStatus.unknown,
     this.email,
     this.walletAddress,
+    this.displayName,
+    this.avatarPath,
     this.error,
     this.pendingEmail,
     this.hasSeenIntro = false,
@@ -37,14 +41,20 @@ class AuthState {
     AuthStatus? status,
     String? email,
     String? walletAddress,
+    String? displayName,
+    String? avatarPath,
     String? error,
     String? pendingEmail,
     bool? hasSeenIntro,
+    bool clearDisplayName = false,
+    bool clearAvatarPath = false,
   }) =>
       AuthState(
         status: status ?? this.status,
         email: email ?? this.email,
         walletAddress: walletAddress ?? this.walletAddress,
+        displayName: clearDisplayName ? null : (displayName ?? this.displayName),
+        avatarPath: clearAvatarPath ? null : (avatarPath ?? this.avatarPath),
         error: error,
         pendingEmail: pendingEmail ?? this.pendingEmail,
         hasSeenIntro: hasSeenIntro ?? this.hasSeenIntro,
@@ -90,6 +100,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
     // ───────────────────────────────────────────────────────────────────────
 
+    // Load persisted displayName and avatarPath
+    final displayName = prefs.getString('displayName');
+    final avatarPath = prefs.getString('avatarPath');
+
     await _privy.initialize();
     if (_privy.isLoggedIn) {
       await _privy.createSolanaWallet(); // no-op if wallet already exists
@@ -98,12 +112,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.authenticated,
         email: _privy.email,
         walletAddress: _privy.walletAddress,
+        displayName: displayName,
+        avatarPath: avatarPath,
         hasSeenIntro: true,
       );
     } else {
       state = AuthState(
         status: AuthStatus.unauthenticated,
-        hasSeenIntro: true, // always true after first _init()
+        hasSeenIntro: true,
       );
     }
   }
@@ -138,6 +154,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasSeenIntro', true);
     state = state.copyWith(hasSeenIntro: true);
+  }
+
+  /// Update display name — persisted to backend and SharedPreferences.
+  Future<bool> updateDisplayName(String name) async {
+    final trimmed = name.trim();
+    final result = await _api.updateDisplayName(trimmed);
+    if (result != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('displayName', trimmed);
+      state = state.copyWith(displayName: trimmed);
+      return true;
+    }
+    return false;
+  }
+
+  /// Save local avatar file path to SharedPreferences and state.
+  Future<void> updateAvatar(String localPath) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('avatarPath', localPath);
+    state = state.copyWith(avatarPath: localPath);
   }
 
   Future<void> sendEmailCode(String email) async {

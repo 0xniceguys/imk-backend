@@ -46,7 +46,7 @@ class PostMatchScreen extends ConsumerWidget {
       );
     }
 
-    final winner = match.winnerId == match.fighter1.id
+    final winner = match.winnerId == match.fighter1?.id
         ? match.fighter1
         : match.fighter2;
 
@@ -77,9 +77,9 @@ class PostMatchScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           Text('WINNER', style: displayStyle(size: 20, color: Palette.gold)),
           const SizedBox(height: 4),
-          Text(winner.name,
+          Text(winner?.name ?? 'Unknown',
               style: displayStyle(size: 44, color: Palette.gold)),
-          Text(winner.llmModel,
+          Text(winner?.llmModel ?? '',
               style: bodyStyle(size: 18, color: Palette.secondary)),
           const SizedBox(height: 24),
           // Match stats
@@ -97,7 +97,7 @@ class PostMatchScreen extends ConsumerWidget {
                 _StatRow(
                     label: 'Fighters',
                     value:
-                        '${match.fighter1.name} vs ${match.fighter2.name}'),
+                        '${match.fighter1?.name ?? '?'} vs ${match.fighter2?.name ?? '?'}'),
                 const SizedBox(height: 8),
                 _StatRow(
                     label: 'Total Pool',

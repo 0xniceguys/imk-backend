@@ -108,7 +108,47 @@ async def _build_and_sign_place_bet(
     return sig
 
 
+
 # ── Routes
+
+@router.get("/summary")
+async def bet_summary(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return aggregated P&L stats for the current user."""
+    result = await db.execute(
+        select(Bet).where(
+            Bet.user_id == user.id,
+        )
+    )
+    bets = result.scalars().all()
+
+    # Filter out cancelled bets from the P&L calculation
+    settled = [
+        b for b in bets
+        if b.status in (BetStatus.ACTIVE, BetStatus.WON, BetStatus.LOST, BetStatus.CLAIMED)
+    ]
+    total_bets = len(settled)
+    total_wagered = sum(float(b.amount) for b in settled)
+    total_won = sum(
+        float(b.payout) for b in settled
+        if b.payout is not None and b.status in (BetStatus.WON, BetStatus.CLAIMED)
+    )
+    net_pnl = total_won - total_wagered
+    won_count = sum(
+        1 for b in settled if b.status in (BetStatus.WON, BetStatus.CLAIMED)
+    )
+    win_rate = round(won_count / total_bets, 4) if total_bets > 0 else 0.0
+
+    return {
+        "total_bets": total_bets,
+        "total_wagered": round(total_wagered, 4),
+        "total_won": round(total_won, 4),
+        "net_pnl": round(net_pnl, 4),
+        "win_rate": win_rate,
+    }
+
 
 @router.post("/", response_model=BetOut)
 async def place_bet(

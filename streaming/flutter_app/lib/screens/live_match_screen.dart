@@ -374,8 +374,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           gameStateAsync.when(
             data: (gs) => _HealthOverlay(
               gameState: gs,
-              fighter1Name: match.fighter1.name,
-              fighter2Name: match.fighter2.name,
+              fighter1Name: match.fighter1?.name ?? 'Fighter 1',
+              fighter2Name: match.fighter2?.name ?? 'Fighter 2',
             ),
             loading: () => const SizedBox(height: 40),
             error: (e, s) => const SizedBox(height: 40),
@@ -399,12 +399,12 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
           // Fighter names
           Text(
-            '${match.fighter1.name} V/S ${match.fighter2.name}',
+            '${match.fighter1?.name ?? '---'} V/S ${match.fighter2?.name ?? '---'}',
             style: displayStyle(size: 22, color: Palette.gold),
           ),
           const SizedBox(height: 4),
           Text(
-            '${match.fighter1.llmModel} vs ${match.fighter2.llmModel}',
+            '${match.fighter1?.llmModel ?? ''} vs ${match.fighter2?.llmModel ?? ''}',
             style: bodyStyle(size: 14, color: Palette.secondary),
           ),
           const SizedBox(height: 12),

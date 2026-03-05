@@ -42,13 +42,13 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
 
   String get _selectedName =>
       _selectedFighter == 0
-          ? widget.match.fighter1.name
-          : widget.match.fighter2.name;
+          ? widget.match.fighter1?.name ?? 'Fighter 1'
+          : widget.match.fighter2?.name ?? 'Fighter 2';
 
   String get _selectedId =>
       _selectedFighter == 0
-          ? widget.match.fighter1.id
-          : widget.match.fighter2.id;
+          ? widget.match.fighter1?.id ?? ''
+          : widget.match.fighter2?.id ?? '';
 
   /// "A" for fighter1, "B" for fighter2
   String get _selectedSide => _selectedFighter == 0 ? 'A' : 'B';
@@ -148,7 +148,7 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
             children: [
               Expanded(
                 child: _FighterCard(
-                  name: widget.match.fighter1.name,
+                  name: widget.match.fighter1?.name ?? 'Fighter 1',
                   odds: widget.match.odds.fighter1Odds,
                   side: 'A',
                   selected: _selectedFighter == 0,
@@ -158,7 +158,7 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: _FighterCard(
-                  name: widget.match.fighter2.name,
+                  name: widget.match.fighter2?.name ?? 'Fighter 2',
                   odds: widget.match.odds.fighter2Odds,
                   side: 'B',
                   selected: _selectedFighter == 1,

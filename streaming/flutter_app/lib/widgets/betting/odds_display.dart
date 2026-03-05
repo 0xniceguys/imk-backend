@@ -49,7 +49,7 @@ class OddsDisplay extends StatelessWidget {
             children: [
               Column(
                 children: [
-                  Text(match.fighter1.name,
+                  Text(match.fighter1?.name ?? '?',
                       style: bodyStyle(size: 11, color: Palette.secondary)),
                   Text('${odds.fighter1Odds.toStringAsFixed(1)}x',
                       style: displayStyle(size: 16, color: Palette.gold)),
@@ -57,7 +57,7 @@ class OddsDisplay extends StatelessWidget {
               ),
               Column(
                 children: [
-                  Text(match.fighter2.name,
+                  Text(match.fighter2?.name ?? '?',
                       style: bodyStyle(size: 11, color: Palette.secondary)),
                   Text('${odds.fighter2Odds.toStringAsFixed(1)}x',
                       style: displayStyle(size: 16, color: Palette.gold)),
