@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
-import '../core/constants.dart';
 import '../models/fighter.dart';
 import '../providers/fighter_provider.dart';
 import '../providers/fighter_stats_provider.dart';
 import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_loader.dart';
+import '../widgets/fighter/fighter_image.dart';
 
 class FighterDetailsScreen extends ConsumerStatefulWidget {
   const FighterDetailsScreen({
@@ -136,6 +136,7 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
             const _GoldDivider(),
             const SizedBox(height: 24),
             _DetailsSection(
@@ -178,6 +179,8 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
               ),
             ),
             const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Fighter Profile',
               child: Column(
@@ -217,6 +220,8 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
               ),
             ),
             const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Match History',
               child: matchesAsync.when(
@@ -235,6 +240,8 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                 },
               ),
             ),
+         const SizedBox(height: 30),
+            const _GoldDivider(),
             const SizedBox(height: 30),
             _DetailsSection(
               title: 'Head-to-Head Stats',
@@ -245,7 +252,7 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         border: Border.all(color: Palette.border),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                       child: DropdownButton<String>(
                         value: _vsOpponentId,
@@ -298,6 +305,8 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
               ),
             ),
             const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Special Move',
               child: Text(
@@ -338,7 +347,7 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(2),
                 border: Border.all(color: Palette.gold.withValues(alpha: 0.55)),
                 gradient: const LinearGradient(
                   begin: Alignment.topCenter,
@@ -413,16 +422,7 @@ class _FighterDetailArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = fighter.resolvedImageUrl;
-    if (imageUrl != null) {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (_, error, stackTrace) =>
-            Image.asset(Assets.detailsHero, fit: BoxFit.contain),
-      );
-    }
-    return Image.asset(Assets.detailsHero, fit: BoxFit.contain);
+    return FighterImage(fighter: fighter, fit: BoxFit.contain);
   }
 }
 
@@ -469,7 +469,7 @@ class _StatsGrid extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(2),
                   border: Border.all(color: Palette.border.withValues(alpha: 0.9)),
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
@@ -523,7 +523,7 @@ class _MatchRow extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(2),
         border: Border.all(color: Palette.border.withValues(alpha: 0.9)),
         color: Palette.cardBg.withValues(alpha: 0.35),
       ),
@@ -533,7 +533,7 @@ class _MatchRow extends StatelessWidget {
             width: 50,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(2),
               color: isWin
                   ? Palette.green.withValues(alpha: 0.14)
                   : Palette.red.withValues(alpha: 0.14),
@@ -590,7 +590,7 @@ class _Tag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         border: Border.all(color: Palette.gold.withValues(alpha: 0.72), width: 1),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(2),
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,

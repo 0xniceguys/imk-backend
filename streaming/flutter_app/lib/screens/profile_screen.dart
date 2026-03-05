@@ -13,11 +13,25 @@ import '../widgets/shared/profile_stats.dart';
 import '../widgets/shared/history_card.dart';
 import '../widgets/shared/pressable.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key, required this.onNavigate});
   final void Function(String) onNavigate;
 
-  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(betProvider.notifier).refresh();
+      ref.invalidate(betSummaryProvider);
+    });
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -49,28 +63,45 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final bets = ref.watch(betProvider);
+    final summaryAsync = ref.watch(betSummaryProvider);
     final auth = ref.watch(authProvider);
     final displayName = auth.email?.split('@').first.toUpperCase() ?? 'PLAYER';
     final avatarSeed = auth.email ?? auth.walletAddress ?? displayName;
-    final wonBets = bets.where((b) => b.status == BetStatus.won).length;
-    final totalBets = bets.length;
-    final winRate = totalBets > 0
-        ? '${(wonBets / totalBets * 100).toStringAsFixed(0)}%'
+    final wonBets = bets.where((b) => b.status == BetStatus.won || b.status == BetStatus.claimed).length;
+    final fallbackTotalBets = bets.length;
+    final fallbackWinRate = fallbackTotalBets > 0
+        ? '${(wonBets / fallbackTotalBets * 100).toStringAsFixed(0)}%'
         : '0%';
+    final sortedBets = [...bets]..sort((a, b) => a.placedAt.compareTo(b.placedAt));
+    final firstBetAt = sortedBets.isNotEmpty ? sortedBets.first.placedAt : null;
+    final daysActive = firstBetAt == null
+        ? 0
+        : DateTime.now().difference(firstBetAt).inDays;
+    final fallbackBettingFor = '${daysActive.clamp(0, 9999)}d';
+
+    final summary = summaryAsync.valueOrNull;
+    final totalBets = summary?.totalBets ?? fallbackTotalBets;
+    final winRate = summary != null
+        ? '${(summary.winRate * 100).toStringAsFixed(0)}%'
+        : fallbackWinRate;
+    final pnlValue = summary?.netPnl ?? 0;
+    final pnlText =
+        '${pnlValue >= 0 ? '+' : ''}\$${pnlValue.toStringAsFixed(2)}';
+    final pnlColor = pnlValue >= 0 ? Palette.green : Palette.red;
 
     return AppShell(
       activeTab: NavTab.profile,
       scrollable: true,
       contentBottomPadding: 180,
       headerTrailing: Pressable(
-        onTap: () => _handleLogout(context, ref),
+        onTap: () => _handleLogout(context),
         scaleTo: 0.96,
         opacityTo: 0.7,
         child: Text('Log out', style: bodyStyle(size: 16, color: Palette.red)),
       ),
-      onNavigate: (slug) => onNavigate(routeFor(slug)),
+      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
         children: [
           const SizedBox(height: 8),
@@ -148,6 +179,9 @@ class ProfileScreen extends ConsumerWidget {
             child: ProfileStatsWidget(
               winRate: winRate,
               totalBets: '$totalBets',
+              plOverall: pnlText,
+              plOverallColor: pnlColor,
+              bettingFor: fallbackBettingFor,
             ),
           ),
           const SizedBox(height: 24),
@@ -162,7 +196,7 @@ class ProfileScreen extends ConsumerWidget {
             for (final bet in bets) ...[
               HistoryCardWidget(
                 bet: bet,
-                onTap: () => onNavigate('/battle-detail'),
+                onTap: () => widget.onNavigate('/battle-detail'),
               ),
               const SizedBox(height: 14),
             ],

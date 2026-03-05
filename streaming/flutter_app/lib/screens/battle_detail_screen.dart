@@ -12,6 +12,7 @@ import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_loader.dart';
 import '../widgets/betting/odds_display.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
+import '../widgets/fighter/fighter_image.dart';
 
 class BattleDetailScreen extends ConsumerWidget {
   const BattleDetailScreen({
@@ -96,8 +97,12 @@ class BattleDetailScreen extends ConsumerWidget {
                     onTap: () =>
                         onNavigate('/fighter-details/${match.fighter1?.id}'),
                     scaleTo: 0.96,
-                    child: Image.asset(Assets.battleLeft,
-                        fit: BoxFit.contain),
+                    child: match.fighter1 != null
+                        ? FighterImage(
+                            fighter: match.fighter1!,
+                            fit: BoxFit.contain,
+                          )
+                        : Image.asset(Assets.battleLeft, fit: BoxFit.contain),
                   ),
                 ),
                 // Center info
@@ -158,8 +163,12 @@ class BattleDetailScreen extends ConsumerWidget {
                     onTap: () =>
                         onNavigate('/fighter-details/${match.fighter2?.id}'),
                     scaleTo: 0.96,
-                    child: Image.asset(Assets.battleRight,
-                        fit: BoxFit.contain),
+                    child: match.fighter2 != null
+                        ? FighterImage(
+                            fighter: match.fighter2!,
+                            fit: BoxFit.contain,
+                          )
+                        : Image.asset(Assets.battleRight, fit: BoxFit.contain),
                   ),
                 ),
               ],

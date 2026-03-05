@@ -10,6 +10,7 @@ import '../providers/match_provider.dart';
 import '../providers/bet_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
+import '../widgets/fighter/fighter_image.dart';
 
 class PostMatchScreen extends ConsumerWidget {
   const PostMatchScreen({super.key, required this.onNavigate, this.matchId});
@@ -72,7 +73,9 @@ class PostMatchScreen extends ConsumerWidget {
               shape: BoxShape.circle,
             ),
             clipBehavior: Clip.antiAlias,
-            child: Image.asset(Assets.detailsHero, fit: BoxFit.cover),
+            child: winner != null
+                ? FighterImage(fighter: winner, fit: BoxFit.cover)
+                : Image.asset(Assets.detailsHero, fit: BoxFit.cover),
           ),
           const SizedBox(height: 16),
           Text('WINNER', style: displayStyle(size: 20, color: Palette.gold)),

@@ -3,6 +3,7 @@ import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../core/constants.dart';
 import '../../models/match.dart';
+import '../fighter/fighter_image.dart';
 
 class ArenaCard extends StatelessWidget {
   const ArenaCard({super.key, required this.match, required this.onTap});
@@ -60,30 +61,49 @@ class ArenaCard extends StatelessWidget {
                       border: Border.all(color: Palette.cardBg),
                     ),
                     clipBehavior: Clip.hardEdge,
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: -28.55,
-                          top: 0,
-                          child: Image.asset(
-                            Assets.arenaTile,
-                            width: 208.811,
-                            height: 117.456,
-                            fit: BoxFit.cover,
+                    child: match.fighter1 != null && match.fighter2 != null
+                        ? Row(
+                            children: [
+                              Expanded(
+                                child: FighterImage(
+                                  fighter: match.fighter1!,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.topCenter,
+                                ),
+                              ),
+                              Expanded(
+                                child: FighterImage(
+                                  fighter: match.fighter2!,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.topCenter,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Stack(
+                            children: [
+                              Positioned(
+                                left: -28.55,
+                                top: 0,
+                                child: Image.asset(
+                                  Assets.arenaTile,
+                                  width: 208.811,
+                                  height: 117.456,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                left: -0.94,
+                                top: -2.06,
+                                child: Image.asset(
+                                  Assets.arenaTileAlt,
+                                  width: 145,
+                                  height: 98,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        Positioned(
-                          left: -0.94,
-                          top: -2.06,
-                          child: Image.asset(
-                            Assets.arenaTileAlt,
-                            width: 145,
-                            height: 98,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(width: 12),
                   // Stats columns
