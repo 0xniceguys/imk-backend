@@ -17,14 +17,28 @@ class Settings(BaseSettings):
     # Generate with: solana-keygen new --outfile /tmp/admin.json && cat /tmp/admin.json
     admin_keypair_b58: str = ""
 
-    # SKR mint address — use devnet standin (USDC) during development
-    skr_mint: str = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+    # SKR mint address (devnet deployment target)
+    skr_mint: str = "BGUuLGTZJ7nyhReCFWpC4nQf2APE4N6dY6hizj1DXivJ"
 
     # Treasury wallet that receives 5% fees
     treasury_wallet: str = ""
 
-    # Deployed betting program ID (update when deploying to devnet/mainnet)
-    betting_program_id: str = "7woZnJL2FL4yG44EEDgVtY3YX6TqGFF1yuWND4tiDuAv"
+    # Deployed betting program ID (devnet current)
+    betting_program_id: str = "CoTfhg7a9vjZMCCuvpxmnhSj9CzTAahxUvDutzZjRrth"
+
+    # Contract fee basis points used for DB payout mirroring when config fetch fails.
+    contract_fee_bps_default: int = 500
+
+    # Number of status polls when waiting for transaction confirmation.
+    solana_confirm_retries: int = 15
+
+    # ── Dev-only local signer bypass (for backend-only integration tests) ────
+    # When true, /api/bets and /api/bets/{id}/claim can sign with local keypairs
+    # instead of Privy.
+    dev_local_signer_bypass: bool = False
+    dev_local_signer_keys_dir: str = "test-users"
+    dev_local_signer_user1_keyfile: str = "user1.json"
+    dev_local_signer_user2_keyfile: str = "user2.json"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

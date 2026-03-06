@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,63 @@ from app.schemas.match import MatchCreate, MatchOut
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+_VALID_BUILTIN_AGENT_IDS = frozenset(
+    {"random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"}
+)
+
+
+def _resolve_fighter_agent(
+    fighter: Fighter | None,
+    fallback_agent_id: str | None,
+    slot: str,
+) -> tuple[str, str | None, str | None]:
+    """
+    Resolve the runtime agent for a fighter slot.
+
+    Priority:
+    1) fighter.custom agent (agent_id + agent relation)
+    2) fighter.agent_architecture (built-in)
+    3) fallback agent from match payload/state (built-in only)
+    """
+    agent_id = fallback_agent_id or "random"
+
+    if fighter is None:
+        if agent_id not in _VALID_BUILTIN_AGENT_IDS:
+            return "random", None, None
+        return agent_id, None, None
+
+    if fighter.agent_id is not None:
+        if fighter.agent is None:
+            raise ValidationError(
+                f"{slot} fighter '{fighter.name}' has agent_id but missing linked Agent record"
+            )
+        checkpoint = fighter.agent.checkpoint_path
+        if not checkpoint:
+            raise ValidationError(
+                f"{slot} fighter '{fighter.name}' custom agent has no checkpoint_path"
+            )
+        if not Path(checkpoint).is_file():
+            raise ValidationError(
+                f"{slot} fighter '{fighter.name}' checkpoint not found on server: {checkpoint}"
+            )
+        return f"custom_{fighter.agent.slug}", checkpoint, fighter.agent.architecture
+
+    arch = fighter.agent_architecture
+    if arch in _VALID_BUILTIN_AGENT_IDS:
+        return arch, None, None
+    if arch:
+        logger.warning(
+            "%s fighter '%s' has invalid built-in architecture '%s'; using random",
+            slot,
+            fighter.name,
+            arch,
+        )
+        return "random", None, None
+
+    if agent_id not in _VALID_BUILTIN_AGENT_IDS:
+        return "random", None, None
+    return agent_id, None, None
+
 
 @router.post("/matches", response_model=MatchOut)
 async def create_match(
@@ -40,14 +98,38 @@ async def create_match(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify both fighters exist
-    for fid in (body.fighter1_id, body.fighter2_id):
-        result = await db.execute(select(Fighter).where(Fighter.id == fid))
-        if result.scalar_one_or_none() is None:
-            raise FighterNotFoundError(str(fid))
-
     if body.fighter1_id == body.fighter2_id:
         raise ValidationError("Fighter 1 and Fighter 2 must be different")
+
+    # Verify both fighters exist and resolve fixed fighter policy agent IDs.
+    fighter1_result = await db.execute(
+        select(Fighter)
+        .where(Fighter.id == body.fighter1_id)
+        .options(selectinload(Fighter.agent))
+    )
+    fighter1 = fighter1_result.scalar_one_or_none()
+    if fighter1 is None:
+        raise FighterNotFoundError(str(body.fighter1_id))
+
+    fighter2_result = await db.execute(
+        select(Fighter)
+        .where(Fighter.id == body.fighter2_id)
+        .options(selectinload(Fighter.agent))
+    )
+    fighter2 = fighter2_result.scalar_one_or_none()
+    if fighter2 is None:
+        raise FighterNotFoundError(str(body.fighter2_id))
+
+    p1_agent_id, _, _ = _resolve_fighter_agent(
+        fighter=fighter1,
+        fallback_agent_id=body.p1_agent,
+        slot="P1",
+    )
+    p2_agent_id, _, _ = _resolve_fighter_agent(
+        fighter=fighter2,
+        fallback_agent_id=body.p2_agent,
+        slot="P2",
+    )
 
     match = Match(
         fighter1_id=body.fighter1_id,
@@ -55,8 +137,8 @@ async def create_match(
         scheduled_at=body.scheduled_at,
         label=body.label,
         savestate_path=body.savestate_path,
-        p1_agent=body.p1_agent,
-        p2_agent=body.p2_agent,
+        p1_agent=p1_agent_id,
+        p2_agent=p2_agent_id,
         best_of=body.best_of,
     )
     db.add(match)
@@ -92,34 +174,10 @@ async def create_match(
         model_b_hash = hashlib.sha256(fighter2_name.encode()).digest()
 
         try:
-            # Need current match_counter from on-chain config to derive correct PDA,
-            # but we call create_match which increments it atomically.
-            # We derive the PDA optimistically from the current counter read from DB-recorded id,
-            # then confirm after the tx.
             blockhash = await solana_tx.get_recent_blockhash(rpc)
             prog_pk = Pubkey.from_string(settings.betting_program_id)
-            config_pda = solana_tx.derive_config_pda(prog_pk)
-
-            # Fetch current match_counter from on-chain config
-            payload = {
-                "jsonrpc": "2.0", "id": 1,
-                "method": "getAccountInfo",
-                "params": [str(config_pda), {"encoding": "base64"}],
-            }
-            import httpx
-            async with httpx.AsyncClient(timeout=10) as hclient:
-                resp = await hclient.post(rpc, json=payload)
-            data = resp.json()
-            config_data_b64 = data.get("result", {}).get("value", {}).get("data", [None])[0]
-            if not config_data_b64:
-                logger.error("Could not fetch config account — aborting on-chain create_match")
-                return
-
-            import base64, struct
-            raw = base64.b64decode(config_data_b64)
-            # Config layout after discriminator (8 bytes):
-            # admin(32) + skr_mint(32) + treasury_wallet(32) + fee_bps(2) + min_bet(8) + max_bet(8) + match_counter(8) + paused(1)
-            match_counter = struct.unpack_from("<Q", raw, 8 + 32 + 32 + 32 + 2 + 8 + 8)[0]
+            cfg = await solana_tx.fetch_config(settings.betting_program_id, rpc)
+            match_counter = int(cfg["match_counter"])
             logger.info("On-chain match_counter before create: %d", match_counter)
 
             tx = solana_tx.build_create_match_ix(
@@ -131,13 +189,18 @@ async def create_match(
                 blockhash=blockhash,
                 program_id_str=settings.betting_program_id,
             )
-            sig = await solana_tx.send_transaction(tx, rpc)
+            sig = await solana_tx.send_and_confirm_transaction(
+                tx, rpc, retries=settings.solana_confirm_retries
+            )
             logger.info("create_match on-chain tx: %s (counter=%d)", sig, match_counter)
 
             # Derive the match PDA that was created
             prog_pk = Pubkey.from_string(settings.betting_program_id)
             match_pda = solana_tx.derive_match_pda(match_counter, prog_pk)
             match_pda_str = str(match_pda)
+            if not await solana_tx.account_exists(match_pda_str, rpc):
+                logger.error("create_match confirmed but PDA missing: %s", match_pda_str)
+                return
 
             # Store on-chain IDs in DB
             async with async_session() as fresh_db:
@@ -199,46 +262,21 @@ async def start_match(
     best_of = match.best_of
     match_id_str = str(match_id)
 
-    # ✅ FIX: Wire uploaded agents into match execution
-    # Determine agent ID, checkpoint path, AND architecture for both fighters
-    p1_agent_id = match.p1_agent  # default from match
-    p2_agent_id = match.p2_agent  # default from match
-    p1_checkpoint_path: str | None = None
-    p2_checkpoint_path: str | None = None
-    p1_architecture: str | None = None
-    p2_architecture: str | None = None
-
-    # P1 agent resolution: custom uploaded agent takes priority over built-in
-    if match.fighter1:
-        if match.fighter1.agent_id and match.fighter1.agent:
-            # Custom uploaded agent
-            p1_agent_id = f"custom_{match.fighter1.agent.slug}"
-            p1_checkpoint_path = match.fighter1.agent.checkpoint_path
-            p1_architecture = match.fighter1.agent.architecture
-            logger.info(f"P1 using custom agent: {p1_agent_id} ({p1_architecture}) from {p1_checkpoint_path}")
-        elif match.fighter1.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
-            # Built-in agent with valid ID
-            p1_agent_id = match.fighter1.agent_architecture
-            logger.info(f"P1 using built-in agent: {p1_agent_id}")
-        else:
-            # Invalid or architecture-only value (like "mlp") - default to random
-            logger.info(f"P1 using built-in agent: {p1_agent_id}")
-
-    # P2 agent resolution: custom uploaded agent takes priority over built-in
-    if match.fighter2:
-        if match.fighter2.agent_id and match.fighter2.agent:
-            # Custom uploaded agent
-            p2_agent_id = f"custom_{match.fighter2.agent.slug}"
-            p2_checkpoint_path = match.fighter2.agent.checkpoint_path
-            p2_architecture = match.fighter2.agent.architecture
-            logger.info(f"P2 using custom agent: {p2_agent_id} ({p2_architecture}) from {p2_checkpoint_path}")
-        elif match.fighter2.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
-            # Built-in agent with valid ID
-            p2_agent_id = match.fighter2.agent_architecture
-            logger.info(f"P2 using built-in agent: {p2_agent_id}")
-        else:
-            # Invalid or architecture-only value (like "mlp") - default to random
-            logger.info(f"P2 using built-in agent: {p2_agent_id}")
+    # Resolve exact runtime agents from fighter policy and keep match metadata in sync.
+    p1_agent_id, p1_checkpoint_path, p1_architecture = _resolve_fighter_agent(
+        fighter=match.fighter1,
+        fallback_agent_id=match.p1_agent,
+        slot="P1",
+    )
+    p2_agent_id, p2_checkpoint_path, p2_architecture = _resolve_fighter_agent(
+        fighter=match.fighter2,
+        fallback_agent_id=match.p2_agent,
+        slot="P2",
+    )
+    if match.p1_agent != p1_agent_id:
+        match.p1_agent = p1_agent_id
+    if match.p2_agent != p2_agent_id:
+        match.p2_agent = p2_agent_id
 
     # Mark as LIVE and commit — THEN release DB connection before launching emulator.
     # If we hold the session open during the 3-10s emulator launch, the connection
@@ -395,8 +433,11 @@ async def settle_match_endpoint(
     winner_player = 1 if winner_id == match.fighter1_id else 2
 
     # Use shared settlement service (reads round counters BEFORE stopping runner)
-    from app.services.settlement import settle_match
-    await settle_match(str(match_id), winner_player)
+    from app.services.settlement import OnChainSettlementError, settle_match
+    try:
+        await settle_match(str(match_id), winner_player)
+    except OnChainSettlementError as exc:
+        raise HTTPException(502, f"On-chain settlement failed: {exc}")
 
     # Stop runner after settlement (settlement.py reads round data from it)
     from app.services.match_runner import stop_match as runner_stop
