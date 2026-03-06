@@ -108,7 +108,10 @@ class WalletDeepLinkService {
 
   /// Opens the wallet app and requests connection approval.
   /// Returns the user's Solana wallet address.
-  Future<String> connect({SolanaWallet wallet = SolanaWallet.phantom}) async {
+  Future<String> connect({
+    SolanaWallet wallet = SolanaWallet.phantom,
+    String cluster = 'mainnet-beta',
+  }) async {
     _activeWallet = wallet;
     _dappKey = nacl.PrivateKey.generate();
     final dappPubBytes = Uint8List.fromList(_dappKey!.publicKey);
@@ -117,32 +120,36 @@ class WalletDeepLinkService {
     _log('connect: dappPub (FULL)=$dappPubKeyB58');
     _log('connect: dappPub bytes=${dappPubBytes.length}');
 
-    final connectUrl =
-        Uri.parse('${wallet.baseUrl}/connect').replace(queryParameters: {
-      'app_url': 'https://immortalkombat.com',
-      'dapp_encryption_public_key': dappPubKeyB58,
-      'redirect_link': 'imk://callback/connect',
-      'cluster': 'mainnet-beta',
-    });
+    final connectUrl = Uri.parse('${wallet.baseUrl}/connect').replace(
+      queryParameters: {
+        'app_url': 'https://immortalkombat.com',
+        'dapp_encryption_public_key': dappPubKeyB58,
+        'redirect_link': 'imk://callback/connect',
+        'cluster': cluster,
+      },
+    );
 
     _log('Opening ${wallet.name} connect: $connectUrl');
 
     // Arm Completer BEFORE launching URL so buffered cold-start links replay
     final completer = _arm();
 
-    final launched =
-        await launchUrl(connectUrl, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(
+      connectUrl,
+      mode: LaunchMode.externalApplication,
+    );
     if (!launched) {
       _pendingCallback = null;
-      throw Exception(
-          '${wallet.name} could not be opened. Is it installed?');
+      throw Exception('${wallet.name} could not be opened. Is it installed?');
     }
 
     // Wait for wallet to redirect back
-    final callbackUri = await completer.future
-        .timeout(const Duration(minutes: 2), onTimeout: () {
-      throw Exception('Wallet connection timed out');
-    });
+    final callbackUri = await completer.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        throw Exception('Wallet connection timed out');
+      },
+    );
 
     // Parse and decrypt response
     final phantomPkB58 =
@@ -175,18 +182,19 @@ class WalletDeepLinkService {
     _log('Session (${_session!.length} chars): $_session');
     _log('Their PK: ${theirPublicKey.length} bytes');
     _log('Our PK: $dappPubKeyB58');
-    _log('Cluster param sent: mainnet-beta');
+    _log('Cluster param sent: $cluster');
 
     // Self-test: verify our encrypt→decrypt round-trip works
     final testPayload = Uint8List.fromList(utf8.encode('{"test":"hello"}'));
     final testNonce = nacl.PineNaClUtils.randombytes(24);
-    final testEnc =
-        _sharedSecret!.encrypt(testPayload, nonce: testNonce);
+    final testEnc = _sharedSecret!.encrypt(testPayload, nonce: testNonce);
     final testCipher = testEnc.cipherText.asTypedList;
     final testNonceOut = testEnc.nonce.asTypedList;
     final testDec = _decryptWith(testNonceOut, testCipher);
     final roundTrip = utf8.decode(testDec);
-    _log('Encrypt self-test: ${roundTrip == '{"test":"hello"}' ? "PASS" : "FAIL: $roundTrip"}');
+    _log(
+      'Encrypt self-test: ${roundTrip == '{"test":"hello"}' ? "PASS" : "FAIL: $roundTrip"}',
+    );
 
     return _walletAddress!;
   }
@@ -205,10 +213,14 @@ class WalletDeepLinkService {
     // Build payload to encrypt (matching phantom_connect package format)
     final messageBytes = Uint8List.fromList(utf8.encode(message));
     final msgB58 = base58Encode(messageBytes);
-    _log('signMessage: message length=${message.length} '
-        'msgB58 length=${msgB58.length}');
-    _log('signMessage: session=${_session!.substring(0, 20)}... '
-        '(${_session!.length} chars)');
+    _log(
+      'signMessage: message length=${message.length} '
+      'msgB58 length=${msgB58.length}',
+    );
+    _log(
+      'signMessage: session=${_session!.substring(0, 20)}... '
+      '(${_session!.length} chars)',
+    );
 
     final payloadMap = {
       'session': _session,
@@ -221,14 +233,14 @@ class WalletDeepLinkService {
     // Encrypt payload with explicit nonce (matching phantom_connect approach)
     final encNonce = nacl.PineNaClUtils.randombytes(24);
     final payloadBytes = Uint8List.fromList(utf8.encode(payloadJson));
-    final encrypted =
-        _sharedSecret!.encrypt(payloadBytes, nonce: encNonce);
+    final encrypted = _sharedSecret!.encrypt(payloadBytes, nonce: encNonce);
     final encCipher = encrypted.cipherText.asTypedList;
-    _log('signMessage: nonce=${encNonce.length}B '
-        'cipher=${encCipher.length}B (plaintext=${payloadBytes.length}B)');
+    _log(
+      'signMessage: nonce=${encNonce.length}B '
+      'cipher=${encCipher.length}B (plaintext=${payloadBytes.length}B)',
+    );
 
-    final dappPubB58 =
-        base58Encode(Uint8List.fromList(_dappKey!.publicKey));
+    final dappPubB58 = base58Encode(Uint8List.fromList(_dappKey!.publicKey));
     final nonceB58 = base58Encode(Uint8List.fromList(encNonce));
     final payloadB58 = base58Encode(Uint8List.fromList(encCipher));
 
@@ -256,10 +268,12 @@ class WalletDeepLinkService {
     await launchUrl(signUrl, mode: LaunchMode.externalApplication);
 
     // Wait for wallet to redirect back
-    final callbackUri = await completer.future
-        .timeout(const Duration(minutes: 2), onTimeout: () {
-      throw Exception('Message signing timed out');
-    });
+    final callbackUri = await completer.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        throw Exception('Message signing timed out');
+      },
+    );
 
     // Decrypt response
     final respNonceB58 = callbackUri.queryParameters['nonce'];
@@ -271,7 +285,9 @@ class WalletDeepLinkService {
     final respData = base58Decode(respDataB58);
 
     _log('signMessage: decrypting response...');
-    _log('signMessage: respNonce=${respNonce.length}B respData=${respData.length}B');
+    _log(
+      'signMessage: respNonce=${respNonce.length}B respData=${respData.length}B',
+    );
     final decrypted = _decryptWith(respNonce, respData);
     final jsonStr = utf8.decode(decrypted);
     _log('signMessage: decrypted response JSON: $jsonStr');
@@ -283,7 +299,9 @@ class WalletDeepLinkService {
     _log('signMessage: signature length=${signature.length} chars');
     // Decode to check byte length (ed25519 sig = 64 bytes)
     final sigBytes = base58Decode(signature);
-    _log('signMessage: signature decoded=${sigBytes.length} bytes (expect 64 for ed25519)');
+    _log(
+      'signMessage: signature decoded=${sigBytes.length} bytes (expect 64 for ed25519)',
+    );
     return signature;
   }
 

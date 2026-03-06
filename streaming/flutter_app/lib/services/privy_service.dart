@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:privy_flutter/privy_flutter.dart';
 import '../core/constants.dart';
@@ -53,7 +52,9 @@ class PrivyService {
       _log('Auth state: ${authState.runtimeType}');
       if (authState is Authenticated) {
         _user = authState.user;
-        _log('Already authenticated: email=${email ?? "none"}, wallet=${walletAddress ?? "none"}');
+        _log(
+          'Already authenticated: email=${email ?? "none"}, wallet=${walletAddress ?? "none"}',
+        );
         _log('User id: ${_user?.id}');
         _log('Linked accounts: ${_user?.linkedAccounts.length}');
       } else {
@@ -200,7 +201,9 @@ class PrivyService {
       _log('Calling _privy.siws.generateMessage...');
       final sw = Stopwatch()..start();
       final result = await _privy.siws.generateMessage(params);
-      _log('generateMessage returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}');
+      _log(
+        'generateMessage returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}',
+      );
       String? message;
       result.fold(
         onSuccess: (msg) {
@@ -213,7 +216,9 @@ class PrivyService {
           lastError = e.message;
         },
       );
-      _log('=== generateSiwsMessage END (message=${message != null ? "OK" : "NULL"}) ===');
+      _log(
+        '=== generateSiwsMessage END (message=${message != null ? "OK" : "NULL"}) ===',
+      );
       return message;
     } catch (e, st) {
       _log('generateSiwsMessage EXCEPTION: $e');
@@ -224,7 +229,10 @@ class PrivyService {
   }
 
   Future<bool> loginWithSiws(
-      String message, String signature, String walletAddr) async {
+    String message,
+    String signature,
+    String walletAddr,
+  ) async {
     _log('=== loginWithSiws START ===');
     _log('walletAddr: $walletAddr');
     _log('message length: ${message.length}');
@@ -253,7 +261,9 @@ class PrivyService {
           connectorType: 'solana_wallet',
         ),
       );
-      _log('siws.login returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}');
+      _log(
+        'siws.login returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}',
+      );
       result.fold(
         onSuccess: (user) {
           _user = user;
@@ -340,8 +350,9 @@ class PrivyService {
     }
     try {
       _log('Signing tx with wallet: ${solWallets.first.address}');
-      final result =
-          await solWallets.first.provider.signTransaction(transactionBytes);
+      final result = await solWallets.first.provider.signTransaction(
+        transactionBytes,
+      );
       _log('signTransaction result: ${result.runtimeType}');
       if (result is Success<String>) {
         _log('signTransaction SUCCESS');
@@ -374,8 +385,7 @@ class PrivyService {
     }
     try {
       _log('Sign+send with wallet: ${solWallets.first.address}');
-      final result =
-          await solWallets.first.provider.signAndSendTransaction(
+      final result = await solWallets.first.provider.signAndSendTransaction(
         transaction: transactionBytes,
         cluster: cluster,
         rpcUrl: rpcUrl,
@@ -409,6 +419,54 @@ class PrivyService {
       return null;
     } catch (e) {
       _log('getAccessToken error: $e');
+      return null;
+    }
+  }
+
+  /// Get the current Privy ID token for server-side wallet signing.
+  /// The Privy Flutter SDK exposes this as `identityToken` on PrivyUser.
+  /// Falls back to access token if identity token is unavailable
+  /// (e.g. user session predates enabling identity tokens in dashboard).
+  Future<String?> getIdToken() async {
+    if (_user == null) return null;
+    try {
+      // 1. Try identity token first (required by Privy server-side signing)
+      final token = _user!.identityToken;
+      if (token != null && token.isNotEmpty) {
+        _log('Privy: Got identity token (${token.length} chars)');
+        return token;
+      }
+
+      // 2. Refresh user and try again
+      _log('getIdToken: identityToken is null/empty, refreshing user...');
+      await _user!.refresh();
+      final refreshedToken = _user!.identityToken;
+      if (refreshedToken != null && refreshedToken.isNotEmpty) {
+        _log(
+          'Privy: Got identity token after refresh (${refreshedToken.length} chars)',
+        );
+        return refreshedToken;
+      }
+
+      // 3. Fall back to access token with a warning
+      _log(
+        'WARNING: identityToken still null — user may need to log out and log back in.',
+      );
+      _log(
+        'Falling back to access token (may fail for server-side wallet signing).',
+      );
+      final accessResult = await _user!.getAccessToken();
+      if (accessResult is Success<String>) {
+        _log(
+          'Privy: Falling back to access token (${accessResult.value.length} chars)',
+        );
+        return accessResult.value;
+      }
+
+      _log('getIdToken: no token available at all');
+      return null;
+    } catch (e) {
+      _log('getIdToken error: $e');
       return null;
     }
   }

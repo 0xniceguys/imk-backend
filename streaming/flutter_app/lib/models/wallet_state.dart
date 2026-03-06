@@ -5,6 +5,8 @@ class WalletState {
   final double seekerBalance;
   final double solUsdValue;
   final double seekerUsdValue;
+  final String seekerSymbol;
+  final bool isDevnet;
   final bool isLoading;
   final String? errorMessage;
 
@@ -15,6 +17,8 @@ class WalletState {
     this.seekerBalance = 0,
     this.solUsdValue = 0,
     this.seekerUsdValue = 0,
+    this.seekerSymbol = 'SKR',
+    this.isDevnet = false,
     this.isLoading = false,
     this.errorMessage,
   });
@@ -28,18 +32,21 @@ class WalletState {
     double? seekerBalance,
     double? solUsdValue,
     double? seekerUsdValue,
+    String? seekerSymbol,
+    bool? isDevnet,
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
-  }) =>
-      WalletState(
-        solanaAddress: solanaAddress ?? this.solanaAddress,
-        solBalance: solBalance ?? this.solBalance,
-        usdcBalance: usdcBalance ?? this.usdcBalance,
-        seekerBalance: seekerBalance ?? this.seekerBalance,
-        solUsdValue: solUsdValue ?? this.solUsdValue,
-        seekerUsdValue: seekerUsdValue ?? this.seekerUsdValue,
-        isLoading: isLoading ?? this.isLoading,
-        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      );
+  }) => WalletState(
+    solanaAddress: solanaAddress ?? this.solanaAddress,
+    solBalance: solBalance ?? this.solBalance,
+    usdcBalance: usdcBalance ?? this.usdcBalance,
+    seekerBalance: seekerBalance ?? this.seekerBalance,
+    solUsdValue: solUsdValue ?? this.solUsdValue,
+    seekerUsdValue: seekerUsdValue ?? this.seekerUsdValue,
+    seekerSymbol: seekerSymbol ?? this.seekerSymbol,
+    isDevnet: isDevnet ?? this.isDevnet,
+    isLoading: isLoading ?? this.isLoading,
+    errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+  );
 }
