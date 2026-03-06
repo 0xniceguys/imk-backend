@@ -100,10 +100,10 @@ pub struct Claim<'info> {
         bump,
         has_one = skr_mint @ ContractError::TokenMintMismatch
     )]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(mut)]
-    pub match_account: Account<'info, Match>,
+    pub match_account: Box<Account<'info, Match>>,
 
     #[account(
         mut,
@@ -111,21 +111,21 @@ pub struct Claim<'info> {
         has_one = user @ ContractError::Unauthorized,
         constraint = user_bet.match_pubkey == match_account.key() @ ContractError::Unauthorized
     )]
-    pub user_bet: Account<'info, UserBet>,
+    pub user_bet: Box<Account<'info, UserBet>>,
 
     #[account(
         mut,
         associated_token::mint = skr_mint,
         associated_token::authority = user,
     )]
-    pub user_skr_ata: Account<'info, TokenAccount>,
+    pub user_skr_ata: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         associated_token::mint = skr_mint,
         associated_token::authority = vault_authority
     )]
-    pub vault_ata: Account<'info, TokenAccount>,
+    pub vault_ata: Box<Account<'info, TokenAccount>>,
     
     /// CHECK: PDA
     #[account(
@@ -139,7 +139,7 @@ pub struct Claim<'info> {
         mut,
         token::mint = skr_mint
     )]
-    pub treasury_ata: Account<'info, TokenAccount>,
+    pub treasury_ata: Box<Account<'info, TokenAccount>>,
     
     /// CHECK: Treasury wallet to match the global config
     #[account(mut)]
@@ -152,7 +152,7 @@ pub struct Claim<'info> {
     )]
     pub admin: UncheckedAccount<'info>,
 
-    pub skr_mint: Account<'info, Mint>,
+    pub skr_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
     pub user: Signer<'info>,
@@ -365,6 +365,7 @@ pub struct CloseLosingBet<'info> {
     )]
     pub config: Account<'info, Config>,
 
+    #[account(mut)]
     pub match_account: Account<'info, Match>,
 
     #[account(
@@ -386,13 +387,23 @@ pub struct CloseLosingBet<'info> {
 }
 
 pub fn close_losing_bet(ctx: Context<CloseLosingBet>) -> Result<()> {
-    let match_account = &ctx.accounts.match_account;
+    let match_account = &mut ctx.accounts.match_account;
     let user_bet = &ctx.accounts.user_bet;
 
     require!(match_account.status == MatchStatus::Resolved, ContractError::MatchNotResolved);
     require!(user_bet.side != match_account.winner, ContractError::NotLoser);
 
-    // Anchor `close = admin` handles the lamport transfer & account deletion automatically.
+    // Track loser bet cleanup volume in branch-B (winning_total == 0).
+    // This lets us close the match after the final loser bet PDA is closed.
+    if match_account.winning_total == 0 {
+        match_account.refunded_total = match_account.refunded_total.checked_add(user_bet.amount).unwrap();
+        let total_bets = match_account.total_a.checked_add(match_account.total_b).unwrap();
+        if match_account.refunded_total == total_bets {
+            match_account.close(ctx.accounts.admin.to_account_info())?;
+        }
+    }
+
+    // Anchor `close = admin` handles the loser bet lamports transfer + account deletion.
     
     Ok(())
 }
