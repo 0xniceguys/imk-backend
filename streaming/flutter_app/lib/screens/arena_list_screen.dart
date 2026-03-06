@@ -8,7 +8,6 @@ import '../providers/match_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
 import '../widgets/shared/ik_shimmer.dart';
-import '../widgets/shared/gold_gradient_divider.dart';
 
 class ArenaListScreen extends ConsumerWidget {
   const ArenaListScreen({super.key, required this.onNavigate});
@@ -87,7 +86,12 @@ class ArenaListScreen extends ConsumerWidget {
   }
 
   static List<Match> _sortedFeed(List<Match> matches) {
-    final sorted = [...matches];
+    final sorted = matches
+        .where(
+          (m) =>
+              m.status == MatchStatus.live || m.status == MatchStatus.upcoming,
+        )
+        .toList();
     sorted.sort((a, b) {
       final aRank = _statusRank(a.status);
       final bRank = _statusRank(b.status);
@@ -101,8 +105,8 @@ class ArenaListScreen extends ConsumerWidget {
     return switch (status) {
       MatchStatus.live => 0,
       MatchStatus.upcoming => 1,
-      MatchStatus.completed => 2,
-      MatchStatus.cancelled => 3,
+      MatchStatus.completed => 99,
+      MatchStatus.cancelled => 100,
     };
   }
 }
