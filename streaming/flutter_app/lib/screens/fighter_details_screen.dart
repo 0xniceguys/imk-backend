@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
-import '../core/constants.dart';
 import '../models/fighter.dart';
 import '../providers/fighter_provider.dart';
 import '../providers/fighter_stats_provider.dart';
 import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_loader.dart';
+import '../widgets/fighter/fighter_image.dart';
 
 class FighterDetailsScreen extends ConsumerStatefulWidget {
   const FighterDetailsScreen({
@@ -39,14 +39,14 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
         : 0;
     final currentIndex = initialIndex >= 0 ? initialIndex : 0;
     final fighter = fighters[currentIndex];
-    final prevIndex = currentIndex > 0 ? currentIndex - 1 : fighters.length - 1;
-    final nextIndex = currentIndex < fighters.length - 1 ? currentIndex + 1 : 0;
     final bottom = MediaQuery.of(context).padding.bottom;
 
     final statsAsync = ref.watch(fighterStatsProvider(fighter.id));
     final matchesAsync = ref.watch(fighterMatchesProvider(fighter.id));
     final vsAsync = _vsOpponentId != null
-        ? ref.watch(fighterVsProvider(FighterVsParams(fighter.id, _vsOpponentId!)))
+        ? ref.watch(
+            fighterVsProvider(FighterVsParams(fighter.id, _vsOpponentId!)),
+          )
         : null;
 
     if (_vsOpponentId == null && fighters.length > 1) {
@@ -88,22 +88,22 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                     const SizedBox(width: 4),
                     Text(
                       'Back',
-                      style: displayStyle(size: 22, color: Palette.muted),
+                      style: displayStyle(size: 18, color: Palette.muted),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             SizedBox(
-              height: 350,
+              height: 320,
               child: Stack(
                 alignment: Alignment.bottomCenter,
                 children: [
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: SizedBox(
-                      height: 290,
+                      height: 260,
                       child: _FighterDetailArtwork(fighter: fighter),
                     ),
                   ),
@@ -119,7 +119,7 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: displayStyle(
-                            size: 50,
+                            size: 40,
                             color: Palette.gold,
                             height: 0.92,
                           ),
@@ -130,31 +130,17 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: bodyStyle(size: 22, color: Palette.secondary),
+                          style: bodyStyle(size: 16, color: Palette.secondary),
                         ),
-                        if (fighter.fightStyle.isNotEmpty || fighter.origin.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                if (fighter.fightStyle.isNotEmpty)
-                                  _Tag(label: fighter.fightStyle),
-                                if (fighter.origin.isNotEmpty)
-                                  _Tag(label: fighter.origin),
-                              ],
-                            ),
-                          ),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            Container(height: 1, color: Palette.darkGold),
-            const SizedBox(height: 38),
+            const SizedBox(height: 24),
+            const _GoldDivider(),
+            const SizedBox(height: 24),
             _DetailsSection(
               title: 'Overall Stats',
               child: statsAsync.when(
@@ -194,28 +180,52 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Fighter Profile',
               child: Column(
                 children: [
-                  _ProfileLine(label: 'Character', value: fighter.character),
-                  _ProfileLine(
-                    label: 'Architecture',
-                    value: fighter.agentArchitecture?.toUpperCase() ?? 'Unknown',
-                  ),
-                  _ProfileLine(
-                    label: 'Origin',
-                    value: fighter.origin.isEmpty ? 'Unknown' : fighter.origin,
-                  ),
-                  _ProfileLine(
-                    label: 'Slug',
-                    value: fighter.slug.isEmpty ? 'Unknown' : fighter.slug,
+                  if (fighter.fightStyle.isNotEmpty ||
+                      fighter.origin.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (fighter.fightStyle.isNotEmpty)
+                            _Tag(label: fighter.fightStyle),
+                          if (fighter.origin.isNotEmpty)
+                            _Tag(label: fighter.origin),
+                        ],
+                      ),
+                    ),
+                  _StatsGrid(
+                    items: [
+                      _InfoItem('Character', fighter.character),
+                      _InfoItem(
+                        'Architecture',
+                        fighter.agentArchitecture?.toUpperCase() ?? 'Unknown',
+                      ),
+                      _InfoItem(
+                        'Origin',
+                        fighter.origin.isEmpty ? 'Unknown' : fighter.origin,
+                      ),
+                      _InfoItem(
+                        'Slug',
+                        fighter.slug.isEmpty ? 'Unknown' : fighter.slug,
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Match History',
               child: matchesAsync.when(
@@ -234,7 +244,9 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Head-to-Head Stats',
               child: Column(
@@ -244,15 +256,16 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         border: Border.all(color: Palette.border),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                       child: DropdownButton<String>(
                         value: _vsOpponentId,
                         dropdownColor: Palette.cardBg,
-                        style: bodyStyle(size: 16, color: Palette.white),
+                        style: bodyStyle(size: 14, color: Palette.white),
                         isExpanded: true,
                         underline: const SizedBox.shrink(),
-                        onChanged: (value) => setState(() => _vsOpponentId = value),
+                        onChanged: (value) =>
+                            setState(() => _vsOpponentId = value),
                         items: fighters
                             .where((item) => item.id != fighter.id)
                             .map(
@@ -264,29 +277,60 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                             .toList(),
                       ),
                     ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   if (vsAsync != null)
                     vsAsync.when(
                       loading: () => const _Loader(),
-                      error: (error, stackTrace) => _emptyMsg('VS stats unavailable'),
+                      error: (error, stackTrace) =>
+                          _emptyMsg('VS stats unavailable'),
                       data: (vs) {
                         if (vs == null) {
                           return _emptyMsg('No matches vs this opponent');
                         }
+                        final opponentName =
+                            fighters
+                                .where((item) => item.id == _vsOpponentId)
+                                .map((item) => item.name)
+                                .cast<String?>()
+                                .firstWhere(
+                                  (name) =>
+                                      name != null && name.trim().isNotEmpty,
+                                  orElse: () => null,
+                                ) ??
+                            (vs['opponent_name'] as String?) ??
+                            'Unknown';
+
+                        final played = _asInt(
+                          vs['total_matches'] ?? vs['matches_played'],
+                        );
+                        final wins = _asInt(vs['wins'] ?? vs['matches_won']);
+                        final lossesRaw = vs['losses'];
+                        final losses = lossesRaw == null
+                            ? (played - wins).clamp(0, played)
+                            : _asInt(lossesRaw);
+                        final winRate = _asDouble(vs['win_rate']);
+
+                        final recentMatches = vs['matches'] is List
+                            ? (vs['matches'] as List)
+                            : const [];
+                        final latestResult = recentMatches.isNotEmpty
+                            ? ((recentMatches.first
+                                          as Map<String, dynamic>)['result']
+                                      as String? ??
+                                  'null')
+                            : 'null';
+
                         return _StatsGrid(
                           items: [
-                            _InfoItem('Opponent', vs['opponent_name'] as String? ?? 'Unknown'),
+                            _InfoItem('Opponent', opponentName),
                             _InfoItem(
                               'Win Rate',
-                              '${((vs['win_rate'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
+                              '${(winRate * 100).toStringAsFixed(1)}%',
                             ),
-                            _InfoItem('Played', '${vs['matches_played'] ?? 0}'),
-                            _InfoItem('Wins', '${vs['matches_won'] ?? 0}'),
-                            _InfoItem(
-                              'Bet Volume',
-                              '${(vs['total_bet_volume'] as num? ?? 0).toStringAsFixed(2)} SOL',
-                            ),
-                            _InfoItem('Flawless', '${vs['flawless_matches'] ?? 0}'),
+                            _InfoItem('Played', '$played'),
+                            _InfoItem('Wins', '$wins'),
+                            _InfoItem('Losses', '$losses'),
+                            _InfoItem('Latest Result', latestResult),
                           ],
                         );
                       },
@@ -296,7 +340,9 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Special Move',
               child: Text(
@@ -304,14 +350,10 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                     ? 'No special move listed.'
                     : fighter.specialMove,
                 textAlign: TextAlign.center,
-                style: bodyStyle(
-                  size: 18,
-                  color: Palette.white,
-                  height: 1.4,
-                ),
+                style: bodyStyle(size: 15, color: Palette.white, height: 1.35),
               ),
             ),
-            const SizedBox(height: 42),
+            const SizedBox(height: 30),
             _DetailsSection(
               title: 'Lore',
               child: Text(
@@ -320,45 +362,55 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                     : fighter.description,
                 textAlign: TextAlign.center,
                 style: bodyStyle(
-                  size: 18,
+                  size: 15,
                   color: Palette.secondary,
-                  height: 1.45,
+                  height: 1.4,
                 ),
               ),
             ),
-            const SizedBox(height: 48),
-            Container(height: 1, color: Palette.darkGold),
-            const SizedBox(height: 28),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Pressable(
-                    onTap: () =>
-                        widget.onNavigate('/fighter-details/${fighters[prevIndex].id}'),
-                    child: Text(
-                      '← ${fighters[prevIndex].name}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: displayStyle(size: 22, color: Palette.muted),
-                    ),
-                  ),
+            const SizedBox(height: 34),
+            const _GoldDivider(),
+            const SizedBox(height: 18),
+            Text(
+              'Switch Fighter',
+              style: displayStyle(size: 18, color: Palette.statLabel),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: Palette.gold.withValues(alpha: 0.55)),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x22000000), Color(0x44000000)],
                 ),
-                const SizedBox(width: 16),
-                Flexible(
-                  child: Pressable(
-                    onTap: () =>
-                        widget.onNavigate('/fighter-details/${fighters[nextIndex].id}'),
-                    child: Text(
-                      '${fighters[nextIndex].name} →',
-                      textAlign: TextAlign.right,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: displayStyle(size: 22, color: Palette.muted),
-                    ),
-                  ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: fighter.id,
+                  isExpanded: true,
+                  dropdownColor: Palette.cardBg,
+                  iconEnabledColor: Palette.gold,
+                  style: bodyStyle(size: 15, color: Palette.white),
+                  onChanged: (value) {
+                    if (value == null || value == fighter.id) return;
+                    widget.onNavigate('/fighter-details/$value');
+                  },
+                  items: fighters
+                      .map(
+                        (item) => DropdownMenuItem<String>(
+                          value: item.id,
+                          child: Text(
+                            item.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -367,13 +419,13 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
   }
 
   static Widget _emptyMsg(String msg) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          msg,
-          style: bodyStyle(size: 13, color: Palette.secondary),
-          textAlign: TextAlign.center,
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(
+      msg,
+      style: bodyStyle(size: 13, color: Palette.secondary),
+      textAlign: TextAlign.center,
+    ),
+  );
 }
 
 class FighterVsParams {
@@ -399,24 +451,12 @@ class _FighterDetailArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = fighter.resolvedImageUrl;
-    if (imageUrl != null) {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (_, error, stackTrace) =>
-            Image.asset(Assets.detailsHero, fit: BoxFit.contain),
-      );
-    }
-    return Image.asset(Assets.detailsHero, fit: BoxFit.contain);
+    return FighterImage(fighter: fighter, fit: BoxFit.contain);
   }
 }
 
 class _DetailsSection extends StatelessWidget {
-  const _DetailsSection({
-    required this.title,
-    required this.child,
-  });
+  const _DetailsSection({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -428,9 +468,9 @@ class _DetailsSection extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: displayStyle(size: 28, color: Palette.statLabel),
+          style: displayStyle(size: 22, color: Palette.statLabel),
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 14),
         child,
       ],
     );
@@ -445,65 +485,50 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 18,
-      runSpacing: 26,
+      spacing: 12,
+      runSpacing: 12,
       alignment: WrapAlignment.center,
       children: items
           .map(
             (item) => SizedBox(
-              width: 150,
-              child: Column(
-                children: [
-                  Text(
-                    item.label,
-                    textAlign: TextAlign.center,
-                    style: bodyStyle(size: 18, color: Palette.statLabel),
+              width: 145,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(
+                    color: Palette.border.withValues(alpha: 0.9),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    item.value,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: bodyStyle(size: 20, color: Palette.white),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x22000000), Color(0x44000000)],
                   ),
-                ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      item.label,
+                      textAlign: TextAlign.center,
+                      style: bodyStyle(size: 13, color: Palette.statLabel),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.value,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: bodyStyle(size: 16, color: Palette.white),
+                    ),
+                  ],
+                ),
               ),
             ),
           )
           .toList(),
-    );
-  }
-}
-
-class _ProfileLine extends StatelessWidget {
-  const _ProfileLine({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        children: [
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: bodyStyle(size: 18, color: Palette.statLabel),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: bodyStyle(size: 20, color: Palette.white),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -522,21 +547,27 @@ class _MatchRow extends StatelessWidget {
     final roundsLost = match['rounds_lost'] as int? ?? 0;
     final date = _fmt(match['completed_at'] as String?);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: Palette.border.withValues(alpha: 0.9)),
+        color: Palette.cardBg.withValues(alpha: 0.35),
+      ),
       child: Row(
         children: [
           Container(
-            width: 52,
+            width: 50,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(2),
               color: isWin
-                  ? Palette.green.withValues(alpha: 0.12)
-                  : Palette.red.withValues(alpha: 0.12),
+                  ? Palette.green.withValues(alpha: 0.14)
+                  : Palette.red.withValues(alpha: 0.14),
               border: Border.all(
                 color: isWin ? Palette.green : Palette.red,
-                width: 0.8,
+                width: 0.9,
               ),
             ),
             child: Text(
@@ -552,13 +583,13 @@ class _MatchRow extends StatelessWidget {
           Expanded(
             child: Text(
               'vs $opponent',
-              style: bodyStyle(size: 16, color: Palette.white),
+              style: bodyStyle(size: 14, color: Palette.white),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             '$roundsWon-$roundsLost  $side  $date',
-            style: bodyStyle(size: 12, color: Palette.statLabel),
+            style: bodyStyle(size: 11, color: Palette.statLabel),
           ),
         ],
       ),
@@ -584,15 +615,51 @@ class _Tag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        border: Border.all(color: Palette.gold.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(4),
-        color: Palette.gold.withValues(alpha: 0.08),
+        border: Border.all(
+          color: Palette.gold.withValues(alpha: 0.72),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(2),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x55FFC500), Color(0x22FFC500)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Palette.gold.withValues(alpha: 0.16),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         label,
-        style: bodyStyle(size: 12, color: Palette.gold),
+        style: bodyStyle(
+          size: 11,
+          color: Palette.gold,
+          weight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _GoldDivider extends StatelessWidget {
+  const _GoldDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.transparent, Color(0xFFFFC500), Colors.transparent],
+        ),
       ),
     );
   }
@@ -621,4 +688,18 @@ class _InfoItem {
 
   final String label;
   final String value;
+}
+
+int _asInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
+}
+
+double _asDouble(dynamic value) {
+  if (value is double) return value;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? 0.0;
+  return 0.0;
 }

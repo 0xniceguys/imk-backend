@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../core/constants.dart';
-import '../../providers/wallet_provider.dart';
+import '../wallet/wallet_action.dart';
 
-class HeaderWidget extends ConsumerWidget {
-  const HeaderWidget({super.key});
+class HeaderWidget extends StatelessWidget {
+  const HeaderWidget({
+    super.key,
+    this.trailing,
+  });
 
-  static final _usd = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+  final Widget? trailing;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final wallet = ref.watch(walletProvider);
+  Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -32,21 +32,7 @@ class HeaderWidget extends ConsumerWidget {
             ),
           ],
         ),
-        Row(
-          children: [
-            Image.asset(Assets.balanceIcon, width: 24, height: 24),
-            const SizedBox(width: 7),
-            Text(
-              _usd.format(wallet.totalUsdValue),
-              style: displayStyle(
-                size: 22,
-                color: Palette.muted,
-                letterSpacing: -0.66,
-                height: 0.98,
-              ),
-            ),
-          ],
-        ),
+        trailing ?? const WalletActionWidget(style: WalletActionStyle.compact),
       ],
     );
   }

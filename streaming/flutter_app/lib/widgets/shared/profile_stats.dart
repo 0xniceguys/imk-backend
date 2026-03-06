@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
+import 'gold_gradient_divider.dart';
 
 class ProfileStatsWidget extends StatelessWidget {
   const ProfileStatsWidget({
     super.key,
     this.winRate = '10%',
     this.plOverall = '+\$5150',
+    this.plOverallColor = Palette.green,
     this.totalBets = '51',
     this.bettingFor = '41days',
   });
 
   final String winRate;
   final String plOverall;
+  final Color plOverallColor;
   final String totalBets;
   final String bettingFor;
 
@@ -28,7 +31,7 @@ class ProfileStatsWidget extends StatelessWidget {
             _Stat(
               title: 'P/L Overall',
               value: plOverall,
-              valueColor: Palette.green,
+              valueColor: plOverallColor,
             ),
           ],
         ),
@@ -52,19 +55,9 @@ class _ProfileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 1,
+    return const GoldGradientDivider(
       width: 1000,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.transparent,
-            Color(0xFFFFC500),
-            Colors.transparent,
-          ],
-        ),
-      ),
+      margin: EdgeInsets.only(bottom: 12),
     );
   }
 }
@@ -86,8 +79,7 @@ class _Stat extends StatelessWidget {
       width: 102,
       child: Column(
         children: [
-          Text(title,
-              style: bodyStyle(size: 16, color: Palette.statLabel)),
+          Text(title, style: bodyStyle(size: 16, color: Palette.statLabel)),
           const SizedBox(height: 8),
           Text(value, style: bodyStyle(size: 16, color: valueColor)),
         ],
