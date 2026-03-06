@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../core/constants.dart';
 import '../../core/palette.dart';
+import '../../core/runtime_client_config.dart';
 import '../../core/typography.dart';
 import '../../providers/match_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -70,13 +70,14 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
     }
 
     // Check sufficient balance
+    final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
     final wallet = ref.read(walletProvider);
     final maxAmount = _token == _WithdrawToken.sol
         ? wallet.solBalance
         : wallet.seekerBalance;
     if (amount > maxAmount) {
       _showError('Insufficient balance. You have ${maxAmount.toStringAsFixed(4)} '
-          '${_token == _WithdrawToken.sol ? 'SOL' : 'SEEKER'}');
+          '${_token == _WithdrawToken.sol ? 'SOL' : tokenSymbol}');
       return;
     }
 
@@ -115,7 +116,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       );
 
       debugPrint('[Withdraw] Success! TX: $sig');
-      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : 'SEEKER';
+      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : RuntimeClientConfig.instance.tokenSymbol;
       final short = '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}';
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -154,8 +155,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
     if (raw.contains('401') || raw.contains('403') || raw.contains('Unauthorized')) {
       return 'Session expired. Please close and reopen this page.';
     }
-    if (raw.contains('No SEEKER token account')) {
-      return 'Recipient has no SEEKER token account.';
+    if (raw.contains('token account')) {
+      final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+      return 'Recipient has no $tokenSymbol token account.';
     }
     if (raw.contains('sign')) {
       return 'Failed to sign the transaction. Please try again.';
@@ -187,8 +189,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         ? '${address.substring(0, 6)}...${address.substring(address.length - 4)}'
         : address;
 
-    final seekerLabel = kUseDevnet ? 'USDC' : 'SEEKER';
-    final seekerUnit = kUseDevnet ? 'USDC' : 'SKR';
+    final cfg = RuntimeClientConfig.instance;
+    final seekerLabel = cfg.isDevnet ? '${cfg.tokenSymbol} (devnet)' : cfg.tokenSymbol;
+    final seekerUnit = cfg.tokenSymbol;
     final maxAmount = _token == _WithdrawToken.sol
         ? wallet.solBalance
         : wallet.seekerBalance;
@@ -278,7 +281,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
               ),
               const SizedBox(height: 8),
               _BalanceRow(
-                label: kUseDevnet ? 'USDC (devnet)' : 'SEEKER',
+                label: seekerLabel,
                 usdValue: wallet.seekerUsdValue,
                 subLabel: '${wallet.seekerBalance.toStringAsFixed(2)} $seekerUnit',
               ),

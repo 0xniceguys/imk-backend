@@ -1,7 +1,9 @@
 const kMaxWidth = 420.0;
 const kUseMockData = false;
 
-const kUseDevnet = false; // always mainnet
+// Runtime chain, program, mint and Privy values are fetched from
+// GET /api/client-config. These are fallback-only values.
+const kFallbackUseDevnet = false;
 
 // Backend API — override with --dart-define for local device testing:
 //   flutter run --dart-define=API_HOST=10.0.2.2:8000
@@ -15,8 +17,13 @@ final kStreamBaseUrl = '${_isLocal ? 'http' : 'https'}://$_apiHost';
 
 
 // Privy credentials — App ID from dashboard.privy.io
-const kPrivyAppId = 'cmm5ifxpw00p50cl5bkx86zcd';
-const kPrivyClientId = 'client-WY6WiWvWLFu17WpAsHYy8EuUWhdVFdGhA3vKCeeAFnZ3s';
+const kFallbackPrivyAppId = 'cmm5ifxpw00p50cl5bkx86zcd';
+const kFallbackPrivyClientId = 'client-WY6WiWvWLFu17WpAsHYy8EuUWhdVFdGhA3vKCeeAFnZ3s';
+const kFallbackSkrMint = 'BGUuLGTZJ7nyhReCFWpC4nQf2APE4N6dY6hizj1DXivJ';
+const kFallbackProgramId = 'CoTfhg7a9vjZMCCuvpxmnhSj9CzTAahxUvDutzZjRrth';
+const kFallbackTokenSymbol = 'SKR';
+const kFallbackTokenDecimals = 6;
+const kFallbackExplorerBaseUrl = 'https://solscan.io';
 
 class Assets {
   static const skullIcon = 'assets/icon/skullicon.svg';

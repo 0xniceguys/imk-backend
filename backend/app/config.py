@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://imk:imk_dev_password@localhost:5432/immortalkombat"
     privy_app_id: str = "cmm5ifxpw00p50cl5bkx86zcd"
+    privy_client_id: str = "client-WY6WiWvWLFu17WpAsHYy8EuUWhdVFdGhA3vKCeeAFnZ3s"
     privy_app_secret: str = ""
     use_devnet: bool = True  # default devnet for contract integration
     hls_output_dir: str = "./hls_output"
@@ -28,6 +29,11 @@ class Settings(BaseSettings):
 
     # Contract fee basis points used for DB payout mirroring when config fetch fails.
     contract_fee_bps_default: int = 500
+    contract_min_bet_base_units_default: int = 100
+    contract_max_bet_base_units_default: int = 400
+    token_symbol: str = "SKR"
+    token_decimals: int = 6
+    explorer_base_url: str = "https://solscan.io"
 
     # Number of status polls when waiting for transaction confirmation.
     solana_confirm_retries: int = 15

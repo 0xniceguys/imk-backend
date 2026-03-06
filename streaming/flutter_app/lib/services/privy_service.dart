@@ -1,13 +1,22 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:privy_flutter/privy_flutter.dart';
-import '../core/constants.dart';
-
-const _appUrlScheme = 'privy-$kPrivyAppId';
+import '../core/runtime_client_config.dart';
 
 void _log(String msg) {
   // ignore: avoid_print
   if (kDebugMode) print('[Privy] $msg');
+}
+
+SolanaCluster _clusterFromRuntime() {
+  switch (RuntimeClientConfig.instance.cluster) {
+    case 'devnet':
+      return SolanaCluster.devnet;
+    case 'testnet':
+      return SolanaCluster.testnet;
+    default:
+      return SolanaCluster.mainnet;
+  }
 }
 
 class PrivyService {
@@ -37,11 +46,15 @@ class PrivyService {
   }
 
   Future<void> initialize() async {
+    final runtime = RuntimeClientConfig.instance;
+    final appId = runtime.privyAppId;
+    final clientId = runtime.privyClientId;
+
     _log('=== initialize START ===');
-    _log('appId=$kPrivyAppId, clientId=$kPrivyClientId');
+    _log('appId=$appId, clientId=$clientId, cluster=${runtime.cluster}');
     final config = PrivyConfig(
-      appId: kPrivyAppId,
-      appClientId: kPrivyClientId,
+      appId: appId,
+      appClientId: clientId,
       logLevel: PrivyLogLevel.verbose,
     );
     _privy = Privy.init(config: config);
@@ -105,12 +118,13 @@ class PrivyService {
   // ── OAuth ──
 
   Future<bool> loginWithGoogle() async {
-    _log('loginWithGoogle: appUrlScheme=$_appUrlScheme');
+    final appUrlScheme = 'privy-${RuntimeClientConfig.instance.privyAppId}';
+    _log('loginWithGoogle: appUrlScheme=$appUrlScheme');
     lastError = null;
     try {
       final result = await _privy.oAuth.login(
         provider: OAuthProvider.google,
-        appUrlScheme: _appUrlScheme,
+        appUrlScheme: appUrlScheme,
       );
       result.fold(
         onSuccess: (user) {
@@ -131,12 +145,13 @@ class PrivyService {
   }
 
   Future<bool> loginWithApple() async {
-    _log('loginWithApple: appUrlScheme=$_appUrlScheme');
+    final appUrlScheme = 'privy-${RuntimeClientConfig.instance.privyAppId}';
+    _log('loginWithApple: appUrlScheme=$appUrlScheme');
     lastError = null;
     try {
       final result = await _privy.oAuth.login(
         provider: OAuthProvider.apple,
-        appUrlScheme: _appUrlScheme,
+        appUrlScheme: appUrlScheme,
       );
       result.fold(
         onSuccess: (user) {
@@ -377,8 +392,8 @@ class PrivyService {
       final result =
           await solWallets.first.provider.signAndSendTransaction(
         transaction: transactionBytes,
-        cluster: cluster,
-        rpcUrl: rpcUrl,
+        cluster: cluster ?? _clusterFromRuntime(),
+        rpcUrl: rpcUrl ?? RuntimeClientConfig.instance.rpcHttp,
       );
       _log('signAndSendTransaction result: ${result.runtimeType}');
       if (result is Success<String>) {
