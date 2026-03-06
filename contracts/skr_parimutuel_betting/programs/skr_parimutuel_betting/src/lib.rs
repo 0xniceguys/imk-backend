@@ -6,7 +6,7 @@ pub mod instructions;
 
 use instructions::*;
 
-declare_id!("7woZnJL2FL4yG44EEDgVtY3YX6TqGFF1yuWND4tiDuAv"); // Default localnet placeholder
+declare_id!("CoTfhg7a9vjZMCCuvpxmnhSj9CzTAahxUvDutzZjRrth"); // Default localnet placeholder
 
 #[program]
 pub mod skr_parimutuel_betting {

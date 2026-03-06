@@ -10,32 +10,45 @@
 
 <div class="card">
   <form method="POST" action="/admin/matches/new">
-    <div class="form-group">
-      <label for="savestate_path">Savestate (characters + stage)</label>
-      <select name="savestate_path" id="savestate_path" required>
-        <option value="">Select savestate...</option>
-        {% for s in savestates %}
-        <option value="{{ s.path }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
+    <p class="text-dim text-sm" style="margin-top:0; margin-bottom:1rem;">
+      Choose two fighters. Agent policy and savestate are auto-resolved by backend.
+    </p>
 
     <div class="grid grid-2">
       <div class="form-group">
-        <label for="p1_agent">P1 Agent</label>
-        <select name="p1_agent" id="p1_agent" required>
-          {% for a in agents %}
-          <option value="{{ a.id }}" {% if a.id == 'random' %}selected{% endif %}>{{ a.name }} — {{ a.description }}</option>
+        <label for="fighter1_id">Fighter 1 (P1)</label>
+        <select name="fighter1_id" id="fighter1_id" required>
+          <option value="">Select fighter...</option>
+          {% for f in fighters %}
+          <option value="{{ f.id }}" {% if selected_fighter1_id and selected_fighter1_id == f.id %}selected{% endif %}>
+            {{ f.name }} — {{ f.llm_model }} / {{ f.style }}
+          </option>
           {% endfor %}
         </select>
       </div>
       <div class="form-group">
-        <label for="p2_agent">P2 Agent</label>
-        <select name="p2_agent" id="p2_agent" required>
-          {% for a in agents %}
-          <option value="{{ a.id }}" {% if a.id == 'random' %}selected{% endif %}>{{ a.name }} — {{ a.description }}</option>
+        <label for="fighter2_id">Fighter 2 (P2)</label>
+        <select name="fighter2_id" id="fighter2_id" required>
+          <option value="">Select fighter...</option>
+          {% for f in fighters %}
+          <option value="{{ f.id }}" {% if selected_fighter2_id and selected_fighter2_id == f.id %}selected{% endif %}>
+            {{ f.name }} — {{ f.llm_model }} / {{ f.style }}
+          </option>
           {% endfor %}
         </select>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom: 1rem;">
+      <div class="card" style="padding: 0.75rem;">
+        <div class="text-sm text-dim">P1 Preview</div>
+        <div id="p1_preview_name" style="font-weight:700;">—</div>
+        <div id="p1_preview_meta" class="text-sm text-dim">—</div>
+      </div>
+      <div class="card" style="padding: 0.75rem;">
+        <div class="text-sm text-dim">P2 Preview</div>
+        <div id="p2_preview_name" style="font-weight:700;">—</div>
+        <div id="p2_preview_meta" class="text-sm text-dim">—</div>
       </div>
     </div>
 
@@ -43,14 +56,14 @@
       <div class="form-group">
         <label for="best_of">Best Of</label>
         <select name="best_of" id="best_of" required>
-          <option value="1">1 Round</option>
-          <option value="3" selected>Best of 3</option>
-          <option value="5">Best of 5</option>
+          <option value="1" {% if best_of == 1 %}selected{% endif %}>1 Round</option>
+          <option value="3" {% if best_of == 3 %}selected{% endif %}>Best of 3</option>
+          <option value="5" {% if best_of == 5 %}selected{% endif %}>Best of 5</option>
         </select>
       </div>
       <div class="form-group">
         <label for="label">Match Label</label>
-        <input type="text" name="label" id="label" value="MK4-Classic" placeholder="e.g. MK4-Classic, Tournament Round 1">
+        <input type="text" name="label" id="label" value="{{ label or 'MK4-Classic' }}" placeholder="e.g. MK4-Classic, Tournament Round 1">
       </div>
     </div>
 
@@ -60,4 +73,39 @@
     </div>
   </form>
 </div>
+
+<script>
+  (function () {
+    const fighters = {{ fighters | tojson | safe }};
+    const map = {};
+    for (const f of fighters) map[f.id] = f;
+
+    const p1 = document.getElementById('fighter1_id');
+    const p2 = document.getElementById('fighter2_id');
+    const p1Name = document.getElementById('p1_preview_name');
+    const p1Meta = document.getElementById('p1_preview_meta');
+    const p2Name = document.getElementById('p2_preview_name');
+    const p2Meta = document.getElementById('p2_preview_meta');
+
+    function paint(sel, nameNode, metaNode) {
+      const f = map[sel.value];
+      if (!f) {
+        nameNode.textContent = '—';
+        metaNode.textContent = '—';
+        return;
+      }
+      nameNode.textContent = f.name;
+      metaNode.textContent = `${f.llm_model} / ${f.style}`;
+    }
+
+    function refresh() {
+      paint(p1, p1Name, p1Meta);
+      paint(p2, p2Name, p2Meta);
+    }
+
+    p1.addEventListener('change', refresh);
+    p2.addEventListener('change', refresh);
+    refresh();
+  })();
+</script>
 {% endblock %}

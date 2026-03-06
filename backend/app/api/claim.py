@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,13 +25,28 @@ router = APIRouter(prefix="/bets", tags=["bets"])
 
 
 class ClaimRequest(BaseModel):
-    privy_jwt: str  # user's Privy access token for server-side signing
+    privy_jwt: str | None = None  # optional only when dev_local_signer_bypass=true
 
 
 class ClaimOut(BaseModel):
     bet_id: str
     tx_signature: str
     status: str  # "claimed"
+
+
+def _map_contract_error(exc: Exception) -> str:
+    msg = str(exc)
+    match = re.search(r"custom program error: 0x([0-9a-fA-F]+)", msg)
+    if not match:
+        return msg
+    code = int(match.group(1), 16)
+    mapping = {
+        6004: "Match is not resolved on-chain yet.",
+        6010: "This wallet is not a winner for the resolved side.",
+        6012: "Winning total is zero for this match; claim is not possible.",
+        6014: "Token mint mismatch in backend configuration.",
+    }
+    return mapping.get(code, msg)
 
 
 @router.post("/{bet_id}/claim", response_model=ClaimOut)
@@ -48,10 +64,15 @@ async def claim_payout(
     - Have status=WON
     - Have an on_chain_side set (was placed as an on-chain bet)
     """
+    try:
+        bet_uuid = UUID(bet_id)
+    except ValueError:
+        raise HTTPException(422, "bet_id must be a valid UUID")
+
     # Load bet with match relationship
     result = await db.execute(
         select(Bet)
-        .where(Bet.id == UUID(bet_id))
+        .where(Bet.id == bet_uuid)
         .options(selectinload(Bet.match))
     )
     bet = result.scalar_one_or_none()
@@ -67,6 +88,8 @@ async def claim_payout(
         raise HTTPException(400, "Bet already claimed")
     if bet.status != BetStatus.WON:
         raise HTTPException(400, f"Bet status is '{bet.status.value}' — only WON bets can be claimed")
+    if not bet.on_chain_side:
+        raise HTTPException(400, "This bet has no on-chain side mapping and cannot be claimed")
 
     match: Match = bet.match
     if not match or not match.on_chain_match_pda:
@@ -75,15 +98,26 @@ async def claim_payout(
     if not user.wallet_address:
         raise HTTPException(400, "User has no Solana wallet linked")
 
-    if not settings.treasury_wallet:
-        raise HTTPException(500, "Treasury wallet is not configured (TREASURY_WALLET env var)")
-
     from app.services import solana_tx
-    from app.services.privy_wallet import get_wallet_id_and_sign
     from app.services.admin_keypair import get_admin_keypair
 
     rpc  = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
     prog = settings.betting_program_id
+    try:
+        cfg = await solana_tx.fetch_config(prog, rpc)
+    except Exception as exc:
+        raise HTTPException(502, f"Failed to fetch on-chain config: {exc}")
+    treasury_wallet = cfg["treasury_wallet"]
+
+    # Guard against DB/on-chain drift before asking user to sign.
+    on_chain_match = await solana_tx.fetch_match(match.on_chain_match_pda, rpc)
+    if on_chain_match is None:
+        raise HTTPException(409, "On-chain match account does not exist")
+    if on_chain_match["status"] != 2:
+        raise HTTPException(409, "On-chain match is not resolved yet")
+    expected_winner = 1 if bet.on_chain_side == "A" else 2
+    if on_chain_match["winner"] != expected_winner:
+        raise HTTPException(409, "On-chain winner does not match this bet side")
 
     # Get admin pubkey for the treasury derivation (claim ix needs it)
     try:
@@ -99,7 +133,7 @@ async def claim_payout(
             user_pubkey=user.wallet_address,
             match_pda_str=match.on_chain_match_pda,
             skr_mint_str=settings.skr_mint,
-            treasury_wallet_str=settings.treasury_wallet,
+            treasury_wallet_str=treasury_wallet,
             admin_pubkey_str=admin_pubkey,
             blockhash=blockhash,
             program_id_str=prog,
@@ -108,20 +142,43 @@ async def claim_payout(
         logger.error("Failed to build claim tx for bet %s: %s", bet_id, exc, exc_info=True)
         raise HTTPException(502, f"Failed to build claim transaction: {exc}")
 
-    # Sign and broadcast via Privy
-    tx_b64 = base64.b64encode(tx_bytes).decode()
-    try:
-        sig, corrected_addr = await get_wallet_id_and_sign(
-            user_jwt=body.privy_jwt,
-            wallet_address=user.wallet_address,
-            tx_b64=tx_b64,
-            devnet=settings.use_devnet,
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Privy signing failed for claim bet %s: %s", bet_id, exc, exc_info=True)
-        raise HTTPException(502, f"Claim transaction signing failed: {exc}")
+    if settings.dev_local_signer_bypass:
+        from app.services.dev_local_signer import sign_and_send_unsigned_tx_for_user
+
+        try:
+            sig = await sign_and_send_unsigned_tx_for_user(
+                user=user,
+                unsigned_tx_bytes=tx_bytes,
+                rpc_url=rpc,
+                retries=settings.solana_confirm_retries,
+            )
+        except Exception as exc:
+            logger.error("Local signing failed for claim bet %s: %s", bet_id, exc, exc_info=True)
+            raise HTTPException(502, f"Claim transaction signing failed: {_map_contract_error(exc)}")
+    else:
+        if not body.privy_jwt:
+            raise HTTPException(400, "privy_jwt is required unless dev_local_signer_bypass=true")
+
+        from app.services.privy_wallet import get_wallet_id_and_sign
+
+        # Sign and broadcast via Privy
+        tx_b64 = base64.b64encode(tx_bytes).decode()
+        try:
+            sig, corrected_addr = await get_wallet_id_and_sign(
+                user_jwt=body.privy_jwt,
+                wallet_address=user.wallet_address,
+                tx_b64=tx_b64,
+                devnet=settings.use_devnet,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("Privy signing failed for claim bet %s: %s", bet_id, exc, exc_info=True)
+            raise HTTPException(502, f"Claim transaction signing failed: {_map_contract_error(exc)}")
+
+        confirmed = await solana_tx.confirm_transaction(sig, rpc, retries=settings.solana_confirm_retries)
+        if not confirmed:
+            raise HTTPException(502, f"Claim transaction not confirmed: {sig}")
 
     logger.info("Claim tx broadcast: bet=%s sig=%s user=%s", bet_id, sig, user.id)
 

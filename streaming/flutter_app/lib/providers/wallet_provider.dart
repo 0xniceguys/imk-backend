@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,35 +8,73 @@ import '../models/wallet_state.dart';
 import '../services/api_service.dart';
 import '../services/privy_service.dart';
 import '../core/constants.dart';
+import '../core/runtime_client_config.dart';
 import 'auth_provider.dart';
-import 'client_config_provider.dart';
 
 /// Wrapped SOL mint (used for Jupiter price lookup).
 const _wrappedSolMint = 'So11111111111111111111111111111111111111112';
 
 class WalletNotifier extends StateNotifier<WalletState> {
   final PrivyService _privy;
-  final Ref _ref;
-  ClientConfig? _cachedConfig;
+  Timer? _autoRefreshTimer;
+  bool _isRefreshInFlight = false;
 
-  WalletNotifier(this._privy, this._ref) : super(const WalletState());
+  WalletNotifier(this._privy) : super(const WalletState()) {
+    _startAutoRefresh();
+  }
+
+  RuntimeClientConfig get _cfg => RuntimeClientConfig.instance;
+  String get _solanaRpc => _cfg.rpcHttp;
+  String get _skrMint => _cfg.skrMint;
+  bool get _isDevnet => _cfg.isDevnet;
+  int get _tokenDecimals => _cfg.tokenDecimals;
+
+  static const Duration _autoRefreshEvery = Duration(seconds: 12);
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(_autoRefreshEvery, (_) async {
+      if (_isRefreshInFlight) return;
+      final address = _privy.walletAddress;
+      if (address == null || address.isEmpty) return;
+      _isRefreshInFlight = true;
+      try {
+        await _loadWallet(showLoading: false);
+      } finally {
+        _isRefreshInFlight = false;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> loadWallet() async {
+    await _loadWallet(showLoading: true);
+  }
+
+  Future<void> _loadWallet({required bool showLoading}) async {
     final address = _privy.walletAddress;
     if (address == null) {
       state = const WalletState();
       return;
     }
 
-    final cfg = await _resolveClientConfig();
-
-    state = state.copyWith(
-      solanaAddress: address,
-      seekerSymbol: cfg.tokenSymbol,
-      isDevnet: cfg.isDevnet,
-      isLoading: true,
-      clearError: true,
-    );
+    if (showLoading) {
+      state = state.copyWith(
+        solanaAddress: address,
+        isLoading: true,
+        clearError: true,
+      );
+    } else {
+      state = state.copyWith(
+        solanaAddress: address,
+        clearError: true,
+      );
+    }
 
     if (kUseMockData) {
       state = WalletState(
@@ -206,26 +245,24 @@ class WalletNotifier extends StateNotifier<WalletState> {
     return _parsePrice(body['quotes']?['USD']?['price']);
   }
 
-  // ── SEEKER price sources ──────────────────────────────────────────────
+  // ── SKR price sources ─────────────────────────────────────────────────
 
-  /// 1. Jupiter Price v2 for SEEKER
-  Future<double> _seekerPriceJupiter(String seekerMint) async {
-    final r = await http
-        .get(Uri.parse('https://api.jup.ag/price/v2?ids=$seekerMint'))
-        .timeout(const Duration(seconds: 6));
+  /// 1. Jupiter Price v2 for SKR mint.
+  Future<double> _skrPriceJupiter() async {
+    final r = await http.get(Uri.parse(
+      'https://api.jup.ag/price/v2?ids=$_skrMint',
+    )).timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
-    final d = (body['data'] as Map<String, dynamic>?)?[seekerMint];
+    final d = (body['data'] as Map<String, dynamic>?)?[_skrMint];
     return _parsePrice(d?['price']);
   }
 
-  /// 2. DexScreener — SEEKER by mint address (best liquidity pair)
-  Future<double> _seekerPriceDexScreener(String seekerMint) async {
-    final r = await http
-        .get(
-          Uri.parse('https://api.dexscreener.com/tokens/v1/solana/$seekerMint'),
-        )
-        .timeout(const Duration(seconds: 6));
+  /// 2. DexScreener by mint address (best liquidity pair).
+  Future<double> _skrPriceDexScreener() async {
+    final r = await http.get(Uri.parse(
+      'https://api.dexscreener.com/tokens/v1/solana/$_skrMint',
+    )).timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body);
     final pairs = (body is List ? body : (body as Map)['pairs']) as List?;
@@ -238,43 +275,32 @@ class WalletNotifier extends StateNotifier<WalletState> {
     return _parsePrice(pairs.first['priceUsd']);
   }
 
-  /// 3. GeckoTerminal on-chain API (no key, Solana network)
-  Future<double> _seekerPriceGeckoTerminal(String seekerMint) async {
-    final r = await http
-        .get(
-          Uri.parse(
-            'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$seekerMint',
-          ),
-        )
-        .timeout(const Duration(seconds: 6));
+  /// 3. GeckoTerminal on-chain API (no key, Solana network).
+  Future<double> _skrPriceGeckoTerminal() async {
+    final r = await http.get(Uri.parse(
+      'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$_skrMint',
+    )).timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['data']?['attributes']?['price_usd']);
   }
 
-  /// 4. Raydium price API (no key)
-  Future<double> _seekerPriceRaydium(String seekerMint) async {
-    final r = await http
-        .get(
-          Uri.parse('https://api-v3.raydium.io/mint/price?mints=$seekerMint'),
-        )
-        .timeout(const Duration(seconds: 6));
+  /// 4. Raydium price API (no key).
+  Future<double> _skrPriceRaydium() async {
+    final r = await http.get(Uri.parse(
+      'https://api-v3.raydium.io/mint/price?mints=$_skrMint',
+    )).timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>?;
-    return _parsePrice(data?[seekerMint]);
+    return _parsePrice(data?[_skrMint]);
   }
 
-  /// 5. CoinPaprika — SEEKER (symbol-based search fallback)
-  Future<double> _seekerPriceCoinPaprika() async {
-    // SEEKER is listed on CoinPaprika as skr-seeker
-    final r = await http
-        .get(
-          Uri.parse(
-            'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
-          ),
-        )
-        .timeout(const Duration(seconds: 6));
+  /// 5. CoinPaprika fallback for SKR symbol.
+  Future<double> _skrPriceCoinPaprika() async {
+    final r = await http.get(Uri.parse(
+      'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
+    )).timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['quotes']?['USD']?['price']);
@@ -322,16 +348,17 @@ class WalletNotifier extends StateNotifier<WalletState> {
       _lastKnownSolPrice = solPrice;
     }
 
-    // ── SEEKER: try each source, stop on first non-zero result ────────────
-    if (isUsdStableToken) {
-      seekerPrice = 1.0;
+    // ── SKR: try each source, stop on first non-zero result ────────────────
+    if (_isDevnet) {
+      // Devnet SKR is non-priced test liquidity.
+      seekerPrice = 0.0;
     } else {
       final seekerSources = <String, Future<double> Function()>{
-        'Jupiter': () => _seekerPriceJupiter(seekerMint),
-        'DexScreener': () => _seekerPriceDexScreener(seekerMint),
-        'GeckoTerminal': () => _seekerPriceGeckoTerminal(seekerMint),
-        'Raydium': () => _seekerPriceRaydium(seekerMint),
-        'CoinPaprika': _seekerPriceCoinPaprika,
+        'Jupiter': _skrPriceJupiter,
+        'DexScreener': _skrPriceDexScreener,
+        'GeckoTerminal': _skrPriceGeckoTerminal,
+        'Raydium': _skrPriceRaydium,
+        'CoinPaprika': _skrPriceCoinPaprika,
       };
 
       for (final entry in seekerSources.entries) {
@@ -340,20 +367,18 @@ class WalletNotifier extends StateNotifier<WalletState> {
           final p = await entry.value();
           if (p > 0) {
             seekerPrice = p;
-            debugPrint(
-              '[Wallet] SEEKER price via ${entry.key}: \$$seekerPrice',
-            );
+            debugPrint('[Wallet] SKR price via ${entry.key}: \$$seekerPrice');
           } else {
-            debugPrint('[Wallet] SEEKER price ${entry.key}: no data');
+            debugPrint('[Wallet] SKR price ${entry.key}: no data');
           }
         } catch (e) {
-          debugPrint('[Wallet] SEEKER price ${entry.key} error: $e');
+          debugPrint('[Wallet] SKR price ${entry.key} error: $e');
         }
       }
 
       if (seekerPrice <= 0 && _lastKnownSeekerPrice > 0) {
         seekerPrice = _lastKnownSeekerPrice;
-        debugPrint('[Wallet] SEEKER price: using cached \$$seekerPrice');
+        debugPrint('[Wallet] SKR price: using cached \$$seekerPrice');
       } else if (seekerPrice > 0) {
         _lastKnownSeekerPrice = seekerPrice;
       }
@@ -404,7 +429,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
           'method': 'getTokenAccountsByOwner',
           'params': [
             address,
-            {'mint': seekerMint},
+            {'mint': _skrMint},
             {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
           ],
         }),
@@ -413,13 +438,28 @@ class WalletNotifier extends StateNotifier<WalletState> {
         final data = jsonDecode(response.body);
         final accounts = data['result']?['value'] as List?;
         if (accounts != null && accounts.isNotEmpty) {
-          final tokenAmount =
-              accounts[0]['account']['data']['parsed']['info']['tokenAmount'];
-          return (tokenAmount['uiAmount'] as num?)?.toDouble() ?? 0;
+          BigInt rawTotal = BigInt.zero;
+          for (final account in accounts) {
+            final tokenAmount = account['account']?['data']?['parsed']?['info']
+                ?['tokenAmount'] as Map<String, dynamic>?;
+            if (tokenAmount == null) continue;
+            final raw = tokenAmount['amount']?.toString() ?? '0';
+            rawTotal += BigInt.tryParse(raw) ?? BigInt.zero;
+          }
+          return _baseUnitsToUi(rawTotal, _tokenDecimals);
         }
       }
     } catch (_) {}
     return 0;
+  }
+
+  double _baseUnitsToUi(BigInt raw, int decimals) {
+    if (raw == BigInt.zero) return 0;
+    if (decimals <= 0) return raw.toDouble();
+    final scale = BigInt.from(10).pow(decimals);
+    final whole = raw ~/ scale;
+    final fraction = raw % scale;
+    return whole.toDouble() + (fraction.toDouble() / scale.toDouble());
   }
 
   // ── Public methods ───────────────────────────────────────────────────────
@@ -441,7 +481,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
       debugPrint('[Wallet] Retry ${i + 1}/$maxAttempts — waiting ${delay}s...');
       await Future.delayed(Duration(seconds: delay));
 
-      await loadWallet();
+      await _loadWallet(showLoading: false);
 
       // Check if balance actually changed
       if (state.solBalance != prevSol || state.seekerBalance != prevSeeker) {

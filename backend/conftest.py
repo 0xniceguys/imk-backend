@@ -17,6 +17,7 @@ from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -55,6 +56,10 @@ else:
 
 _test_session = async_sessionmaker(_test_engine, class_=AsyncSession, expire_on_commit=False)
 
+# Keep service-layer DB usage (app.db.engine.async_session) on the same test DB.
+from app.db import engine as _db_engine
+_db_engine.async_session = _test_session
+
 
 async def _create_tables():
     """Create all tables in the test database."""
@@ -75,6 +80,7 @@ async def _override_get_db():
 def setup_test_database():
     """Create all database tables before running tests."""
     import asyncio
+    settings.use_devnet = True
     asyncio.run(_create_tables())
 
 
@@ -202,6 +208,20 @@ async def cleanup():
         await db.commit()
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_db_between_tests():
+    """Ensure each test runs with an isolated database state."""
+    async with _test_session() as db:
+        for model in (ChatMessage, MatchEvent, Bet, Stream, Match, Fighter, User):
+            await db.execute(delete(model))
+        await db.commit()
+    yield
+    async with _test_session() as db:
+        for model in (ChatMessage, MatchEvent, Bet, Stream, Match, Fighter, User):
+            await db.execute(delete(model))
+        await db.commit()
+
+
 # ── DB session for test assertions ──
 
 @pytest_asyncio.fixture
@@ -211,12 +231,22 @@ async def db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+@pytest_asyncio.fixture
+async def test_db(db: AsyncSession) -> AsyncGenerator[AsyncSession, None]:
+    """Backward-compatible alias used by older test modules."""
+    yield db
+
+
 # ── HTTP client with auth override ──
 
 @pytest_asyncio.fixture
 async def client(test_user: User) -> AsyncGenerator[AsyncClient, None]:
     """Async HTTP client with auth mocked to return test_user."""
+    async def _require_admin_override():
+        raise HTTPException(403, "Admin access required")
+
     app.dependency_overrides[get_current_user] = lambda: test_user
+    app.dependency_overrides[require_admin] = _require_admin_override
     app.dependency_overrides[get_db] = _override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
