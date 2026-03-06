@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/palette.dart';
+import '../../core/runtime_client_config.dart';
 import '../../core/typography.dart';
 import '../../providers/match_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -79,16 +80,15 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
     }
 
     // Check sufficient balance
+    final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
     final wallet = ref.read(walletProvider);
     final seekerSymbol = wallet.seekerSymbol;
     final maxAmount = _token == _WithdrawToken.sol
         ? wallet.solBalance
         : wallet.seekerBalance;
     if (amount > maxAmount) {
-      _showError(
-        'Insufficient balance. You have ${maxAmount.toStringAsFixed(4)} '
-        '${_token == _WithdrawToken.sol ? 'SOL' : seekerSymbol}',
-      );
+      _showError('Insufficient balance. You have ${maxAmount.toStringAsFixed(4)} '
+          '${_token == _WithdrawToken.sol ? 'SOL' : tokenSymbol}');
       return;
     }
 
@@ -131,7 +131,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       );
 
       debugPrint('[Withdraw] Success! TX: $sig');
-      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : seekerSymbol;
+      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : RuntimeClientConfig.instance.tokenSymbol;
       final short = '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}';
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -175,9 +175,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         raw.contains('Unauthorized')) {
       return 'Session expired. Please close and reopen this page.';
     }
-    if (raw.contains('No SEEKER token account') ||
-        raw.contains('No token account')) {
-      return 'Recipient has no $seekerSymbol token account.';
+    if (raw.contains('token account')) {
+      final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+      return 'Recipient has no $tokenSymbol token account.';
     }
     if (raw.contains('sign')) {
       return 'Failed to sign the transaction. Please try again.';
@@ -211,8 +211,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         ? '${address.substring(0, 6)}...${address.substring(address.length - 4)}'
         : address;
 
-    final seekerLabel = wallet.seekerSymbol;
-    final seekerUnit = wallet.seekerSymbol;
+    final cfg = RuntimeClientConfig.instance;
+    final seekerLabel = cfg.isDevnet ? '${cfg.tokenSymbol} (devnet)' : cfg.tokenSymbol;
+    final seekerUnit = cfg.tokenSymbol;
     final maxAmount = _token == _WithdrawToken.sol
         ? wallet.solBalance
         : wallet.seekerBalance;
@@ -314,16 +315,118 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                           style: bodyStyle(size: 12, color: Palette.red),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Pressable(
-                        onTap: () =>
-                            ref.read(walletProvider.notifier).refreshBalance(),
-                        child: Text(
-                          'Retry',
-                          style: bodyStyle(size: 12, color: Palette.red),
-                        ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (wallet.isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: IKLoader(size: 24),
+              )
+            else ...[
+              _BalanceRow(
+                label: 'SOL',
+                usdValue: wallet.solUsdValue,
+                subLabel: '${wallet.solBalance.toStringAsFixed(4)} SOL',
+              ),
+              const SizedBox(height: 8),
+              _BalanceRow(
+                label: seekerLabel,
+                usdValue: wallet.seekerUsdValue,
+                subLabel: '${wallet.seekerBalance.toStringAsFixed(2)} $seekerUnit',
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            // ── Deposit — copy address ────────────────────────────────────
+            Container(height: 1, color: Palette.border),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Deposit', style: bodyStyle(size: 14, color: Palette.muted)),
+            ),
+            const SizedBox(height: 12),
+            // Address row — tap to copy
+            Pressable(
+              onTap: () {
+                if (address.isEmpty) return;
+                Clipboard.setData(ClipboardData(text: address));
+                HapticFeedback.lightImpact();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Address copied'),
+                  duration: Duration(seconds: 1),
+                ));
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Palette.border),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(truncated,
+                        style: bodyStyle(size: 14, color: Palette.secondary)),
+                    const Icon(Icons.copy, size: 16, color: Palette.muted),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Withdraw form ─────────────────────────────────────────────
+            Container(height: 1, color: Palette.border),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Withdraw', style: bodyStyle(size: 14, color: Palette.muted)),
+            ),
+            const SizedBox(height: 12),
+
+            // Token toggle
+            Row(
+              children: [
+                _TokenToggle(
+                  label: 'SOL',
+                  selected: _token == _WithdrawToken.sol,
+                  onTap: () => setState(() => _token = _WithdrawToken.sol),
+                ),
+                const SizedBox(width: 8),
+                _TokenToggle(
+                  label: seekerLabel,
+                  selected: _token == _WithdrawToken.seeker,
+                  onTap: () => setState(() => _token = _WithdrawToken.seeker),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // To address
+            Text('To address', style: bodyStyle(size: 12, color: Palette.muted)),
+            const SizedBox(height: 6),
+            _InputBox(
+              controller: _addrCtrl,
+              hint: 'Solana wallet address',
+              keyboardType: TextInputType.text,
+            ),
+            const SizedBox(height: 10),
+
+            // Amount + MAX
+            Text('Amount', style: bodyStyle(size: 12, color: Palette.muted)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _InputBox(
+                    controller: _amountCtrl,
+                    hint: _token == _WithdrawToken.sol ? 'SOL' : seekerLabel,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
                 const SizedBox(height: 10),

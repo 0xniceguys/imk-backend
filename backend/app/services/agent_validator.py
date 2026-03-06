@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import onnx
+from google.protobuf.message import DecodeError
 from onnx import checker
 
 from app.exceptions import ValidationError
@@ -82,7 +83,7 @@ def validate_onnx_checkpoint(file_path: Path, architecture: str) -> dict:
 
         return metadata
 
-    except onnx.checker.ValidationError as e:
+    except (onnx.checker.ValidationError, DecodeError) as e:
         raise ValidationError(f"Invalid ONNX model: {e}")
     except Exception as e:
         logger.error(f"ONNX validation error: {e}", exc_info=True)

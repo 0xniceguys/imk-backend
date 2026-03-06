@@ -225,7 +225,7 @@ async def get_fighter_stats(fighter_id: UUID, db: AsyncSession = Depends(get_db)
         # Bets won = bets placed ON this fighter that were won
         bets_won_count = sum(
             1 for b in bets
-            if b.fighter_id == fid and b.status == BetStatus.WON
+            if b.fighter_id == fid and b.status in (BetStatus.WON, BetStatus.CLAIMED)
         )
 
     return {

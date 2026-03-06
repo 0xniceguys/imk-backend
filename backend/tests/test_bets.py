@@ -20,6 +20,8 @@ async def test_place_bet_on_upcoming_match(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": 1.5,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -45,6 +47,8 @@ async def test_place_bet_on_live_match_rejected(
         "match_id": str(live_match.id),
         "fighter_id": str(f2.id),
         "amount": 2.0,
+        "side": "B",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 400
     assert "betting closed" in resp.json()["detail"].lower()
@@ -76,6 +80,8 @@ async def test_place_bet_wrong_fighter(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(rogue.id),
         "amount": 1.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 400
     assert "not in this match" in resp.json()["detail"].lower()
@@ -94,6 +100,8 @@ async def test_place_bet_negative_amount(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": -1.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 400
 
@@ -111,6 +119,8 @@ async def test_place_bet_zero_amount(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": 0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 400
 
@@ -128,6 +138,8 @@ async def test_place_bet_below_minimum(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": 0.005,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 400
     assert "minimum bet" in resp.json()["detail"].lower()
@@ -142,6 +154,8 @@ async def test_place_bet_nonexistent_match(
         "match_id": "00000000-0000-0000-0000-000000000000",
         "fighter_id": "00000000-0000-0000-0000-000000000001",
         "amount": 1.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 404
 
@@ -167,6 +181,8 @@ async def test_my_bets_returns_placed_bet(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": 3.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert place_resp.status_code == 200
     bet_id = place_resp.json()["id"]
@@ -192,6 +208,8 @@ async def test_place_bet_requires_auth(unauthed_client: AsyncClient):
         "match_id": "00000000-0000-0000-0000-000000000000",
         "fighter_id": "00000000-0000-0000-0000-000000000001",
         "amount": 1.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     assert resp.status_code == 401
 
@@ -211,6 +229,8 @@ async def test_odds_update_after_bet(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": 10.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
 
     # Check odds — f1 should have lower odds (more money on that side)
@@ -226,6 +246,8 @@ async def test_odds_update_after_bet(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f2.id),
         "amount": 5.0,
+        "side": "B",
+        "privy_jwt": "dummy.jwt",
     })
 
     resp = await client.get(f"/api/matches/{match_with_stream.id}/odds")
@@ -253,11 +275,35 @@ async def test_bet_schema_fields(
         "match_id": str(match_with_stream.id),
         "fighter_id": str(f1.id),
         "amount": 1.0,
+        "side": "A",
+        "privy_jwt": "dummy.jwt",
     })
     data = resp.json()
     expected_keys = {
         "id", "match_id", "fighter_id", "fighter_name", "opponent_name",
         "amount", "currency", "odds_at_placement", "status",
-        "payout", "tx_signature", "placed_at", "settled_at",
+        "payout", "tx_signature", "on_chain_side", "placed_at", "settled_at",
     }
     assert expected_keys.issubset(set(data.keys())), f"Missing: {expected_keys - set(data.keys())}"
+
+
+@pytest.mark.asyncio
+async def test_place_bet_side_mismatch_rejected(
+    client: AsyncClient,
+    match_with_stream: Match,
+    fighters: tuple[Fighter, Fighter],
+    cleanup,
+):
+    f1, _ = fighters
+    resp = await client.post(
+        "/api/bets/",
+        json={
+            "match_id": str(match_with_stream.id),
+            "fighter_id": str(f1.id),
+            "amount": 1.0,
+            "side": "B",  # wrong for fighter1
+            "privy_jwt": "dummy.jwt",
+        },
+    )
+    assert resp.status_code == 400
+    assert "fighter_id maps to side 'A'" in resp.json()["detail"]

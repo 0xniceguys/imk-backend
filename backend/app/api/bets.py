@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -14,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.dependencies import get_current_user, get_db
 from app.db.models import Bet, BetStatus, Match, MatchStatus, User
-from app.schemas.bet import BetCreate, BetOut
+from app.schemas.bet import BetOut
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class BetCreateOnChain(BaseModel):
     fighter_id: str
     amount: float          # in SKR float units (e.g. 1.5 SKR)
     side: str              # "A" (fighter1) or "B" (fighter2)
-    privy_jwt: str         # user's Privy access token for server-side signing
+    privy_jwt: str | None = None  # optional only when dev_local_signer_bypass=true
 
 
 # ── Helpers
@@ -58,9 +59,36 @@ def _bet_to_out(bet: Bet) -> BetOut:
         status=bet.status.value if hasattr(bet.status, "value") else str(bet.status),
         payout=float(bet.payout) if bet.payout is not None else None,
         tx_signature=bet.tx_signature,
+        on_chain_side=bet.on_chain_side,
         placed_at=bet.placed_at,
         settled_at=bet.settled_at,
     )
+
+
+def _map_contract_error(exc: Exception) -> str:
+    """
+    Map common custom program errors to user-safe messages.
+    Falls back to the raw exception text for unrecognized errors.
+    """
+    msg = str(exc)
+    lower = msg.lower()
+    if "already in use" in lower or "account in use" in lower:
+        return "You already placed an on-chain bet for this match."
+
+    match = re.search(r"custom program error: 0x([0-9a-fA-F]+)", msg)
+    if not match:
+        return msg
+
+    code = int(match.group(1), 16)
+    mapping = {
+        6001: "Betting is paused on-chain right now.",
+        6002: "This match is no longer open for betting on-chain.",
+        6007: "Invalid side. Use side A for fighter1 or side B for fighter2.",
+        6008: "Bet amount is outside on-chain min/max limits.",
+        6009: "You already placed an on-chain bet for this match.",
+        6014: "Token mint mismatch. Backend mint config is out of sync.",
+    }
+    return mapping.get(code, msg)
 
 
 async def _build_and_sign_place_bet(
@@ -68,11 +96,10 @@ async def _build_and_sign_place_bet(
     match_pda: str,
     side: str,
     amount_skr: float,
-    privy_jwt: str,
+    privy_jwt: str | None,
 ) -> str:
     """Build place_bet tx, sign via Privy, return tx signature."""
     from app.services import solana_tx
-    from app.services.privy_wallet import get_wallet_id_and_sign
 
     rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
     mint = settings.skr_mint
@@ -94,6 +121,21 @@ async def _build_and_sign_place_bet(
         program_id_str=prog,
     )
 
+    if settings.dev_local_signer_bypass:
+        from app.services.dev_local_signer import sign_and_send_unsigned_tx_for_user
+
+        return await sign_and_send_unsigned_tx_for_user(
+            user=user,
+            unsigned_tx_bytes=tx_bytes,
+            rpc_url=rpc,
+            retries=settings.solana_confirm_retries,
+        )
+
+    if not privy_jwt:
+        raise HTTPException(400, "privy_jwt is required unless dev_local_signer_bypass=true")
+
+    from app.services.privy_wallet import get_wallet_id_and_sign
+
     tx_b64 = base64.b64encode(tx_bytes).decode()
     sig, corrected_addr = await get_wallet_id_and_sign(
         user_jwt=privy_jwt,
@@ -101,9 +143,12 @@ async def _build_and_sign_place_bet(
         tx_b64=tx_b64,
         devnet=settings.use_devnet,
     )
-    # If Privy returned a different address than DB, log but don't fail
     if corrected_addr:
         logger.warning("Wallet address mismatch: DB=%s Privy=%s", user.wallet_address, corrected_addr)
+
+    confirmed = await solana_tx.confirm_transaction(sig, rpc, retries=settings.solana_confirm_retries)
+    if not confirmed:
+        raise HTTPException(502, f"On-chain bet transaction not confirmed: {sig}")
 
     return sig
 
@@ -160,15 +205,15 @@ async def place_bet(
     from uuid import UUID as _UUID
     # Validate UUID formats up-front — asyncpg crashes on empty/invalid UUIDs
     try:
-        _UUID(body.match_id)
-        _UUID(body.fighter_id)
+        match_uuid = _UUID(body.match_id)
+        fighter_uuid = _UUID(body.fighter_id)
     except (ValueError, AttributeError):
         raise HTTPException(422, "match_id and fighter_id must be valid UUIDs")
 
     # Validate match
     result = await db.execute(
         select(Match)
-        .where(Match.id == body.match_id)
+        .where(Match.id == match_uuid)
         .options(
             selectinload(Match.bets),
             selectinload(Match.fighter1),
@@ -182,24 +227,58 @@ async def place_bet(
         raise HTTPException(400, "Betting closed — match is live or completed")
 
     # Validate fighter is in this match
-    if body.fighter_id not in (str(match.fighter1_id), str(match.fighter2_id)):
+    if fighter_uuid not in (match.fighter1_id, match.fighter2_id):
         raise HTTPException(400, "Fighter not in this match")
 
     # Validate amount
     if body.amount <= 0:
         raise HTTPException(400, "Amount must be positive")
-    if body.amount < MIN_BET:
-        raise HTTPException(400, f"Minimum bet is {MIN_BET} SKR")
 
     # Validate side
     if body.side.upper() not in ("A", "B"):
         raise HTTPException(400, "side must be 'A' or 'B'")
 
+    expected_side = "A" if fighter_uuid == match.fighter1_id else "B"
+    if body.side.upper() != expected_side:
+        raise HTTPException(
+            400,
+            f"Invalid side for selected fighter. fighter_id maps to side '{expected_side}'.",
+        )
+
+    amount_base = int(round(body.amount * SKR_DECIMALS))
+    if amount_base <= 0:
+        raise HTTPException(400, "Amount is too small after decimal conversion")
+
+    # On-chain matches must obey on-chain config constraints exactly.
+    if match.on_chain_match_pda:
+        from app.services import solana_tx
+
+        rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
+        try:
+            cfg = await solana_tx.fetch_config(settings.betting_program_id, rpc)
+        except Exception as exc:
+            raise HTTPException(502, f"Failed to fetch on-chain config: {exc}")
+
+        if cfg["paused"]:
+            raise HTTPException(400, "Betting is paused on-chain")
+        if cfg["skr_mint"] != settings.skr_mint:
+            raise HTTPException(
+                500,
+                f"Backend SKR mint mismatch with on-chain config: backend={settings.skr_mint} onchain={cfg['skr_mint']}",
+            )
+        if amount_base < int(cfg["min_bet"]) or amount_base > int(cfg["max_bet"]):
+            raise HTTPException(
+                400,
+                f"Bet amount out of on-chain range [{cfg['min_bet']}, {cfg['max_bet']}] base units",
+            )
+    elif body.amount < MIN_BET:
+        raise HTTPException(400, f"Minimum bet is {MIN_BET} SKR")
+
     # Calculate current odds snapshot
     active = [b for b in match.bets if b.status == BetStatus.ACTIVE]
     total  = sum(float(b.amount) for b in active) + body.amount
     fighter_pool = (
-        sum(float(b.amount) for b in active if b.fighter_id == body.fighter_id)
+        sum(float(b.amount) for b in active if b.fighter_id == fighter_uuid)
         + body.amount
     )
     odds = round(total / fighter_pool, 4) if fighter_pool > 0 else 2.0
@@ -223,7 +302,7 @@ async def place_bet(
             raise
         except Exception as exc:
             logger.error("place_bet on-chain failed: %s", exc, exc_info=True)
-            raise HTTPException(502, f"On-chain bet placement failed: {exc}")
+            raise HTTPException(502, f"On-chain bet placement failed: {_map_contract_error(exc)}")
     else:
         # Match not yet created on-chain — warn and proceed DB-only
         logger.warning(
@@ -234,7 +313,7 @@ async def place_bet(
     bet = Bet(
         user_id=user.id,
         match_id=match.id,
-        fighter_id=body.fighter_id,
+        fighter_id=fighter_uuid,
         amount=body.amount,
         currency="SKR",
         odds_at_placement=odds,
@@ -247,7 +326,7 @@ async def place_bet(
 
     # Attach relationships for response
     bet.match = match
-    bet.fighter = match.fighter1 if str(body.fighter_id) == str(match.fighter1_id) else match.fighter2
+    bet.fighter = match.fighter1 if fighter_uuid == match.fighter1_id else match.fighter2
 
     return _bet_to_out(bet)
 
@@ -269,3 +348,113 @@ async def my_bets(
     )
     bets = result.scalars().all()
     return [_bet_to_out(b) for b in bets]
+
+
+class RefundRequest(BaseModel):
+    privy_jwt: str | None = None
+
+
+@router.post("/{bet_id}/refund")
+async def refund_bet(
+    bet_id: str,
+    body: RefundRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Refund a user's bet from a cancelled on-chain match.
+
+    The user must sign the refund_bet transaction (via Privy)
+    to reclaim their SKR from the contract vault.
+    """
+    import uuid
+    try:
+        bet_uuid = uuid.UUID(bet_id)
+    except ValueError:
+        raise HTTPException(422, "bet_id must be a valid UUID")
+
+    result = await db.execute(
+        select(Bet)
+        .where(Bet.id == bet_uuid, Bet.user_id == user.id)
+        .options(selectinload(Bet.match))
+    )
+    bet = result.scalar_one_or_none()
+    if not bet:
+        raise HTTPException(404, "Bet not found or does not belong to you")
+
+    if bet.status != BetStatus.CANCELLED:
+        raise HTTPException(400, f"Bet status is {bet.status.value}, must be CANCELLED to refund")
+
+    match = bet.match
+    if not match:
+        raise HTTPException(400, "Associated match not found")
+    if match.status != MatchStatus.CANCELLED:
+        raise HTTPException(400, "Match is not cancelled")
+    if not match.on_chain_match_pda:
+        raise HTTPException(400, "Match was not on-chain — no on-chain refund needed")
+    if not bet.on_chain_side:
+        raise HTTPException(400, "Bet was not placed on-chain — no on-chain refund needed")
+
+    if not user.wallet_address:
+        raise HTTPException(400, "User has no Solana wallet linked")
+
+    from app.services import solana_tx
+
+    rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
+
+    # Get admin pubkey from on-chain config
+    try:
+        cfg = await solana_tx.fetch_config(settings.betting_program_id, rpc)
+        admin_pubkey = cfg["admin"]
+    except Exception as exc:
+        raise HTTPException(502, f"Failed to fetch on-chain config: {exc}")
+
+    blockhash = await solana_tx.get_recent_blockhash(rpc)
+    tx_bytes = solana_tx.build_refund_bet_ix(
+        user_pubkey=user.wallet_address,
+        match_pda_str=match.on_chain_match_pda,
+        skr_mint_str=settings.skr_mint,
+        admin_pubkey_str=admin_pubkey,
+        blockhash=blockhash,
+        program_id_str=settings.betting_program_id,
+    )
+
+    # Sign via dev signer or Privy
+    if settings.dev_local_signer_bypass:
+        from app.services.dev_local_signer import sign_and_send_unsigned_tx_for_user
+
+        sig = await sign_and_send_unsigned_tx_for_user(
+            user=user,
+            unsigned_tx_bytes=tx_bytes,
+            rpc_url=rpc,
+            retries=settings.solana_confirm_retries,
+        )
+    else:
+        if not body.privy_jwt:
+            raise HTTPException(400, "privy_jwt is required for on-chain refund")
+
+        from app.services.privy_wallet import get_wallet_id_and_sign
+
+        tx_b64 = base64.b64encode(tx_bytes).decode()
+        sig, _ = await get_wallet_id_and_sign(
+            user_jwt=body.privy_jwt,
+            wallet_address=user.wallet_address,
+            tx_b64=tx_b64,
+            devnet=settings.use_devnet,
+        )
+        confirmed = await solana_tx.confirm_transaction(
+            sig, rpc, retries=settings.solana_confirm_retries
+        )
+        if not confirmed:
+            raise HTTPException(502, f"Refund transaction not confirmed: {sig}")
+
+    # Update bet record
+    bet.tx_signature = sig
+    bet.status = BetStatus.CANCELLED  # stays CANCELLED but now has tx_sig
+    await db.commit()
+
+    logger.info(
+        "Bet %s refunded on-chain: tx=%s match=%s user=%s",
+        bet_id, sig, match.id, user.id,
+    )
+    return {"status": "refunded", "bet_id": bet_id, "tx_signature": sig}

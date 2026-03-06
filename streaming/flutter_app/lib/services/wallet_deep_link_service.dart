@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pinenacl/x25519.dart' as nacl;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/runtime_client_config.dart';
 import '../utils/base58.dart';
 
 void _log(String msg) {
@@ -45,6 +46,18 @@ class WalletDeepLinkService {
   // the _pendingCallback Completer.  We store it here and replay it the
   // moment a Completer is registered.
   Uri? _bufferedDeepLink;
+
+  String _walletClusterParam() {
+    final cluster = RuntimeClientConfig.instance.cluster;
+    switch (cluster) {
+      case 'devnet':
+        return 'devnet';
+      case 'testnet':
+        return 'testnet';
+      default:
+        return 'mainnet-beta';
+    }
+  }
 
   /// The wallet address obtained after [connect].
   String? get walletAddress => _walletAddress;
@@ -120,14 +133,13 @@ class WalletDeepLinkService {
     _log('connect: dappPub (FULL)=$dappPubKeyB58');
     _log('connect: dappPub bytes=${dappPubBytes.length}');
 
-    final connectUrl = Uri.parse('${wallet.baseUrl}/connect').replace(
-      queryParameters: {
-        'app_url': 'https://immortalkombat.com',
-        'dapp_encryption_public_key': dappPubKeyB58,
-        'redirect_link': 'imk://callback/connect',
-        'cluster': cluster,
-      },
-    );
+    final connectUrl =
+        Uri.parse('${wallet.baseUrl}/connect').replace(queryParameters: {
+      'app_url': 'https://immortalkombat.com',
+      'dapp_encryption_public_key': dappPubKeyB58,
+      'redirect_link': 'imk://callback/connect',
+      'cluster': _walletClusterParam(),
+    });
 
     _log('Opening ${wallet.name} connect: $connectUrl');
 
@@ -182,7 +194,7 @@ class WalletDeepLinkService {
     _log('Session (${_session!.length} chars): $_session');
     _log('Their PK: ${theirPublicKey.length} bytes');
     _log('Our PK: $dappPubKeyB58');
-    _log('Cluster param sent: $cluster');
+    _log('Cluster param sent: ${_walletClusterParam()}');
 
     // Self-test: verify our encrypt→decrypt round-trip works
     final testPayload = Uint8List.fromList(utf8.encode('{"test":"hello"}'));

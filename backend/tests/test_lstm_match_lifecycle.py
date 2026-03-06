@@ -90,7 +90,7 @@ async def test_create_lstm_match_upcoming(
 
 @pytest.mark.asyncio
 async def test_upcoming_match_visible_in_list(
-    admin_client: AsyncClient, client: AsyncClient,
+    admin_client: AsyncClient,
     fighters: tuple[Fighter, Fighter], cleanup
 ):
     """Upcoming match appears in GET /api/matches (no filter) and status filter."""
@@ -109,19 +109,19 @@ async def test_upcoming_match_visible_in_list(
     match_id = create_resp.json()["id"]
 
     # Unfiltered list must include our match
-    list_resp = await client.get("/api/matches/")
+    list_resp = await admin_client.get("/api/matches/")
     assert list_resp.status_code == 200
     all_ids = [m["id"] for m in list_resp.json()]
     assert match_id in all_ids, f"Match {match_id} not in unfiltered list"
 
     # Status filter upcoming must include it
-    filtered_resp = await client.get("/api/matches/", params={"status": "upcoming"})
+    filtered_resp = await admin_client.get("/api/matches/", params={"status": "upcoming"})
     assert filtered_resp.status_code == 200
     upcoming_ids = [m["id"] for m in filtered_resp.json()]
     assert match_id in upcoming_ids, f"Match {match_id} not in upcoming filter"
 
     # Status filter live must NOT include it
-    live_resp = await client.get("/api/matches/", params={"status": "live"})
+    live_resp = await admin_client.get("/api/matches/", params={"status": "live"})
     assert live_resp.status_code == 200
     live_ids = [m["id"] for m in live_resp.json()]
     assert match_id not in live_ids, "Upcoming match incorrectly listed as live"
@@ -131,7 +131,7 @@ async def test_upcoming_match_visible_in_list(
 
 @pytest.mark.asyncio
 async def test_get_match_by_id_has_correct_fields(
-    admin_client: AsyncClient, client: AsyncClient,
+    admin_client: AsyncClient,
     fighters: tuple[Fighter, Fighter], cleanup
 ):
     """GET /api/matches/{id} returns full match with savestate and agent names."""
@@ -147,7 +147,7 @@ async def test_get_match_by_id_has_correct_fields(
     })
     match_id = create_resp.json()["id"]
 
-    resp = await client.get(f"/api/matches/{match_id}")
+    resp = await admin_client.get(f"/api/matches/{match_id}")
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == match_id
@@ -210,7 +210,7 @@ async def test_start_match_without_emulator_returns_500(
 
 @pytest.mark.asyncio
 async def test_cancel_upcoming_lstm_match(
-    admin_client: AsyncClient, client: AsyncClient,
+    admin_client: AsyncClient,
     fighters: tuple[Fighter, Fighter], cleanup
 ):
     """Cancel an upcoming LSTM match → status becomes cancelled, disappears from upcoming filter."""
@@ -229,9 +229,9 @@ async def test_cancel_upcoming_lstm_match(
     cancel_resp = await admin_client.post(f"/api/admin/matches/{match_id}/cancel")
     assert cancel_resp.status_code == 200
 
-    get_resp = await client.get(f"/api/matches/{match_id}")
+    get_resp = await admin_client.get(f"/api/matches/{match_id}")
     assert get_resp.json()["status"] == "cancelled"
 
-    upcoming_resp = await client.get("/api/matches/", params={"status": "upcoming"})
+    upcoming_resp = await admin_client.get("/api/matches/", params={"status": "upcoming"})
     upcoming_ids = [m["id"] for m in upcoming_resp.json()]
     assert match_id not in upcoming_ids, "Cancelled match still in upcoming filter"
