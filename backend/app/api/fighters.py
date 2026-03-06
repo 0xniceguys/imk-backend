@@ -4,12 +4,22 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete as sql_delete, func, or_, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db, require_admin
-from app.db.models import Agent, Bet, BetStatus, Fighter, Match, MatchStatus, User
+from app.db.models import (
+    Agent,
+    Bet,
+    BetStatus,
+    Fighter,
+    FighterMatchupSavestate,
+    Match,
+    MatchStatus,
+    User,
+)
 from app.exceptions import FighterNotFoundError, AgentNotFoundError, DuplicateFighterError, ValidationError
 from app.schemas.fighter import FighterCreate, FighterOut, FighterUpdate
 from app.services.image_validator import validate_image_file
@@ -21,13 +31,21 @@ IMAGE_STORAGE_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / 
 IMAGE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _fighter_to_out(fighter: Fighter) -> FighterOut:
+    """Serialize fighter with effective agent architecture resolved."""
+    resolved_arch = fighter.agent.architecture if fighter.agent else fighter.agent_architecture
+    out = FighterOut.model_validate(fighter)
+    return out.model_copy(update={"agent_architecture": resolved_arch})
+
+
 @router.get("/", response_model=list[FighterOut])
 async def list_fighters(db: AsyncSession = Depends(get_db)):
     """List all fighters with their associated agents."""
     result = await db.execute(
         select(Fighter).options(selectinload(Fighter.agent)).order_by(Fighter.name)
     )
-    return result.scalars().all()
+    fighters = result.scalars().all()
+    return [_fighter_to_out(f) for f in fighters]
 
 
 @router.get("/{fighter_id}", response_model=FighterOut)
@@ -39,7 +57,7 @@ async def get_fighter(fighter_id: UUID, db: AsyncSession = Depends(get_db)):
     fighter = result.scalar_one_or_none()
     if fighter is None:
         raise FighterNotFoundError(str(fighter_id))
-    return fighter
+    return _fighter_to_out(fighter)
 
 
 @router.put("/{fighter_id}", response_model=FighterOut)
@@ -89,7 +107,7 @@ async def update_fighter(
     await db.commit()
     await db.refresh(fighter, attribute_names=["agent"])
 
-    return fighter
+    return _fighter_to_out(fighter)
 
 
 
@@ -104,6 +122,33 @@ async def delete_fighter(
     fighter = result.scalar_one_or_none()
     if fighter is None:
         raise FighterNotFoundError(str(fighter_id))
+
+    # Null-out match references and remove dependent bets/matchup mappings first.
+    await db.execute(
+        sql_update(Match)
+        .where(Match.fighter1_id == fighter_id)
+        .values(fighter1_id=None)
+    )
+    await db.execute(
+        sql_update(Match)
+        .where(Match.fighter2_id == fighter_id)
+        .values(fighter2_id=None)
+    )
+    await db.execute(
+        sql_update(Match)
+        .where(Match.winner_id == fighter_id)
+        .values(winner_id=None)
+    )
+    await db.execute(sql_delete(Bet).where(Bet.fighter_id == fighter_id))
+    await db.execute(
+        sql_delete(FighterMatchupSavestate).where(
+            or_(
+                FighterMatchupSavestate.left_fighter_id == fighter_id,
+                FighterMatchupSavestate.right_fighter_id == fighter_id,
+            )
+        )
+    )
+    await db.commit()
 
     await db.delete(fighter)
     await db.commit()
@@ -159,7 +204,7 @@ async def upload_fighter_image(
     await db.commit()
     await db.refresh(fighter, attribute_names=["agent"])
 
-    return fighter
+    return _fighter_to_out(fighter)
 
 
 # ── Fighter Stats (computed from match/bet data) ──

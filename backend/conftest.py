@@ -23,7 +23,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
-from app.db.models import Bet, ChatMessage, Fighter, Match, MatchEvent, Stream, User
+from app.db.models import (
+    Bet,
+    ChatMessage,
+    Fighter,
+    FighterMatchupSavestate,
+    Match,
+    MatchEvent,
+    Stream,
+    User,
+)
 from app.dependencies import get_current_user, get_db, require_admin
 from app.main import app
 
@@ -197,7 +206,16 @@ async def cleanup():
     _active_runners.clear()
 
     async with _test_session() as db:
-        for model in (ChatMessage, MatchEvent, Bet, Stream, Match, Fighter, User):
+        for model in (
+            ChatMessage,
+            MatchEvent,
+            Bet,
+            Stream,
+            FighterMatchupSavestate,
+            Match,
+            Fighter,
+            User,
+        ):
             await db.execute(delete(model))
         await db.commit()
 

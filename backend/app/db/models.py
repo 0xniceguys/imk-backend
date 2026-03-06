@@ -259,6 +259,42 @@ class MatchEvent(Base):
     match: Mapped["Match"] = relationship(back_populates="events")
 
 
+class FighterMatchupSavestate(Base):
+    """Savestate lookup for an ordered fighter matchup (P1 vs P2)."""
+
+    __tablename__ = "fighter_matchup_savestates"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    left_fighter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("fighters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    right_fighter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("fighters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    savestate_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now(), nullable=True
+    )
+
+    left_fighter: Mapped["Fighter"] = relationship(foreign_keys=[left_fighter_id])
+    right_fighter: Mapped["Fighter"] = relationship(foreign_keys=[right_fighter_id])
+
+
 class Stream(Base):
     __tablename__ = "streams"
 
