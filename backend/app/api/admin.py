@@ -131,6 +131,19 @@ async def create_match(
         slot="P2",
     )
 
+    # ── CONTRACT FIRST: create on-chain, wait for confirmation ────────────
+    from app.services.on_chain_match import create_match_on_chain
+
+    try:
+        on_chain_id, on_chain_pda = await create_match_on_chain(
+            fighter1_name=fighter1.name,
+            fighter2_name=fighter2.name,
+        )
+    except Exception as exc:
+        logger.error("On-chain create_match failed: %s", exc, exc_info=True)
+        raise HTTPException(502, f"On-chain match creation failed: {exc}")
+
+    # ── ONLY NOW: create DB row with PDA already set ──────────────────────
     match = Match(
         fighter1_id=body.fighter1_id,
         fighter2_id=body.fighter2_id,
@@ -140,91 +153,17 @@ async def create_match(
         p1_agent=p1_agent_id,
         p2_agent=p2_agent_id,
         best_of=body.best_of,
+        on_chain_match_id=on_chain_id,
+        on_chain_match_pda=on_chain_pda,
     )
     db.add(match)
-    await db.flush()  # generate match.id before creating stream
+    await db.flush()
 
-    # Create associated stream record
     stream = Stream(match_id=match.id)
     db.add(stream)
 
     await db.commit()
     await db.refresh(match, attribute_names=["fighter1", "fighter2", "bets", "stream"])
-
-    # ── Create match on-chain ─────────────────────────────────────────────────
-    # Fire-and-forget background task so the HTTP response isn't blocked by RPC.
-    async def _create_on_chain(match_id_str: str, fighter1_name: str, fighter2_name: str) -> None:
-        from solders.pubkey import Pubkey
-        from app.config import settings
-        from app.services import solana_tx
-        from app.services.admin_keypair import get_admin_keypair
-        from app.db.engine import async_session
-        import hashlib
-
-        try:
-            admin_kp = get_admin_keypair()
-        except ValueError as exc:
-            logger.warning("Admin keypair not set — skipping on-chain create_match: %s", exc)
-            return
-
-        rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
-
-        # Derive model hashes from fighter names (deterministic, auditable)
-        model_a_hash = hashlib.sha256(fighter1_name.encode()).digest()
-        model_b_hash = hashlib.sha256(fighter2_name.encode()).digest()
-
-        try:
-            blockhash = await solana_tx.get_recent_blockhash(rpc)
-            prog_pk = Pubkey.from_string(settings.betting_program_id)
-            cfg = await solana_tx.fetch_config(settings.betting_program_id, rpc)
-            match_counter = int(cfg["match_counter"])
-            logger.info("On-chain match_counter before create: %d", match_counter)
-
-            tx = solana_tx.build_create_match_ix(
-                admin_keypair=admin_kp,
-                skr_mint_str=settings.skr_mint,
-                match_counter=match_counter,
-                model_a_hash=model_a_hash,
-                model_b_hash=model_b_hash,
-                blockhash=blockhash,
-                program_id_str=settings.betting_program_id,
-            )
-            sig = await solana_tx.send_and_confirm_transaction(
-                tx, rpc, retries=settings.solana_confirm_retries
-            )
-            logger.info("create_match on-chain tx: %s (counter=%d)", sig, match_counter)
-
-            # Derive the match PDA that was created
-            prog_pk = Pubkey.from_string(settings.betting_program_id)
-            match_pda = solana_tx.derive_match_pda(match_counter, prog_pk)
-            match_pda_str = str(match_pda)
-            if not await solana_tx.account_exists(match_pda_str, rpc):
-                logger.error("create_match confirmed but PDA missing: %s", match_pda_str)
-                return
-
-            # Store on-chain IDs in DB
-            async with async_session() as fresh_db:
-                from sqlalchemy import select as _sel
-                res = await fresh_db.execute(_sel(Match).where(Match.id == match_id_str))
-                m = res.scalar_one_or_none()
-                if m:
-                    m.on_chain_match_id  = match_counter
-                    m.on_chain_match_pda = match_pda_str
-                    await fresh_db.commit()
-                    logger.info(
-                        "Match %s linked to on-chain PDA %s (id=%d)",
-                        match_id_str, match_pda_str, match_counter,
-                    )
-
-        except Exception as exc:
-            logger.error("on-chain create_match failed for %s: %s", match_id_str, exc, exc_info=True)
-
-    import asyncio as _asyncio
-    _asyncio.create_task(_create_on_chain(
-        str(match.id),
-        match.fighter1.name if match.fighter1 else "fighter1",
-        match.fighter2.name if match.fighter2 else "fighter2",
-    ))
 
     from app.api.matches import _match_to_out
     return _match_to_out(match)
@@ -278,9 +217,16 @@ async def start_match(
     if match.p2_agent != p2_agent_id:
         match.p2_agent = p2_agent_id
 
-    # Mark as LIVE and commit — THEN release DB connection before launching emulator.
-    # If we hold the session open during the 3-10s emulator launch, the connection
-    # pool is exhausted and every other endpoint (including GET /api/matches/) hangs.
+    # ── CONTRACT FIRST: lock match on-chain BEFORE going LIVE ────────────
+    if match.on_chain_match_pda:
+        from app.services.on_chain_match import lock_match_on_chain
+        try:
+            await lock_match_on_chain(match.on_chain_match_pda)
+        except Exception as exc:
+            logger.error("lock_match_on_chain FAILED for %s: %s", match_id, exc, exc_info=True)
+            raise HTTPException(502, f"On-chain lock_match failed: {exc}")
+
+    # ── ONLY NOW: mark as LIVE in DB (on-chain is already Locked) ────────
     match.status = MatchStatus.LIVE
     match.started_at = datetime.now(timezone.utc)
     if match.stream:
@@ -388,11 +334,20 @@ async def cancel_match(
     from app.services.match_runner import stop_match as runner_stop
     await runner_stop(str(match_id))
 
+    # Cancel on-chain if match has a PDA
+    if match.on_chain_match_pda:
+        try:
+            from app.services.on_chain_match import cancel_match_on_chain
+            await cancel_match_on_chain(match.on_chain_match_pda)
+        except Exception as exc:
+            logger.error("On-chain cancel_match failed for %s: %s", match_id, exc, exc_info=True)
+            raise HTTPException(502, f"On-chain cancel failed: {exc}")
+
     match.status = MatchStatus.CANCELLED
     if match.stream:
         match.stream.status = StreamStatus.STOPPED
 
-    # Refund all active bets
+    # Mark all active bets as cancelled in DB
     for bet in match.bets:
         if bet.status == BetStatus.ACTIVE:
             bet.status = BetStatus.CANCELLED

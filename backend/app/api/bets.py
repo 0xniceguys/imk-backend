@@ -348,3 +348,113 @@ async def my_bets(
     )
     bets = result.scalars().all()
     return [_bet_to_out(b) for b in bets]
+
+
+class RefundRequest(BaseModel):
+    privy_jwt: str | None = None
+
+
+@router.post("/{bet_id}/refund")
+async def refund_bet(
+    bet_id: str,
+    body: RefundRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Refund a user's bet from a cancelled on-chain match.
+
+    The user must sign the refund_bet transaction (via Privy)
+    to reclaim their SKR from the contract vault.
+    """
+    import uuid
+    try:
+        bet_uuid = uuid.UUID(bet_id)
+    except ValueError:
+        raise HTTPException(422, "bet_id must be a valid UUID")
+
+    result = await db.execute(
+        select(Bet)
+        .where(Bet.id == bet_uuid, Bet.user_id == user.id)
+        .options(selectinload(Bet.match))
+    )
+    bet = result.scalar_one_or_none()
+    if not bet:
+        raise HTTPException(404, "Bet not found or does not belong to you")
+
+    if bet.status != BetStatus.CANCELLED:
+        raise HTTPException(400, f"Bet status is {bet.status.value}, must be CANCELLED to refund")
+
+    match = bet.match
+    if not match:
+        raise HTTPException(400, "Associated match not found")
+    if match.status != MatchStatus.CANCELLED:
+        raise HTTPException(400, "Match is not cancelled")
+    if not match.on_chain_match_pda:
+        raise HTTPException(400, "Match was not on-chain — no on-chain refund needed")
+    if not bet.on_chain_side:
+        raise HTTPException(400, "Bet was not placed on-chain — no on-chain refund needed")
+
+    if not user.wallet_address:
+        raise HTTPException(400, "User has no Solana wallet linked")
+
+    from app.services import solana_tx
+
+    rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
+
+    # Get admin pubkey from on-chain config
+    try:
+        cfg = await solana_tx.fetch_config(settings.betting_program_id, rpc)
+        admin_pubkey = cfg["admin"]
+    except Exception as exc:
+        raise HTTPException(502, f"Failed to fetch on-chain config: {exc}")
+
+    blockhash = await solana_tx.get_recent_blockhash(rpc)
+    tx_bytes = solana_tx.build_refund_bet_ix(
+        user_pubkey=user.wallet_address,
+        match_pda_str=match.on_chain_match_pda,
+        skr_mint_str=settings.skr_mint,
+        admin_pubkey_str=admin_pubkey,
+        blockhash=blockhash,
+        program_id_str=settings.betting_program_id,
+    )
+
+    # Sign via dev signer or Privy
+    if settings.dev_local_signer_bypass:
+        from app.services.dev_local_signer import sign_and_send_unsigned_tx_for_user
+
+        sig = await sign_and_send_unsigned_tx_for_user(
+            user=user,
+            unsigned_tx_bytes=tx_bytes,
+            rpc_url=rpc,
+            retries=settings.solana_confirm_retries,
+        )
+    else:
+        if not body.privy_jwt:
+            raise HTTPException(400, "privy_jwt is required for on-chain refund")
+
+        from app.services.privy_wallet import get_wallet_id_and_sign
+
+        tx_b64 = base64.b64encode(tx_bytes).decode()
+        sig, _ = await get_wallet_id_and_sign(
+            user_jwt=body.privy_jwt,
+            wallet_address=user.wallet_address,
+            tx_b64=tx_b64,
+            devnet=settings.use_devnet,
+        )
+        confirmed = await solana_tx.confirm_transaction(
+            sig, rpc, retries=settings.solana_confirm_retries
+        )
+        if not confirmed:
+            raise HTTPException(502, f"Refund transaction not confirmed: {sig}")
+
+    # Update bet record
+    bet.tx_signature = sig
+    bet.status = BetStatus.CANCELLED  # stays CANCELLED but now has tx_sig
+    await db.commit()
+
+    logger.info(
+        "Bet %s refunded on-chain: tx=%s match=%s user=%s",
+        bet_id, sig, match.id, user.id,
+    )
+    return {"status": "refunded", "bet_id": bet_id, "tx_signature": sig}

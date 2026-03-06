@@ -268,6 +268,7 @@ _DISC_CREATE_MATCH   = _anchor_discriminator("create_match")
 _DISC_LOCK_MATCH     = _anchor_discriminator("lock_match")
 _DISC_RESOLVE_MATCH  = _anchor_discriminator("resolve_match")
 _DISC_CLOSE_LOSING_BET = _anchor_discriminator("close_losing_bet")
+_DISC_CANCEL_MATCH   = _anchor_discriminator("cancel_match")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -556,6 +557,92 @@ def build_close_losing_bet_ix(
     msg = Message.new_with_blockhash([ix], payer, Hash.from_string(blockhash))
     tx = Transaction([payer_keypair], msg, Hash.from_string(blockhash))
     return tx
+
+
+def build_cancel_match_ix(
+    admin_keypair: Keypair,
+    match_pda_str: str,
+    skr_mint_str: str,
+    blockhash: str,
+    program_id_str: str = BETTING_PROGRAM_ID,
+) -> Transaction:
+    """Build a signed `cancel_match` transaction (admin-only)."""
+    prog      = Pubkey.from_string(program_id_str)
+    admin     = admin_keypair.pubkey()
+    match_pda = Pubkey.from_string(match_pda_str)
+    skr_mint  = Pubkey.from_string(skr_mint_str)
+
+    config_pda  = derive_config_pda(prog)
+    vault_auth  = derive_vault_auth_pda(match_pda, prog)
+    vault_ata   = derive_associated_token_address(vault_auth, skr_mint)
+
+    data = bytes(_DISC_CANCEL_MATCH)
+
+    ix = Instruction(
+        program_id=prog,
+        accounts=[
+            AccountMeta(pubkey=config_pda, is_signer=False, is_writable=False),
+            AccountMeta(pubkey=match_pda,  is_signer=False, is_writable=True),
+            AccountMeta(pubkey=vault_ata,  is_signer=False, is_writable=True),
+            AccountMeta(pubkey=vault_auth, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=skr_mint,   is_signer=False, is_writable=False),
+            AccountMeta(pubkey=admin,      is_signer=True,  is_writable=True),
+            AccountMeta(pubkey=_TOKEN_PROGRAM_ID,  is_signer=False, is_writable=False),
+            AccountMeta(pubkey=_SYSTEM_PROGRAM_ID, is_signer=False, is_writable=False),
+        ],
+        data=bytes(data),
+    )
+    msg = Message.new_with_blockhash([ix], admin, Hash.from_string(blockhash))
+    tx = Transaction([admin_keypair], msg, Hash.from_string(blockhash))
+    return tx
+
+
+def build_refund_bet_ix(
+    user_pubkey: str,
+    match_pda_str: str,
+    skr_mint_str: str,
+    admin_pubkey_str: str,
+    blockhash: str,
+    program_id_str: str = BETTING_PROGRAM_ID,
+) -> bytes:
+    """
+    Build an unsigned `refund_bet` transaction (user-signed).
+
+    Called when a match is cancelled — each user reclaims their SKR.
+    Returns raw unsigned transaction bytes.
+    """
+    prog      = Pubkey.from_string(program_id_str)
+    user      = Pubkey.from_string(user_pubkey)
+    match_pda = Pubkey.from_string(match_pda_str)
+    skr_mint  = Pubkey.from_string(skr_mint_str)
+    admin     = Pubkey.from_string(admin_pubkey_str)
+
+    config_pda   = derive_config_pda(prog)
+    vault_auth   = derive_vault_auth_pda(match_pda, prog)
+    vault_ata    = derive_associated_token_address(vault_auth, skr_mint)
+    user_skr_ata = derive_associated_token_address(user, skr_mint)
+    user_bet_pda = derive_user_bet_pda(match_pda, user, prog)
+
+    data = bytes(_DISC_REFUND_BET)
+
+    ix = Instruction(
+        program_id=prog,
+        accounts=[
+            AccountMeta(pubkey=config_pda,   is_signer=False, is_writable=False),
+            AccountMeta(pubkey=match_pda,    is_signer=False, is_writable=True),
+            AccountMeta(pubkey=user_bet_pda, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=user_skr_ata, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=vault_ata,    is_signer=False, is_writable=True),
+            AccountMeta(pubkey=vault_auth,   is_signer=False, is_writable=True),
+            AccountMeta(pubkey=admin,        is_signer=False, is_writable=True),
+            AccountMeta(pubkey=skr_mint,     is_signer=False, is_writable=False),
+            AccountMeta(pubkey=user,         is_signer=True,  is_writable=True),
+            AccountMeta(pubkey=_TOKEN_PROGRAM_ID,  is_signer=False, is_writable=False),
+            AccountMeta(pubkey=_SYSTEM_PROGRAM_ID, is_signer=False, is_writable=False),
+        ],
+        data=bytes(data),
+    )
+    return _tx_bytes(ix, user, blockhash)
 
 
 async def send_transaction(tx: Transaction, rpc_url: str) -> str:

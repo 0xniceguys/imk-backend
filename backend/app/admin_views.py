@@ -19,7 +19,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.agents import get_available_agents
 from app.dependencies import get_db
 from app.db.models import (
     Bet,
@@ -36,6 +35,18 @@ from app.services.actions import decode_controller_state
 from app.services.match_runner import get_all_runners, get_runner
 
 router = APIRouter(prefix="/admin", tags=["admin-views"])
+
+_VALID_BUILTIN_AGENT_IDS = frozenset(
+    {"random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"}
+)
+_AGENT_STYLE_LABELS = {
+    "disc_rssm": "RSSM",
+    "transformer": "Transformer",
+    "obj_belief": "Belief",
+    "lstm": "LSTM",
+    "cpu": "CPU",
+    "random": "Random",
+}
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 _COOKIE_NAME = "imk_admin"
@@ -81,6 +92,60 @@ def _discover_savestates() -> list[dict]:
                 "name": str(rel),
             })
     return results
+
+
+def _normalize_slug_for_savestate(slug: str) -> str:
+    return slug.strip().lower().replace(" ", "").replace("-", "")
+
+
+def _resolve_match_savestate(f1: Fighter, f2: Fighter) -> str | None:
+    savestates = _discover_savestates()
+    if not savestates:
+        return None
+
+    by_file = {}
+    for s in savestates:
+        name = Path(s["path"]).name.lower()
+        by_file[name] = s["path"]
+
+    s1 = _normalize_slug_for_savestate(f1.slug)
+    s2 = _normalize_slug_for_savestate(f2.slug)
+    preferred = [
+        f"p1p2_{s1}_{s2}.st",  # exact seat mapping (P1 vs P2)
+        "p1p2state.st",
+        "kai_arcade_p1p2.st",
+        f"p1p2_{s2}_{s1}.st",  # last-resort reverse pairing
+    ]
+    for filename in preferred:
+        path = by_file.get(filename.lower())
+        if path:
+            return path
+    return savestates[0]["path"]
+
+
+def _resolve_fighter_agent_for_match(fighter: Fighter) -> tuple[str, str | None, str | None]:
+    """Resolve runtime agent id + optional checkpoint + optional architecture."""
+    if fighter.agent_id is not None and fighter.agent is not None:
+        checkpoint = fighter.agent.checkpoint_path
+        architecture = (fighter.agent.architecture or "").strip().lower() or None
+        if checkpoint and Path(checkpoint).is_file():
+            return f"custom_{fighter.agent.slug}", checkpoint, architecture
+        if architecture in _VALID_BUILTIN_AGENT_IDS:
+            return architecture, None, None
+
+    arch = (fighter.agent_architecture or "").strip().lower()
+    if arch in _VALID_BUILTIN_AGENT_IDS:
+        return arch, None, None
+    return "random", None, None
+
+
+def _fighter_style_label(fighter: Fighter) -> str:
+    if fighter.agent is not None and fighter.agent.architecture:
+        return _AGENT_STYLE_LABELS.get(fighter.agent.architecture, fighter.agent.architecture)
+    arch = (fighter.agent_architecture or "").strip().lower()
+    if arch:
+        return _AGENT_STYLE_LABELS.get(arch, arch)
+    return "Unknown"
 
 
 # ── Helpers ──
@@ -349,55 +414,126 @@ async def matches_list(request: Request):
 @router.get("/matches/new", response_class=HTMLResponse)
 async def match_new_form(request: Request):
     if r := _require_admin(request): return r
-    return templates.TemplateResponse("match_new.html", {
-        "request": request,
-        "active_page": "matches",
-        "agents": get_available_agents(),
-        "savestates": _discover_savestates(),
-        "error": None,
-    })
+    async for db in _get_db():
+        result = await db.execute(
+            select(Fighter)
+            .options(selectinload(Fighter.agent))
+            .order_by(Fighter.name.asc())
+        )
+        fighters = list(result.scalars().all())
+
+        fighter_rows = []
+        for f in fighters:
+            fighter_rows.append({
+                "id": str(f.id),
+                "name": f.name,
+                "llm_model": f.llm_model,
+                "style": _fighter_style_label(f),
+                "slug": f.slug,
+            })
+
+        return templates.TemplateResponse("match_new.html", {
+            "request": request,
+            "active_page": "matches",
+            "fighters": fighter_rows,
+            "error": None,
+            "selected_fighter1_id": None,
+            "selected_fighter2_id": None,
+            "label": "MK4-Classic",
+            "best_of": 3,
+        })
 
 
 @router.post("/matches/new", response_class=HTMLResponse)
 async def match_new_submit(
     request: Request,
-    p1_agent: str = Form(...),
-    p2_agent: str = Form(...),
+    fighter1_id: UUID = Form(...),
+    fighter2_id: UUID = Form(...),
     label: str = Form("MK4-Classic"),
-    savestate_path: str | None = Form(None),
     best_of: int = Form(3),
 ):
     async for db in _get_db():
-        # Resolve agent display names
-        from app.agents import discover_agents
-        agent_map = {a.id: a for a in discover_agents()}
-        p1_info = agent_map.get(p1_agent)
-        p2_info = agent_map.get(p2_agent)
-        p1_name = p1_info.name if p1_info else p1_agent
-        p2_name = p2_info.name if p2_info else p2_agent
+        result = await db.execute(
+            select(Fighter)
+            .options(selectinload(Fighter.agent))
+            .order_by(Fighter.name.asc())
+        )
+        fighters = list(result.scalars().all())
+        fighter_rows = [{
+            "id": str(f.id),
+            "name": f.name,
+            "llm_model": f.llm_model,
+            "style": _fighter_style_label(f),
+            "slug": f.slug,
+        } for f in fighters]
 
-        # Find or create fighter records for each agent so bets + settlement work.
-        # Slug = agent_id, character = "MK4", character_id = 0 (generic).
-        async def _ensure_fighter(agent_id: str, display_name: str) -> Fighter:
-            r = await db.execute(select(Fighter).where(Fighter.slug == agent_id))
-            existing = r.scalar_one_or_none()
-            if existing:
-                return existing
-            f = Fighter(
-                name=display_name,
-                slug=agent_id,
-                character="MK4",
-                character_id=0,
-                llm_model=agent_id,
-                agent_architecture=agent_id,
+        if fighter1_id == fighter2_id:
+            return templates.TemplateResponse("match_new.html", {
+                "request": request,
+                "active_page": "matches",
+                "fighters": fighter_rows,
+                "error": "Fighter 1 and Fighter 2 must be different.",
+                "selected_fighter1_id": str(fighter1_id),
+                "selected_fighter2_id": str(fighter2_id),
+                "label": label,
+                "best_of": best_of,
+            })
+
+        fighter_map = {f.id: f for f in fighters}
+        f1 = fighter_map.get(fighter1_id)
+        f2 = fighter_map.get(fighter2_id)
+        if f1 is None or f2 is None:
+            return templates.TemplateResponse("match_new.html", {
+                "request": request,
+                "active_page": "matches",
+                "fighters": fighter_rows,
+                "error": "Selected fighter was not found. Please refresh and try again.",
+                "selected_fighter1_id": str(fighter1_id),
+                "selected_fighter2_id": str(fighter2_id),
+                "label": label,
+                "best_of": best_of,
+            })
+
+        savestate_path = _resolve_match_savestate(f1, f2)
+        if not savestate_path:
+            return templates.TemplateResponse("match_new.html", {
+                "request": request,
+                "active_page": "matches",
+                "fighters": fighter_rows,
+                "error": "No savestate files found on server. Add savestate files and retry.",
+                "selected_fighter1_id": str(fighter1_id),
+                "selected_fighter2_id": str(fighter2_id),
+                "label": label,
+                "best_of": best_of,
+            })
+
+        p1_agent, _, _ = _resolve_fighter_agent_for_match(f1)
+        p2_agent, _, _ = _resolve_fighter_agent_for_match(f2)
+
+        # ── CONTRACT FIRST: create on-chain, wait for confirmation ──
+        from app.services.on_chain_match import create_match_on_chain
+        try:
+            on_chain_id, on_chain_pda = await create_match_on_chain(
+                fighter1_name=f1.name,
+                fighter2_name=f2.name,
             )
-            db.add(f)
-            await db.flush()
-            return f
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).error(
+                "On-chain create_match failed: %s", exc, exc_info=True,
+            )
+            return templates.TemplateResponse("match_new.html", {
+                "request": request,
+                "active_page": "matches",
+                "fighters": fighter_rows,
+                "error": f"On-chain match creation failed: {exc}",
+                "selected_fighter1_id": str(fighter1_id),
+                "selected_fighter2_id": str(fighter2_id),
+                "label": label,
+                "best_of": best_of,
+            })
 
-        f1 = await _ensure_fighter(p1_agent, p1_name)
-        f2 = await _ensure_fighter(p2_agent, p2_name)
-
+        # ── ONLY NOW: create DB row with PDA already set ──
         match = Match(
             fighter1_id=f1.id,
             fighter2_id=f2.id,
@@ -407,6 +543,8 @@ async def match_new_submit(
             label=label,
             savestate_path=savestate_path,
             best_of=best_of,
+            on_chain_match_id=on_chain_id,
+            on_chain_match_pda=on_chain_pda,
         )
         db.add(match)
         await db.flush()
@@ -479,7 +617,20 @@ async def match_start(match_id: UUID):
         if not match.savestate_path:
             return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
-        # ✅ FIX: Wire uploaded agents into match execution (same logic as JSON API)
+        # ── CONTRACT FIRST: lock match on-chain BEFORE going LIVE ──
+        if match.on_chain_match_pda:
+            try:
+                from app.services.on_chain_match import lock_match_on_chain
+                await lock_match_on_chain(match.on_chain_match_pda)
+            except Exception as exc:
+                import logging as _logging
+                _logging.getLogger(__name__).error(
+                    "lock_match_on_chain FAILED for %s: %s",
+                    match_id, exc, exc_info=True,
+                )
+                return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
+
+        # Resolve runtime agents from fighter policy.
         p1_agent_id = match.p1_agent
         p2_agent_id = match.p2_agent
         p1_checkpoint_path: str | None = None
@@ -488,23 +639,11 @@ async def match_start(match_id: UUID):
         p2_architecture: str | None = None
 
         if match.fighter1:
-            if match.fighter1.agent_id and match.fighter1.agent:
-                p1_agent_id = f"custom_{match.fighter1.agent.slug}"
-                p1_checkpoint_path = match.fighter1.agent.checkpoint_path
-                p1_architecture = match.fighter1.agent.architecture
-            elif match.fighter1.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
-                p1_agent_id = match.fighter1.agent_architecture
-            # else: keep default "random"
-
+            p1_agent_id, p1_checkpoint_path, p1_architecture = _resolve_fighter_agent_for_match(match.fighter1)
         if match.fighter2:
-            if match.fighter2.agent_id and match.fighter2.agent:
-                p2_agent_id = f"custom_{match.fighter2.agent.slug}"
-                p2_checkpoint_path = match.fighter2.agent.checkpoint_path
-                p2_architecture = match.fighter2.agent.architecture
-            elif match.fighter2.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
-                p2_agent_id = match.fighter2.agent_architecture
-            # else: keep default "random"
+            p2_agent_id, p2_checkpoint_path, p2_architecture = _resolve_fighter_agent_for_match(match.fighter2)
 
+        # ONLY NOW: set LIVE in DB (on-chain is already Locked)
         match.status = MatchStatus.LIVE
         match.started_at = datetime.now(timezone.utc)
         if match.stream:
@@ -565,6 +704,8 @@ async def match_stop(match_id: UUID):
 
 @router.post("/matches/{match_id}/cancel")
 async def match_cancel(match_id: UUID):
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
     async for db in _get_db():
         result = await db.execute(
             select(Match).where(Match.id == match_id)
@@ -577,6 +718,19 @@ async def match_cancel(match_id: UUID):
         # Stop runner if live
         from app.services.match_runner import stop_match as runner_stop
         await runner_stop(str(match_id))
+
+        # ── CONTRACT FIRST: cancel on-chain BEFORE DB ──
+        if match.on_chain_match_pda:
+            try:
+                from app.services.on_chain_match import cancel_match_on_chain
+                await cancel_match_on_chain(match.on_chain_match_pda)
+            except Exception as exc:
+                _logger.error(
+                    "On-chain cancel_match failed for %s: %s",
+                    match_id, exc, exc_info=True,
+                )
+                # Contract is source of truth — abort if on-chain cancel fails
+                return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
         match.status = MatchStatus.CANCELLED
         if match.stream:
