@@ -161,20 +161,24 @@ PluginStartup(void *core_lib, void *ctx, void *debug_cb) {
 __attribute__((visibility("default"))) void
 InitiateControllers(CONTROL_INFO info) {
   memset(info.Controls, 0, 4 * sizeof(CONTROL));
-  /* Register P1 and P2 */
-  for (int i = 0; i < 2; i++) {
-    info.Controls[i].Present = 1;
-    info.Controls[i].Plugin = PLUGIN_NONE;
-    info.Controls[i].Type = CONT_TYPE_STANDARD;
-  }
+  /* P1 is always present and intercepted */
+  info.Controls[0].Present = 1;
+  info.Controls[0].Plugin = PLUGIN_NONE;
+  info.Controls[0].Type = CONT_TYPE_STANDARD;
   ctrl_open(0, ctrl_path_p1());
-  /* Only intercept P2 if N64TRAIN_CTRL_P2 was explicitly set.
-   * When NULL, MK4's arcade CPU AI controls P2 natively. */
+  /* Only register P2 as present when N64TRAIN_CTRL_P2 is explicitly set.
+   * If P2 is marked Present but not intercepted, MK4 thinks it's a 2-player
+   * game and disables the CPU AI — P2 gets zero input and just stands idle.
+   * When P2 is NOT present, MK4 keeps arcade mode and the CPU AI fights. */
   const char *p2path = ctrl_path_p2();
   if (p2path) {
+    info.Controls[1].Present = 1;
+    info.Controls[1].Plugin = PLUGIN_NONE;
+    info.Controls[1].Type = CONT_TYPE_STANDARD;
     ctrl_open(1, p2path);
   } else {
-    fprintf(stderr, "[n64train-input] P2: NOT intercepted (CPU AI will control)\n");
+    info.Controls[1].Present = 0;
+    fprintf(stderr, "[n64train-input] P2: NOT present (CPU AI will control)\n");
   }
 }
 

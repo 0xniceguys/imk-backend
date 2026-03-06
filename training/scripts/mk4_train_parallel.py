@@ -33,18 +33,91 @@ sys.path.insert(0, str(N64_ROOT / 'training/src'))
 sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
 BRIDGE_DIR  = N64_ROOT / 'training/data/bridge'
-def resolve_state_path() -> str:
+
+
+def resolve_learner_device(device_arg: str) -> str:
+    if device_arg != 'auto':
+        return device_arg
+    try:
+        import torch
+        if bool(torch.backends.mps.is_available()):
+            return 'mps'
+        if bool(torch.cuda.is_available()):
+            return 'cuda'
+    except Exception:
+        pass
+    return 'cpu'
+
+
+def resolve_state_path(savestate_arg: str | None = None) -> str:
+    if savestate_arg:
+        p = Path(savestate_arg)
+        if not p.is_absolute():
+            p = N64_ROOT / 'training/data/savestates/mk4_arcade' / savestate_arg
+        if p.exists():
+            return str(p)
+        raise FileNotFoundError(f'Specified savestate not found: {p}')
+
     candidates = [
-        N64_ROOT / 'training/data/savestates/mk4_arcade/arcade_training_scorpion.st',
+        N64_ROOT / 'training/data/savestates/mk4_arcade/p1p2_trainingscript.st',
         N64_ROOT / 'training/data/savestates/mk4_arcade/p1p2state.st',
         N64_ROOT / 'training/data/savestates/mk4_arcade/my_state.st',
+        N64_ROOT / 'training/data/savestates/mk4_arcade/arcade_training_scorpion.st',
     ]
     for path in candidates:
         if path.exists():
             return str(path)
-    raise FileNotFoundError(
-        f'No savestate found. Tried: {[str(c) for c in candidates]}'
-    )
+    raise FileNotFoundError(f'No savestate found. Tried: {[str(c) for c in candidates]}')
+
+
+def parse_opponent_pool(
+    spec: str,
+    *,
+    fallback_agent: str,
+    fallback_run_id: str,
+) -> list[dict[str, str]]:
+    """
+    Parse comma-separated `agent:run_id` entries.
+    Example: 'lstm:mk4_lstm_phase2,obj_belief:mk4_obj_phase2,disc_rssm:mk4_disc_phase2'
+    """
+    text = (spec or '').strip()
+    if not text:
+        return [{'agent_type': fallback_agent, 'run_id': fallback_run_id}]
+
+    entries: list[dict[str, str]] = []
+    for raw in text.split(','):
+        item = raw.strip()
+        if not item:
+            continue
+        if ':' in item:
+            agent_type, run_id = item.split(':', 1)
+            agent_type = agent_type.strip()
+            run_id = run_id.strip() or agent_type
+        else:
+            agent_type = item
+            run_id = item
+        if not agent_type:
+            continue
+        entries.append({'agent_type': agent_type, 'run_id': run_id})
+
+    if not entries:
+        return [{'agent_type': fallback_agent, 'run_id': fallback_run_id}]
+    return entries
+
+
+def resolve_self_play_mode(mode_arg: str, savestate_path: str) -> bool:
+    """
+    Decide whether to inject a P2 policy.
+    Default (auto) keeps self-play ON.
+    """
+    mode = (mode_arg or 'auto').strip().lower()
+    if mode == 'on':
+        return True
+    if mode == 'off':
+        return False
+    return True
+
+
 ROM_PATH    = str(N64_ROOT / 'Mortal Kombat 4 (USA).z64')
 M64P_BIN    = str(N64_ROOT / 'vendor/mupen64plus-ui-console/projects/unix/mupen64plus')
 CORELIB     = str(N64_ROOT / 'vendor/mupen64plus-core/projects/unix/libmupen64plus.dylib')
@@ -65,7 +138,16 @@ def cfg_dir(run_id: str, worker_id: int) -> str:
     return str(N64_ROOT / f'.m64p/instances/train-{run_id}-{worker_id}/config')
 
 
-def launch_bridge(run_id: str, worker_id: int, log_path: Path) -> subprocess.Popen:
+def launch_bridge(
+    run_id: str,
+    worker_id: int,
+    log_path: Path,
+    *,
+    speed_mode: str,
+    debugger_emumode: int,
+    debugger_gfx_plugin: str,
+    enable_p2_controller: bool,
+) -> subprocess.Popen:
     """Launch one bridge server + emulator.
     Matches mk4_controller_debug.py launch exactly so we get a visible game window.
     Each worker gets its own ctrl file via N64TRAIN_CTRL_P1 env var.
@@ -99,52 +181,144 @@ def launch_bridge(run_id: str, worker_id: int, log_path: Path) -> subprocess.Pop
         '--debugger-configdir',  cfg_dir(run_id, worker_id),
         '--debugger-datadir',    '/opt/homebrew/share/mupen64plus',  # must match working debug tool
         '--debugger-dump-dir',   str(N64_ROOT / 'training/data/bridge/debugger_dumps' / f'{run_id}_{worker_id}'),
-        '--debugger-gfx-plugin',   'mupen64plus-video-rice.dylib',
-        '--debugger-audio-plugin', 'mupen64plus-audio-sdl.dylib',
+        '--debugger-gfx-plugin',   debugger_gfx_plugin,
+        '--debugger-audio-plugin', 'dummy',
         '--debugger-input-plugin', PLUGIN,
         '--debugger-rsp-plugin',   'mupen64plus-rsp-hle.dylib',
-        '--debugger-emumode',    '0',  # Pure Interpreter — stable (DynaRec crashes mupen64plus mid-game)
-        '--speed-mode',          'DEBUG_VISIBLE',  # stable speed mode
+        '--debugger-emumode',    str(debugger_emumode),
+        '--speed-mode',          speed_mode,
         '--log-path',            str(log_path),
     ]
 
     # Per-worker ctrl file so buttons go to the RIGHT emulator
     env = os.environ.copy()
     env['N64TRAIN_CTRL_P1'] = ctrl
-    env['N64TRAIN_CTRL_P2'] = ctrl + '_p2'
+    if enable_p2_controller:
+        env['N64TRAIN_CTRL_P2'] = ctrl + '_p2'
+    else:
+        # Leave P2 unset so input plugin marks controller 2 as not present.
+        # This keeps MK4 CPU/engine ownership of P2 instead of creating a dummy pad.
+        env.pop('N64TRAIN_CTRL_P2', None)
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_file = open(log_path, 'w')  # 'w' not 'a' — fresh log each run
-    proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT, env=env)
+    proc = subprocess.Popen(
+        cmd,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        env=env,
+        start_new_session=True,
+    )
     return proc
 
 
 def wait_for_socket(sock: str, timeout: float = 90.0) -> bool:
-    """Wait until the bridge server socket is truly ready (accepts connections).
-    The socket FILE appears early, but mupen64plus (via PTY) takes 10-30s to
-    boot. We probe with a real connection+HELLO to confirm readiness.
-    """
-    import socket as _socket
+    """Wait until the bridge server accepts a real protocol HELLO."""
+    from n64train.runtime.bridge import SocketEmulatorBridge
+
     deadline = time.time() + timeout
-    file_seen = False
     while time.time() < deadline:
-        if not file_seen and os.path.exists(sock):
-            file_seen = True
-        if file_seen:
-            # Try a real connection + HELLO
+        if not os.path.exists(sock):
+            time.sleep(0.5)
+            continue
+        probe = SocketEmulatorBridge(sock, timeout_sec=5.0)
+        try:
+            _ = probe.hello()
+            return True
+        except Exception:
+            time.sleep(0.5)
+        finally:
             try:
-                s = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
-                s.settimeout(2.0)
-                s.connect(sock)
-                s.close()
-                return True  # connection accepted — server is up
-            except (ConnectionRefusedError, OSError):
+                probe.close()
+            except Exception:
                 pass
-        time.sleep(0.5)
     return False
 
 
-def main() -> None:
+def _terminate_process(proc: subprocess.Popen, *, grace_s: float = 5.0) -> None:
+    """Kill bridge + child emulator (entire process group)."""
+    if proc.poll() is not None:
+        return
+    # Bridge is launched with start_new_session=True, so kill the whole group
+    # to avoid leaving orphan mupen64plus processes behind.
+    try:
+        pgid = os.getpgid(proc.pid)
+        os.killpg(pgid, 9)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+    # Fallback in case group kill missed the parent.
+    if proc.poll() is None:
+        try:
+            proc.kill()
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+    try:
+        proc.wait(timeout=grace_s)
+    except Exception:
+        pass
+
+
+def _tail_log(path: Path, *, max_chars: int = 1200) -> str:
+    if not path.exists():
+        return "<log missing>"
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception as exc:
+        return f"<log unreadable: {exc}>"
+    if not text:
+        return "<log empty>"
+    return text[-max_chars:]
+
+
+def launch_bridge_with_retries(
+    run_id: str,
+    worker_id: int,
+    *,
+    log_dir: Path,
+    speed_mode: str,
+    debugger_emumode: int,
+    debugger_gfx_plugin: str,
+    enable_p2_controller: bool,
+    max_attempts: int = 3,
+    ready_timeout_s: float = 90.0,
+) -> subprocess.Popen:
+    """Launch bridge and require a successful HELLO before continuing."""
+    sock = socket_path(run_id, worker_id)
+    log_path = log_dir / f'emulator-{run_id}-{worker_id}.log'
+    last_error = "unknown"
+    for attempt in range(1, max_attempts + 1):
+        proc = launch_bridge(
+            run_id,
+            worker_id,
+            log_path,
+            speed_mode=speed_mode,
+            debugger_emumode=debugger_emumode,
+            debugger_gfx_plugin=debugger_gfx_plugin,
+            enable_p2_controller=enable_p2_controller,
+        )
+        if wait_for_socket(sock, timeout=ready_timeout_s):
+            print(
+                f'  [emulator-{run_id}-{worker_id}] ready on attempt '
+                f'{attempt}/{max_attempts} (pid={proc.pid})'
+            )
+            return proc
+
+        rc = proc.poll()
+        _terminate_process(proc)
+        tail = _tail_log(log_path)
+        last_error = (
+            f'bridge failed readiness probe (attempt {attempt}/{max_attempts}, '
+            f'pid={proc.pid}, rc={rc})\n{tail}'
+        )
+        print(f'  [emulator-{run_id}-{worker_id}] {last_error}')
+        time.sleep(2.0)
+
+    raise RuntimeError(
+        f'Bridge launch failed for worker {worker_id} after {max_attempts} attempts: {last_error}'
+    )
+
+
+def main() -> int:
     ap = argparse.ArgumentParser(description='Parallel MK4 Training')
     ap.add_argument('--agent',
                     default='lstm', metavar='AGENT',
@@ -157,6 +331,29 @@ def main() -> None:
     ap.add_argument('--episodes', type=int, default=100, help='Episodes per worker')
     ap.add_argument('--save-every', type=int, default=10, dest='save_every')
     ap.add_argument('--batch-size', type=int, default=None, dest='batch_size')
+    ap.add_argument('--rollout-queue-mult', type=int, default=8,
+                    help='Rollout queue size multiplier per worker')
+    ap.add_argument('--speed-mode', default='TRAIN_TURBO',
+                    choices=['DEBUG_VISIBLE', 'TRAIN_TURBO', 'EVAL_DETERMINISTIC'],
+                    help='Bridge speed mode')
+    ap.add_argument('--debugger-emumode', type=int, default=2, choices=[0, 1, 2],
+                    help='Mupen mode: 0=Pure Interpreter, 1=Interpreter, 2=DynaRec')
+    ap.add_argument('--debugger-gfx-plugin', default='mupen64plus-video-rice.dylib',
+                    help='Debugger gfx plugin')
+    ap.add_argument('--learner-device', default='auto', choices=['auto', 'cpu', 'mps', 'cuda'],
+                    help='Learner update device; workers remain CPU')
+    ap.add_argument('--disable-coach', action='store_true',
+                    help='Disable LLM reward coach for speed/stability')
+    ap.add_argument('--trace-every', type=int, default=0,
+                    help='Worker TRACE print interval in steps (0 disables TRACE)')
+    ap.add_argument('--savestate', default='p1p2_trainingscript.st',
+                    help='Savestate filename in training/data/savestates/mk4_arcade, or absolute path')
+    ap.add_argument('--opponent-pool', default='',
+                    help='Comma-separated opponent checkpoints as agent:run_id entries')
+    ap.add_argument('--opponent-rotate-every', type=int, default=30,
+                    help='Rotate opponent every N valid episodes per worker')
+    ap.add_argument('--self-play-mode', default='auto', choices=['auto', 'on', 'off'],
+                    help='P2 control injection mode (auto=on)')
     ap.add_argument('--dry-run',  action='store_true')
     args = ap.parse_args()
 
@@ -164,19 +361,49 @@ def main() -> None:
     n_workers      = min(args.workers, 6)
     eps_per_worker = args.episodes
     total_eps      = n_workers * eps_per_worker
-    state_path     = resolve_state_path()
+    batch_size     = args.batch_size if args.batch_size is not None else max(2, n_workers)
+    learner_device = resolve_learner_device(args.learner_device)
+    state_path     = resolve_state_path(args.savestate)
+    self_play_enabled = resolve_self_play_mode(args.self_play_mode, state_path)
+    os.environ['N64TRACE_EVERY'] = str(max(0, int(args.trace_every)))
+    opponent_pool = parse_opponent_pool(
+        args.opponent_pool,
+        fallback_agent=args.agent,
+        fallback_run_id=run_id,
+    )
+    opponent_rotation = None
+    if self_play_enabled:
+        opponent_rotation = {
+            'entries': opponent_pool,
+            'rotate_every': max(1, int(args.opponent_rotate_every)),
+        }
 
     print(f'[parallel] Run ID       : {run_id}')
     print(f'[parallel] Agent        : {args.agent}')
     print(f'[parallel] Workers      : {n_workers}')
     print(f'[parallel] Episodes/w   : {eps_per_worker}  (total: {total_eps})')
+    print(f'[parallel] Batch size   : {batch_size}')
     print(f'[parallel] Savestate    : {Path(state_path).name}')
-    print(f'[parallel] Speed mode   : Pure Interpreter + DEBUG_VISIBLE (DynaRec disabled — crashes mupen64plus mid-game)')
+    print(f'[parallel] Speed mode   : {args.speed_mode}')
+    print(f'[parallel] Emu mode     : {args.debugger_emumode}')
+    print(f'[parallel] GFX plugin   : {args.debugger_gfx_plugin}')
+    print(f'[parallel] Learner dev  : {learner_device}')
+    print(f'[parallel] Coach        : {"OFF" if args.disable_coach else "ON"}')
+    print(f'[parallel] TRACE every  : {os.environ["N64TRACE_EVERY"]} step(s)')
+    if self_play_enabled and opponent_rotation is not None:
+        print(f'[parallel] Self-play    : ON')
+        print(f'[parallel] Opp rotate   : every {opponent_rotation["rotate_every"]} eps')
+        print(
+            '[parallel] Opp pool     : '
+            + ', '.join([f'{x["agent_type"]}:{x["run_id"]}' for x in opponent_pool])
+        )
+    else:
+        print(f'[parallel] Self-play    : OFF (single-controller mode for {Path(state_path).name})')
 
     if args.dry_run:
         for i in range(n_workers):
             print(f'  Worker {i}:  sock={socket_path(run_id,i)}  ctrl={ctrl_path(run_id,i)}')
-        return
+        return 0
 
     # ── Launch bridge servers ────────────────────────────────────────────────
     BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -184,26 +411,29 @@ def main() -> None:
     log_dir = N64_ROOT / 'training/data/logs'
 
     print(f'\n[parallel] Launching {n_workers} emulator instances (run={run_id})...')
-    for i in range(n_workers):
-        log = log_dir / f'emulator-{run_id}-{i}.log'
-        proc = launch_bridge(run_id, i, log)
-        bridge_procs.append(proc)
-        print(f'  [emulator-{run_id}-{i}] pid={proc.pid}  log={log}')
-        time.sleep(1.0)
-
-    print(f'\n[parallel] Waiting for emulator sockets...')
-    for i in range(n_workers):
-        sock = socket_path(run_id, i)
-        if wait_for_socket(sock, timeout=60):
-            print(f'  [emulator-{run_id}-{i}] socket ready')
-        else:
-            print(f'  [emulator-{run_id}-{i}] TIMEOUT — aborting')
-            for p in bridge_procs: p.terminate()
-            sys.exit(1)
-    time.sleep(3.0)
+    try:
+        for i in range(n_workers):
+            proc = launch_bridge_with_retries(
+                run_id,
+                i,
+                log_dir=log_dir,
+                speed_mode=args.speed_mode,
+                debugger_emumode=args.debugger_emumode,
+                debugger_gfx_plugin=args.debugger_gfx_plugin,
+                enable_p2_controller=self_play_enabled,
+            )
+            bridge_procs.append(proc)
+    except Exception as exc:
+        print(f'[parallel] FATAL: {exc}')
+        for p in bridge_procs:
+            _terminate_process(p)
+        return 1
+    time.sleep(2.0)
 
     # ── Setup IPC queues ─────────────────────────────────────────────────────
-    rollout_queue  = Queue(maxsize=n_workers * 4)
+    rollout_q_size = max(n_workers * 2, n_workers * int(args.rollout_queue_mult))
+    rollout_queue  = Queue(maxsize=rollout_q_size)
+    print(f'[parallel] Rollout q    : {rollout_q_size}')
     weight_queues  = [Queue(maxsize=2) for _ in range(n_workers)]
 
     # ── Launch learner ───────────────────────────────────────────────────────
@@ -211,8 +441,8 @@ def main() -> None:
     learner_proc = Process(
         target=run_learner,
         args=(rollout_queue, weight_queues, n_workers, total_eps,
-              args.save_every, args.batch_size or n_workers, args.agent,
-              run_id),   # Bug 4+5: isolate heartbeat/log/stats per run_id
+              args.save_every, batch_size, args.agent,
+              run_id, learner_device, args.disable_coach),
         daemon=False,
         name='learner',
     )
@@ -224,60 +454,90 @@ def main() -> None:
 
     # ── Launch workers ───────────────────────────────────────────────────────
     from n64train.training.worker import run_worker
-    from mk4_train import build_agent
-
-    # ── Self-play: load frozen opponent from latest checkpoint ───────────────
-    # Pass only the state_dict (plain tensor dict) instead of the full model
-    # object to avoid pickling a PyTorch module into each worker process
-    # (slow, large, and causes CUDA deserialization issues on GPU setups).
-    # Workers rebuild the opponent agent locally from this dict.
-    # ── Self-play: load frozen opponent from run-scoped checkpoint ─────────────
-    # Build scoped path from agent's CKPT: mk4_policy.pt → mk4_policy_{run_id}.pt
-    _tmp_opponent = build_agent(args.agent)
-    _base = _tmp_opponent.CKPT
-    _scoped_ckpt = _base.parent / f'{_base.stem}_{run_id}{_base.suffix}'
-    if _scoped_ckpt.exists():
-        try: _tmp_opponent.load(_scoped_ckpt)
-        except Exception as e: print(f'[parallel] warn: could not load scoped ckpt {_scoped_ckpt.name}: {e}')
-    frozen_opponent_weights = {k: v.cpu().clone() for k, v in _tmp_opponent.net.state_dict().items()}
-    opp_ep = getattr(_tmp_opponent, "episode", 0)
-    del _tmp_opponent
-    print("[parallel] Self-play opponent: " + args.agent + " ep=" + str(opp_ep) + " frozen (state_dict transfer)")
-
-
     worker_procs: list[Process] = []
     for i in range(n_workers):
-        p2_path = ctrl_path(run_id, i) + '_p2'
+        p2_path = (ctrl_path(run_id, i) + '_p2') if self_play_enabled else None
         p = Process(
             target=run_worker,
             args=(i, socket_path(run_id, i), ctrl_path(run_id, i),
                   rollout_queue, weight_queues[i],
                   eps_per_worker, state_path, args.agent,
-                  p2_path, frozen_opponent_weights),    # pass state_dict, not model object
+                  p2_path, None, opponent_rotation),
             daemon=False,
             name=f'worker-{run_id}-{i}',
         )
         p.start()
         worker_procs.append(p)
-        print(f'[parallel] Worker {i} started  pid={p.pid}  self-play=✓  ctrl_p2={p2_path}')
+        if self_play_enabled and opponent_rotation is not None:
+            print(
+                f'[parallel] Worker {i} started  pid={p.pid}  self-play=✓  '
+                f'ctrl_p2={p2_path}  rotate_every={opponent_rotation["rotate_every"]}'
+            )
+        else:
+            print(f'[parallel] Worker {i} started  pid={p.pid}  self-play=off (P2 unmanaged)')
 
     print(f'\n[parallel] All {n_workers} workers running. Training in progress...\n')
 
     # ── Wait for all processes to finish ─────────────────────────────────────
+    exit_code = 0
     try:
-        for p in worker_procs:
-            p.join()
-        learner_proc.join()
+        while True:
+            dead_bridges = [
+                (idx, proc.poll())
+                for idx, proc in enumerate(bridge_procs)
+                if proc.poll() is not None
+            ]
+            if dead_bridges:
+                for idx, rc in dead_bridges:
+                    log_path = log_dir / f'emulator-{run_id}-{idx}.log'
+                    tail = _tail_log(log_path)
+                    print(
+                        f'[parallel] FATAL: bridge worker {idx} exited unexpectedly '
+                        f'(rc={rc}). Tail:\n{tail}'
+                    )
+                exit_code = 1
+                break
+
+            # Fatal if any worker exits non-zero.
+            worker_failures = [
+                (idx, p.exitcode)
+                for idx, p in enumerate(worker_procs)
+                if (not p.is_alive()) and (p.exitcode not in (None, 0))
+            ]
+            if worker_failures:
+                for idx, rc in worker_failures:
+                    print(f'[parallel] FATAL: worker {idx} exited unexpectedly (rc={rc})')
+                exit_code = 1
+                break
+
+            workers_alive = any(p.is_alive() for p in worker_procs)
+            learner_alive = learner_proc.is_alive()
+            if not learner_alive and workers_alive:
+                rc = learner_proc.exitcode
+                print(f'[parallel] FATAL: learner exited while workers are still running (rc={rc})')
+                exit_code = 1 if rc in (None, 0) else int(rc)
+                break
+            if not workers_alive and not learner_alive:
+                if learner_proc.exitcode not in (None, 0):
+                    print(f'[parallel] FATAL: learner exited with rc={learner_proc.exitcode}')
+                    exit_code = 1
+                break
+            time.sleep(2.0)
     except KeyboardInterrupt:
         print('\n[parallel] Interrupted — shutting down...')
     finally:
         for p in worker_procs:
-            if p.is_alive(): p.terminate()
-        if learner_proc.is_alive(): learner_proc.terminate()
+            if p.is_alive():
+                p.terminate()
+            p.join(timeout=2.0)
+        if learner_proc.is_alive():
+            learner_proc.terminate()
+        learner_proc.join(timeout=2.0)
         for p in bridge_procs:
-            p.terminate()
+            _terminate_process(p)
         print('[parallel] All processes stopped.')
+    return exit_code
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

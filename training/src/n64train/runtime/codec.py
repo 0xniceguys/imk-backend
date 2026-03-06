@@ -207,6 +207,12 @@ def encode_reward_terms(reward: RewardTerms) -> dict[str, Any]:
         "whiff_punished_penalty": reward.whiff_punished_penalty,
         "idle_timeout_penalty": reward.idle_timeout_penalty,
         "illegal_state_penalty": reward.illegal_state_penalty,
+        "win_bonus": reward.win_bonus,
+        "loss_penalty": reward.loss_penalty,
+        "approach_reward": reward.approach_reward,
+        "distance_penalty": reward.distance_penalty,
+        "survival": reward.survival,
+        "spam_penalty": reward.spam_penalty,
         "extras": dict(reward.extras),
     }
 
@@ -221,6 +227,12 @@ def decode_reward_terms(payload: dict[str, Any]) -> RewardTerms:
         whiff_punished_penalty=float(payload.get("whiff_punished_penalty", 0.0)),
         idle_timeout_penalty=float(payload.get("idle_timeout_penalty", 0.0)),
         illegal_state_penalty=float(payload.get("illegal_state_penalty", 0.0)),
+        win_bonus=float(payload.get("win_bonus", 0.0)),
+        loss_penalty=float(payload.get("loss_penalty", 0.0)),
+        approach_reward=float(payload.get("approach_reward", 0.0)),
+        distance_penalty=float(payload.get("distance_penalty", 0.0)),
+        survival=float(payload.get("survival", 0.0)),
+        spam_penalty=float(payload.get("spam_penalty", 0.0)),
         extras={str(k): float(v) for k, v in dict(payload.get("extras", {})).items()},
     )
 

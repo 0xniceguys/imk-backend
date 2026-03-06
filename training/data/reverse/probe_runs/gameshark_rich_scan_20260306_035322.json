@@ -1,0 +1,4380 @@
+{
+  "generated_at": "2026-03-06 03:53:38",
+  "savestate": "/Users/ichiropractic/code/n64/training/data/savestates/mk4_arcade/arcade_training_scorpion.st",
+  "p2_base": "0x80126E00",
+  "scan_offsets": {
+    "start": "0x200",
+    "end": "0x3FC",
+    "words": 128
+  },
+  "frames_per_scenario": 900,
+  "walk_frames": 160,
+  "scenarios": [
+    "neutral",
+    "stand_block",
+    "crouch_block"
+  ],
+  "results_by_scenario": {
+    "neutral": {
+      "frames": 900,
+      "p1_damage_events": 3,
+      "p1_damage_total_raw": 32111,
+      "p2_damage_total_raw": 0,
+      "event_frames_sample": [
+        113,
+        323,
+        845
+      ],
+      "metrics": {
+        "0x200": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x204": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x208": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x20C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x210": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x214": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x218": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x21C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x220": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x224": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x228": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x22C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x230": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x234": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x238": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x23C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x240": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x244": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x248": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x24C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x250": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x254": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x258": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x25C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x260": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x264": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x268": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x26C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x270": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x274": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x278": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x27C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x280": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x284": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x288": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x28C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x290": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x294": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x298": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x29C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2AC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2BC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2CC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2DC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2EC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2FC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x300": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x304": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x308": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x30C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x310": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x314": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x318": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x31C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x320": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x324": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x328": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x32C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x330": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x334": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x338": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x33C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x340": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x344": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x348": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x34C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x350": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x354": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x358": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x35C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x360": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x364": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x368": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x36C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x370": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x374": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x378": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x37C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x380": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x384": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x388": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x38C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x390": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x394": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x398": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x39C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3AC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3BC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3CC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3DC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3EC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3FC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        }
+      }
+    },
+    "stand_block": {
+      "frames": 900,
+      "p1_damage_events": 2,
+      "p1_damage_total_raw": 13761,
+      "p2_damage_total_raw": 0,
+      "event_frames_sample": [
+        113,
+        321
+      ],
+      "metrics": {
+        "0x200": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x204": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x208": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x20C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x210": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x214": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x218": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x21C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x220": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x224": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x228": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x22C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x230": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x234": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x238": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x23C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x240": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x244": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x248": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x24C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x250": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x254": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x258": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x25C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x260": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x264": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x268": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x26C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x270": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x274": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x278": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x27C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x280": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x284": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x288": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x28C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x290": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x294": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x298": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x29C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2AC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2BC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2CC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2DC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2EC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2FC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x300": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x304": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x308": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x30C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x310": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x314": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x318": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x31C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x320": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x324": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x328": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x32C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x330": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x334": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x338": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x33C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x340": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x344": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x348": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x34C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x350": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x354": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x358": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x35C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x360": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x364": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x368": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x36C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x370": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x374": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x378": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x37C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x380": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x384": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x388": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x38C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x390": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x394": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x398": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x39C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3AC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3BC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3CC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3DC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3EC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3FC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        }
+      }
+    },
+    "crouch_block": {
+      "frames": 900,
+      "p1_damage_events": 3,
+      "p1_damage_total_raw": 25557,
+      "p2_damage_total_raw": 0,
+      "event_frames_sample": [
+        113,
+        333,
+        722
+      ],
+      "metrics": {
+        "0x200": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x204": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x208": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x20C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x210": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x214": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x218": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x21C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x220": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x224": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x228": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x22C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x230": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x234": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x238": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x23C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x240": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x244": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x248": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x24C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x250": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x254": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x258": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x25C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x260": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x264": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x268": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x26C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x270": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x274": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x278": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x27C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x280": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x284": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x288": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x28C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x290": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x294": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x298": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x29C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2A8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2AC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2B8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2BC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2C8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2CC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2D8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2DC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2E8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2EC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2F8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x2FC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x300": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x304": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x308": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x30C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x310": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x314": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x318": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x31C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x320": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x324": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x328": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x32C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x330": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x334": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x338": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x33C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x340": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x344": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x348": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x34C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x350": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x354": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x358": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x35C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x360": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x364": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x368": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x36C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x370": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x374": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x378": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x37C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x380": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x384": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x388": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x38C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x390": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x394": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x398": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x39C": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3A8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3AC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3B8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3BC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3C8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3CC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3D8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3DC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3E8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3EC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F0": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F4": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3F8": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        },
+        "0x3FC": {
+          "unique": 1,
+          "delta_rate": 0.0,
+          "nonzero_rate": 0.0,
+          "event_change_rate": 0.0,
+          "event_nonzero_rate": 0.0,
+          "bg_change_rate": 0.0,
+          "bg_nonzero_rate": 0.0,
+          "score": 0.002
+        }
+      }
+    }
+  },
+  "aggregate_top": [
+    {
+      "offset": "0x200",
+      "address": "0x80127000",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x204",
+      "address": "0x80127004",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x208",
+      "address": "0x80127008",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x20C",
+      "address": "0x8012700C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x210",
+      "address": "0x80127010",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x214",
+      "address": "0x80127014",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x218",
+      "address": "0x80127018",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x21C",
+      "address": "0x8012701C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x220",
+      "address": "0x80127020",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x224",
+      "address": "0x80127024",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x228",
+      "address": "0x80127028",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x22C",
+      "address": "0x8012702C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x230",
+      "address": "0x80127030",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x234",
+      "address": "0x80127034",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x238",
+      "address": "0x80127038",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x23C",
+      "address": "0x8012703C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x240",
+      "address": "0x80127040",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x244",
+      "address": "0x80127044",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x248",
+      "address": "0x80127048",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x24C",
+      "address": "0x8012704C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x250",
+      "address": "0x80127050",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x254",
+      "address": "0x80127054",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x258",
+      "address": "0x80127058",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x25C",
+      "address": "0x8012705C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x260",
+      "address": "0x80127060",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x264",
+      "address": "0x80127064",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x268",
+      "address": "0x80127068",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x26C",
+      "address": "0x8012706C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x270",
+      "address": "0x80127070",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x274",
+      "address": "0x80127074",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x278",
+      "address": "0x80127078",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x27C",
+      "address": "0x8012707C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x280",
+      "address": "0x80127080",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x284",
+      "address": "0x80127084",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x288",
+      "address": "0x80127088",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x28C",
+      "address": "0x8012708C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x290",
+      "address": "0x80127090",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x294",
+      "address": "0x80127094",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x298",
+      "address": "0x80127098",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    },
+    {
+      "offset": "0x29C",
+      "address": "0x8012709C",
+      "unique": 1,
+      "delta_rate": 0.0,
+      "nonzero_rate": 0.0,
+      "event_change_rate": 0.0,
+      "event_nonzero_rate": 0.0,
+      "bg_change_rate": 0.0,
+      "bg_nonzero_rate": 0.0,
+      "score": 0.002
+    }
+  ],
+  "anchors": {}
+}

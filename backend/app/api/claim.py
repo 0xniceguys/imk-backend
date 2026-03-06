@@ -85,14 +85,7 @@ async def claim_payout(
     rpc  = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
     prog = settings.betting_program_id
 
-    # Get admin pubkey for the treasury derivation (claim ix needs it)
-    try:
-        admin_kp = get_admin_keypair()
-        admin_pubkey = str(admin_kp.pubkey())
-    except ValueError as exc:
-        raise HTTPException(500, f"Admin keypair not configured: {exc}")
-
-    # Build the claim instruciton
+    # Build the claim instruction (admin is gas sponsor)
     try:
         blockhash = await solana_tx.get_recent_blockhash(rpc)
         tx_bytes = solana_tx.build_claim_ix(
@@ -100,7 +93,7 @@ async def claim_payout(
             match_pda_str=match.on_chain_match_pda,
             skr_mint_str=settings.skr_mint,
             treasury_wallet_str=settings.treasury_wallet,
-            admin_pubkey_str=admin_pubkey,
+            admin_keypair=admin_kp,
             blockhash=blockhash,
             program_id_str=prog,
         )

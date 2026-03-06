@@ -33,5 +33,5 @@ fi
 PYTHONUNBUFFERED=1 nohup "$PYTHON" "$N64/training/scripts/watchdog.py" \
     > "$LOG/watchdog.log" 2>&1 &
 echo "Watchdog pid=$!"
-echo "Watchdog managing all 4 agents. Logs: $LOG/watchdog.log"
+echo "Watchdog managing 3 Phase-2 agents (lstm, obj_belief, disc_rssm). Logs: $LOG/watchdog.log"
 echo "Check status: $PYTHON $N64/training/scripts/check_training.py"

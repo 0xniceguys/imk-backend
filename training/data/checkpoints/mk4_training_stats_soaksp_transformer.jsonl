@@ -1,0 +1,12 @@
+{"episode": 1, "arch": "transformer_wm_hier_ac", "n_steps": 1096, "ppo_policy_loss": -0.0136, "ppo_value_loss": 4.1678, "ppo_entropy": 3.0407, "ppo_ratio_mean": 0.9987, "ppo_clip_frac": 0.0}
+{"update": 1, "agent": "transformer", "episode": 1, "batch_eps": 1}
+{"episode": 2, "arch": "transformer_wm_hier_ac", "n_steps": 2274, "ppo_policy_loss": 0.001, "ppo_value_loss": 4.4007, "ppo_entropy": 3.0301, "ppo_ratio_mean": 0.9979, "ppo_clip_frac": 0.2102}
+{"update": 2, "agent": "transformer", "episode": 2, "batch_eps": 1}
+{"episode": 3, "arch": "transformer_wm_hier_ac", "n_steps": 1284, "ppo_policy_loss": -0.0067, "ppo_value_loss": 4.1387, "ppo_entropy": 3.0216, "ppo_ratio_mean": 1.0031, "ppo_clip_frac": 0.0}
+{"update": 3, "agent": "transformer", "episode": 3, "batch_eps": 1}
+{"episode": 4, "arch": "transformer_wm_hier_ac", "n_steps": 1290, "ppo_policy_loss": -0.0065, "ppo_value_loss": 4.1059, "ppo_entropy": 3.0157, "ppo_ratio_mean": 0.9988, "ppo_clip_frac": 0.0419}
+{"update": 4, "agent": "transformer", "episode": 4, "batch_eps": 1}
+{"episode": 5, "arch": "transformer_wm_hier_ac", "n_steps": 1643, "ppo_policy_loss": -0.0018, "ppo_value_loss": 2.8365, "ppo_entropy": 3.007, "ppo_ratio_mean": 1.0005, "ppo_clip_frac": 0.0438}
+{"update": 5, "agent": "transformer", "episode": 5, "batch_eps": 1}
+{"episode": 6, "arch": "transformer_wm_hier_ac", "n_steps": 2274, "ppo_policy_loss": -0.002, "ppo_value_loss": 2.9703, "ppo_entropy": 3.0016, "ppo_ratio_mean": 0.998, "ppo_clip_frac": 0.0215}
+{"update": 6, "agent": "transformer", "episode": 6, "batch_eps": 1}

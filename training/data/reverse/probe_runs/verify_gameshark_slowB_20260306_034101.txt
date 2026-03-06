@@ -1,0 +1,6 @@
+usage: probe_attack_addrs.py [-h] [--boot] [--hold-frames HOLD_FRAMES]
+                             [--release-frames RELEASE_FRAMES]
+                             [--repeats REPEATS]
+                             [--between-actions BETWEEN_ACTIONS]
+                             [--walk-frames WALK_FRAMES] [--actions ACTIONS]
+probe_attack_addrs.py: error: unrecognized arguments: --hold-frames 12 --release-frames 50 --repeats 4 --between-actions 60 --walk-frames 220

@@ -4,10 +4,12 @@ mk4_train.py — MK4 Training Loop
 ──────────────────────────────────────────────────────────
 Runs RL training episodes against the MK4 CPU or in self-play.
 
-Agent sees a 14-float observation per frame, stacked × 4 = 56 inputs:
+Agent sees a 22-float observation per frame, stacked × 4 = 88 inputs:
   [p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing,
    p1_action, p2_action, p1_y_vel, p2_airborne,
-   p1_hitstun, p2_hitstun, p1_airborne]
+   p1_hitstun, p2_hitstun, p1_airborne,
+   p1_move_lp, p1_move_hp, p1_move_lk, p1_move_hk,
+   p2_move_lp, p2_move_hp, p2_move_lk, p2_move_hk]
 
 Reward: Mk4ShapedRewardExtractor
   - health delta (asymmetric: taking damage hurts 1.5×)
@@ -45,7 +47,8 @@ P1_CTRL    = '/tmp/mk4_ctrl'
 # Episode tuning
 MAX_EPISODE_SECS = 99      # full MK4 round timer — agent has full fight duration
 STEP_SECS        = 0.033   # 33ms per agent decision (~2 frames at 60fps, near human reflex)
-SETTLE_SECS      = 2.0     # let VS splash animation play before agent acts
+# Faster episode turnover for parallel training: deterministic 30-frame settle.
+SETTLE_SECS      = 0.5
 X_NORM           = 15.0    # position normalisation ceiling
 DIST_NORM        = 15.0    # distance normalisation ceiling
 
@@ -113,9 +116,7 @@ def macro_to_ctrl_state(macro: MacroAction) -> ControllerState:
     return _MACRO_MAP.get(macro, ControllerState())
 
 
-# P2 is always on the RIGHT side at round start, so LEFT/RIGHT directions are
-# flipped relative to P1. ADVANCE for P2 means moving LEFT (toward P1).
-# SPECIAL_* and THROW_ATTEMPT use D-LEFT for P1 which becomes D-RIGHT for P2.
+# Mirrored directional map used when the fighter is on the right side.
 _MACRO_MAP_P2: dict[MacroAction, ControllerState] = {
     **_MACRO_MAP,   # inherit all non-directional actions unchanged
     # Override direction-dependent actions (P2 starts on the RIGHT side):
@@ -130,9 +131,24 @@ _MACRO_MAP_P2: dict[MacroAction, ControllerState] = {
 }
 
 
+def macro_to_ctrl_state_facing(
+    macro: MacroAction,
+    facing_sign: float | int | None = 1.0,
+) -> ControllerState:
+    """Direction-aware macro mapping.
+
+    facing_sign:
+      +1 -> opponent is to the right (default P1 orientation)
+      -1 -> opponent is to the left (crossed-over/right-side orientation)
+    """
+    if facing_sign is not None and float(facing_sign) < 0.0:
+        return _MACRO_MAP_P2.get(macro, ControllerState())
+    return _MACRO_MAP.get(macro, ControllerState())
+
+
 def macro_to_ctrl_state_p2(macro: MacroAction) -> ControllerState:
-    """Convert macro to controller state for player 2 (right side — directions mirrored)."""
-    return _MACRO_MAP_P2.get(macro, ControllerState())
+    """Backward-compatible helper for static right-side mapping."""
+    return macro_to_ctrl_state_facing(macro, facing_sign=-1.0)
 
 
 def write_ctrl(ctrl_state: ControllerState, path: str = P1_CTRL) -> None:
@@ -154,11 +170,11 @@ def write_ctrl(ctrl_state: ControllerState, path: str = P1_CTRL) -> None:
 
 # ── Observation builder ───────────────────────────────────────────────────────
 # Observation size constants (update these if adding more RAM signals)
-RAW_OBS_DIM = 14    # single-frame; 7 position/health + 7 verified RAM signals
+RAW_OBS_DIM = 22    # single-frame; 7 core + 7 motion/attack + 8 move-type one-hot signals
 
 def build_obs(state) -> list[float]:
     """
-    14-float observation vector:
+    22-float observation vector:
       Position/health (always available):
         [0]  p1_hp          normalised health P1  [0,1]
         [1]  p2_hp          normalised health P2  [0,1]
@@ -176,6 +192,16 @@ def build_obs(state) -> list[float]:
         [11] p1_hitstun     attack active P1 {0,1}
         [12] p2_hitstun     attack active P2 {0,1}
         [13] p1_airborne    airborne flag P1 {0,1}
+
+      Deterministic move-type one-hot (verified signatures):
+        [14] p1_move_lp     P1 low punch
+        [15] p1_move_hp     P1 high punch
+        [16] p1_move_lk     P1 low kick
+        [17] p1_move_hk     P1 high kick
+        [18] p2_move_lp     P2 low punch
+        [19] p2_move_hp     P2 high punch
+        [20] p2_move_lk     P2 low kick
+        [21] p2_move_hk     P2 high kick
     """
     ex = state.extras if hasattr(state, 'extras') and state.extras else {}
 
@@ -186,43 +212,85 @@ def build_obs(state) -> list[float]:
     p2_x    = max(-1.0, min(1.0, (state.p2_x or 0.0) / X_NORM))
     dist    = min(1.0, abs((state.p2_x or 0.0) - (state.p1_x or 0.0)) / DIST_NORM)
     facing  = ex.get('facing_sign', 1.0 if (state.p2_x or 0.0) >= (state.p1_x or 0.0) else -1.0)
+    p1_y_vel = max(-1.0, min(1.0, ex.get('p1_y_vel', 0.0)))
+    p2_airborne = float(ex.get('p2_airborne', 0.0))
+    p1_hitstun = float(ex.get('p1_hitstun', 0.0) > 0)
+    p2_hitstun = float(ex.get('p2_hitstun', 0.0) > 0)
+    p1_airborne = float(ex.get('p1_airborne', 0.0))
+    p1_move_lp = float(ex.get('p1_move_lp', 0.0) > 0)
+    p1_move_hp = float(ex.get('p1_move_hp', 0.0) > 0)
+    p1_move_lk = float(ex.get('p1_move_lk', 0.0) > 0)
+    p1_move_hk = float(ex.get('p1_move_hk', 0.0) > 0)
+    p2_move_lp = float(ex.get('p2_move_lp', 0.0) > 0)
+    p2_move_hp = float(ex.get('p2_move_hp', 0.0) > 0)
+    p2_move_lk = float(ex.get('p2_move_lk', 0.0) > 0)
+    p2_move_hk = float(ex.get('p2_move_hk', 0.0) > 0)
+
+    # Use decoded attack-state first, then fall back to proxy activity so
+    # action slots remain live when signatures miss.
+    p1_action = min(1.0, max(0.0, ex.get('p1_action', 0.0)))
+    p2_action = min(1.0, max(0.0, ex.get('p2_action', 0.0)))
+    p1_action = max(p1_action, p1_hitstun)
+    p2_action = max(p2_action, p2_hitstun)
+    if p1_action == 0.0:
+        p1_action = float((abs(p1_y_vel) > 0.05) or (p1_airborne > 0.5) or (p1_hitstun > 0.5))
+    if p2_action == 0.0:
+        p2_action = float((p2_airborne > 0.5) or (p2_hitstun > 0.5))
 
     return [
         # ── 7 position/health signals ─────────────────────────────────────────
         p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing,
         # ── 7 live-scan-verified signals ──────────────────────────────────────
-        min(1.0, max(0.0, ex.get('p1_action',  0.0))),   # [7]  P1 animation/action state
-        min(1.0, max(0.0, ex.get('p2_action',  0.0))),   # [8]  P2 animation/action state
-        max(-1.0, min(1.0, ex.get('p1_y_vel',  0.0))),   # [9]  P1 Y velocity (neg=up, pos=down)
-        float(ex.get('p2_airborne', 0.0)),                # [10] P2 airborne (P2 y_vel N/A)
-        float(ex.get('p1_hitstun', 0.0) > 0),            # [11] P1 attack/hitbox active
-        float(ex.get('p2_hitstun', 0.0) > 0),            # [12] P2 attack/hitbox active
-        float(ex.get('p1_airborne', 0.0)),                # [13] P1 airborne
+        p1_action,                                       # [7]  P1 animation/action state (or proxy)
+        p2_action,                                       # [8]  P2 animation/action state (or proxy)
+        p1_y_vel,                                        # [9]  P1 Y velocity (neg=up, pos=down)
+        p2_airborne,                                     # [10] P2 airborne (P2 y_vel N/A)
+        p1_hitstun,                                      # [11] P1 attack/hitbox active
+        p2_hitstun,                                      # [12] P2 attack/hitbox active
+        p1_airborne,                                     # [13] P1 airborne
+        p1_move_lp,                                      # [14] P1 move: LP
+        p1_move_hp,                                      # [15] P1 move: HP
+        p1_move_lk,                                      # [16] P1 move: LK
+        p1_move_hk,                                      # [17] P1 move: HK
+        p2_move_lp,                                      # [18] P2 move: LP
+        p2_move_hp,                                      # [19] P2 move: HP
+        p2_move_lk,                                      # [20] P2 move: LK
+        p2_move_hk,                                      # [21] P2 move: HK
     ]
 
 
 # ── Agent factory ─────────────────────────────────────────────────────────────
 
-def build_agent(agent_type: str, args=None):
+def build_agent(agent_type: str, args=None, device: str = 'cpu'):
+    # Backward-compatible device resolution:
+    # - explicit `device` arg wins
+    # - optional args.device fallback for older callsites
+    # - defaults to CPU when unspecified
+    resolved_device = device
+    if resolved_device == 'cpu' and args is not None:
+        maybe = getattr(args, 'device', None)
+        if isinstance(maybe, str) and maybe:
+            resolved_device = maybe
+
     if agent_type == 'random':
         actions = list(MacroAction)
         return lambda obs: random.choice(actions)
 
     if agent_type == 'mlp':
         from n64train.experiments.mk4_agent import Mk4MlpAgent
-        agent = Mk4MlpAgent()
+        agent = Mk4MlpAgent(device=resolved_device)
         print(f'[agent] MLP — ep={agent.episode}')
         return agent
 
     if agent_type == 'lstm':
         from n64train.experiments.mk4_agent import Mk4LstmAgent
-        agent = Mk4LstmAgent()
+        agent = Mk4LstmAgent(device=resolved_device)
         print(f'[agent] LSTM — ep={agent.episode}')
         return agent
 
     # Archs 3–8 via registry
     from n64train.experiments.mk4_architectures import build_arch_agent
-    agent = build_arch_agent(agent_type)
+    agent = build_arch_agent(agent_type, device=resolved_device)
     print(f'[agent] {agent_type} — ep={agent.episode}')
     return agent
 
@@ -292,7 +360,7 @@ def run_training(args) -> None:
             prev_state = None
 
             action_history: deque[str] = deque(maxlen=20)
-            frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)  # 4×14 = 56 floats
+            frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)  # 4×RAW_OBS_DIM stacked floats
 
             # Reset LSTM hidden state at episode start
             if hasattr(agent, 'reset_episode'):
@@ -306,12 +374,12 @@ def run_training(args) -> None:
                 # Agent decides action from previous observation
                 if prev_state is not None:
                     obs = build_obs(prev_state)
-                    stacked_obs = frame_stack.push(obs)  # 4×14 = 56-float stacked vector
+                    stacked_obs = frame_stack.push(obs)  # 4×RAW_OBS_DIM stacked vector
                     action_macro = agent(stacked_obs)    # feed stacked obs to agent
                     action_history.append(action_macro.value)
                     write_ctrl(macro_to_ctrl_state(action_macro))
                 else:
-                    frame_stack.push([0.0] * RAW_OBS_DIM)     # warm up with 14-wide zero obs
+                    frame_stack.push([0.0] * RAW_OBS_DIM)     # warm up with RAW_OBS_DIM-wide zero obs
                     write_ctrl(ControllerState())
 
                 time.sleep(STEP_SECS)

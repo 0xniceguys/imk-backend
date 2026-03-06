@@ -1,0 +1,10 @@
+{
+  "tag": "route_scan_p1p2_cage_subzero",
+  "test": "health_verify",
+  "action": "lp",
+  "created_at": "2026-03-06 17:28:21",
+  "socket_path": "/tmp/mk4_probe_route_scan_p1p2_cage_subzero.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/route_scan_p1p2_cage_subzero/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/route_scan_p1p2_cage_subzero/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_route_scan_p1p2_cage_subzero/config"
+}

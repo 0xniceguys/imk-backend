@@ -43,16 +43,15 @@ ADDRESSES_CONFIRMED = True
 # savestate/mode transitions where the animated HUD bytes can transiently read 0.
 #
 # Important live-runtime note:
-# In the active `p1p2state.st` / backend flow, these two internal player structs
-# are labeled opposite to the older reverse-engineering notes. The live mapping is:
-#   in-game P1 / left-side fighter  -> 0x80126F54
-#   in-game P2 / right-side fighter -> 0x800FE0D8
+# In the active `p1p2state.st` / backend flow, one-sided probes show:
+#   in-game P1 / left-side fighter  -> 0x800FE0D8
+#   in-game P2 / right-side fighter -> 0x80126F54
 #
 # HUD display bytes are retained as references for visual debugging only:
 #   P1_DISPLAY_HEALTH_ADDR = 0x8036E729
 #   P2_DISPLAY_HEALTH_ADDR = 0x8036E72E
-P1_HEALTH_ADDR   = 0x80126F54   # u32 fixed-point, full health = 0x00010000
-P2_HEALTH_ADDR   = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
+P1_HEALTH_ADDR   = 0x800FE0D8   # u32 fixed-point, full health = 0x00010000
+P2_HEALTH_ADDR   = 0x80126F54   # u32 fixed-point, full health = 0x00010000
 P1_DISPLAY_HEALTH_ADDR = 0x8036E729
 P2_DISPLAY_HEALTH_ADDR = 0x8036E72E
 
@@ -112,19 +111,31 @@ P2_X_ADDR = 0x8006A060  # confirmed: hi-halfword; CPU idle-walk: 1→2→3→4�
 CANDIDATE_ADDRS_CONFIRMED = True   # ← live scan completed 2026-03-03
 
 # Action state: 0 = idle/walking, 4 = jumping or attacking, check +0x0F8 for ground
-P1_ACTION_STATE_ADDR = 0x800FE08C   # u32: 0=idle, 4=active
+P1_BASE = 0x800FE000
+P1_ACTION_STATE_ADDR = P1_BASE + 0x08C   # u32: 0=idle, 4=active
 P1_GROUND_FLAG_ADDR  = 0x800FE0F8   # u32: 4=on_ground, 1=airborne
 
 # Y velocity during jump (PERFECT ARC — returns to baseline on landing)
 # Negative = going up (N64 world coords), positive = falling
 P1_Y_VEL_ADDR        = 0x800FE90C   # u32: 0x738 idle, 0xFFFFED1A mid-jump
 
-# Attack type register candidate from early combat scans. Deterministic verifier
-# runs show it can change during the opponent's punch phase as well, so it is
-# retained for reverse-engineering notes but not exported as a trusted live
-# action feature right now.
-P1_ATTACK_TYPE_ADDR = 0x800FE090   # u32: 0=idle, LP=69422, HP=67956, HK=68606
-P1_LK_ADDR          = 0x800FE144   # reverse-engineering candidate for LK; drifts at idle
+# Deterministic move-type signatures (verified 2026-03-06):
+#   P1 best strong combo: +0x08C, +0x1AC, +0x118
+#   P2 best strong combo: +0x080, +0x094
+# These are used for richer training features (LP/HP/LK/HK one-hot flags).
+P1_MOVE_SIG_A_ADDR = P1_BASE + 0x08C
+P1_MOVE_SIG_B_ADDR = P1_BASE + 0x1AC
+P1_MOVE_SIG_C_ADDR = P1_BASE + 0x118
+P1_MOVE_SIGNATURES: dict[str, tuple[int, int, int]] = {
+    'lp': (0x00000002, 0x00000000, 0x0003F9E3),
+    'hp': (0x00000003, 0x00065EA7, 0x0003F9E3),
+    'lk': (0x00000000, 0x00000000, 0x0003F9E3),
+    'hk': (0x00000000, 0x00064A2C, 0x0003F9E3),
+}
+
+# Legacy reverse-engineering notes retained for probes/tools.
+P1_ATTACK_TYPE_ADDR = 0x800FE090
+P1_LK_ADDR          = 0x800FE144
 
 # Candidate block/hitbox flag from early scans. It is retained for reverse-
 # engineering notes, but not exported directly because live probes did not yet
@@ -143,11 +154,18 @@ P2_GROUND_FLAG_ADDR  = P2_BASE + 0x178   # 0x80126F78 - hi-halfword 0=ground, 0x
 P2_Y_VEL_ADDR        = 0x00000000        # NOT AVAILABLE — P2 struct lacks y_vel
 P2_HITSTUN_ADDR      = P2_BASE + 0x19C   # 0x80126F9C - 0=idle, 2=attacking punch-only (NOT jump)
 
-# P2 primary attack-register candidate. Deterministic verifier runs show it can
-# also change during the opponent's punch phase, so it is kept only as a
-# reverse-engineering note for now.
-P2_ATTACK_TYPE_ADDR = P2_BASE + 0x094   # 0x80126E94 - LP/HP/HK unique signed values
-P2_LK_ADDR          = P2_BASE + 0x130   # reverse-engineering candidate; drifts at idle
+P2_MOVE_SIG_A_ADDR = P2_BASE + 0x080
+P2_MOVE_SIG_B_ADDR = P2_BASE + 0x094
+P2_MOVE_SIGNATURES: dict[str, tuple[int, int]] = {
+    'lp': (0x0000003F, 0x00000000),
+    'hp': (0x00000000, 0xFFFE4C8C),
+    'lk': (0x00000002, 0x00000000),
+    'hk': (0x00000000, 0xFFFEB2B1),
+}
+
+# Legacy reverse-engineering notes retained for probes/tools.
+P2_ATTACK_TYPE_ADDR = P2_BASE + 0x094
+P2_LK_ADDR          = P2_BASE + 0x130
 
 # Character IDs (u32 word, LSB = char id)
 P1_CHAR_WORD_ADDR = 0x800FE290   # u32: LSB = char (0x0B=Kai)
@@ -169,6 +187,13 @@ class Mk4FightTraceProvider:
     When True, reads real values and returns a live TracedState.
     """
     helper: DebugReaderLike
+    # Number of frames to keep a lightweight "recent opponent commitment"
+    # window alive after P2 attack signature turns off. This approximates
+    # punish/recovery opportunities until a true P2 hitstun/recovery address
+    # is fully verified.
+    punish_window_frames: int = 10
+    _p2_recent_attack_countdown: int = 0
+    _last_frame_id: int | None = None
 
     def _read_s16hi(self, addr: int) -> float | None:
         """Read the signed int16 in the upper halfword of a u32. Returns None on error."""
@@ -235,18 +260,43 @@ class Mk4FightTraceProvider:
         p1_airborne = 0.0
         p1_y_vel = 0.0
         p1_hitstun = 0.0
+        p1_move_lp = 0.0
+        p1_move_hp = 0.0
+        p1_move_lk = 0.0
+        p1_move_hk = 0.0
         p2_action = 0.0
         p2_airborne = 0.0
         p2_y_vel = 0.0
         p2_hitstun = 0.0
+        p2_move_lp = 0.0
+        p2_move_hp = 0.0
+        p2_move_lk = 0.0
+        p2_move_hk = 0.0
+        p1_gnd_raw = None
+        p2_gnd_raw = None
+        p1_yv_raw = None
+        p1_move_a_raw = None
+        p1_move_b_raw = None
+        p1_move_c_raw = None
+        p1_hitstun_raw = None
+        p2_move_a_raw = None
+        p2_move_b_raw = None
+        p2_hitstun_raw = None
+        p2_move_signals_verified = 0.0
 
         if CANDIDATE_ADDRS_CONFIRMED:
-            # Dynamic action-side registers remain under investigation. The
-            # deterministic verifier showed cross-player coupling and idle drift
-            # in the current candidates, so we keep them disabled here until we
-            # have player-isolated addresses again.
-            p1_action = 0.0
-            p1_hitstun = 0.0
+            # Deterministic move-type signatures verified with isolated scripted
+            # inputs. Decode LP/HP/LK/HK for both players into one-hot features.
+            p1_move_a_raw = self._read_u32_safe(P1_MOVE_SIG_A_ADDR)
+            p1_move_b_raw = self._read_u32_safe(P1_MOVE_SIG_B_ADDR)
+            p1_move_c_raw = self._read_u32_safe(P1_MOVE_SIG_C_ADDR)
+            if p1_move_a_raw is not None and p1_move_b_raw is not None and p1_move_c_raw is not None:
+                p1_sig = (p1_move_a_raw, p1_move_b_raw, p1_move_c_raw)
+                p1_move_lp = float(p1_sig == P1_MOVE_SIGNATURES['lp'])
+                p1_move_hp = float(p1_sig == P1_MOVE_SIGNATURES['hp'])
+                p1_move_lk = float(p1_sig == P1_MOVE_SIGNATURES['lk'])
+                p1_move_hk = float(p1_sig == P1_MOVE_SIGNATURES['hk'])
+            p1_hitstun_raw = self._read_u32_safe(P1_HITSTUN_ADDR)
 
             # P1 ground flag: 4=on_ground, 1=airborne
             p1_gnd_raw  = self._read_u32_safe(P1_GROUND_FLAG_ADDR)
@@ -262,8 +312,16 @@ class Mk4FightTraceProvider:
             else:
                 p1_y_vel = 0.0
 
-            p2_action = 0.0
-            p2_hitstun = 0.0
+            p2_move_a_raw = self._read_u32_safe(P2_MOVE_SIG_A_ADDR)
+            p2_move_b_raw = self._read_u32_safe(P2_MOVE_SIG_B_ADDR)
+            if p2_move_a_raw is not None and p2_move_b_raw is not None:
+                p2_sig = (p2_move_a_raw, p2_move_b_raw)
+                p2_move_lp = float(p2_sig == P2_MOVE_SIGNATURES['lp'])
+                p2_move_hp = float(p2_sig == P2_MOVE_SIGNATURES['hp'])
+                p2_move_lk = float(p2_sig == P2_MOVE_SIGNATURES['lk'])
+                p2_move_hk = float(p2_sig == P2_MOVE_SIGNATURES['hk'])
+                p2_move_signals_verified = 1.0
+            p2_hitstun_raw = self._read_u32_safe(P2_HITSTUN_ADDR)
 
             # P2 jump flag lives in the upper halfword of the word at +0x178.
             # Deterministic probes showed it staying 0 in neutral and P1 jump,
@@ -277,10 +335,42 @@ class Mk4FightTraceProvider:
             # P2 Y velocity: NOT AVAILABLE in P2 struct
             p2_y_vel = 0.0
 
+        # P1 hitbox-active: use verified per-frame address (+0x310) when readable.
+        # If the read fails, fall back to decoded move signatures.
+        if p1_hitstun_raw is not None:
+            p1_hitstun = float(p1_hitstun_raw > 0)
+        else:
+            p1_hitstun = float((p1_move_lp + p1_move_hp + p1_move_lk + p1_move_hk) > 0.5)
+
+        # P2 attack-active proxy from decoded move signatures.
+        # NOTE: 0x80126F9C is still constant in current probes, so we do not
+        # treat it as verified recovery/hitstun yet.
+        p2_hitstun = float((p2_move_lp + p2_move_hp + p2_move_lk + p2_move_hk) > 0.5)
+
+        # Maintain a short "recently attacking" window for reward shaping.
+        # Reset the window when frame_id is non-monotonic (new episode/reset).
+        if self._last_frame_id is not None and frame_id <= self._last_frame_id:
+            self._p2_recent_attack_countdown = 0
+        self._last_frame_id = frame_id
+        if p2_hitstun > 0.5:
+            self._p2_recent_attack_countdown = max(0, int(self.punish_window_frames))
+        elif self._p2_recent_attack_countdown > 0:
+            self._p2_recent_attack_countdown -= 1
+        p2_recent_attack = float(self._p2_recent_attack_countdown > 0)
+
+        # Use decoded attack state first, then fall back to movement proxies so
+        # action slots remain non-constant even when signatures miss.
+        p1_action = p1_hitstun
+        p2_action = p2_hitstun
+        if p1_action == 0.0:
+            p1_action = float(
+                (abs(p1_y_vel) > 0.05) or (p1_airborne > 0.5) or (p1_hitstun > 0.5)
+            )
+        if p2_action == 0.0:
+            p2_action = float((p2_airborne > 0.5) or (p2_hitstun > 0.5))
+
         facing_sign = 1.0 if p2_x >= p1_x else -1.0
         extras: dict = {
-            # Dynamic action-side signals are disabled until player-isolated
-            # addresses are confirmed by the deterministic verifier.
             'p1_action':   p1_action,
             'p2_action':   p2_action,
             # Airborne: 1.0 when in air, 0.0 on ground
@@ -289,19 +379,43 @@ class Mk4FightTraceProvider:
             # Y velocity: negative = moving up, positive = falling. Clamped to [-1,+1]
             'p1_y_vel':    p1_y_vel,
             'p2_y_vel':    p2_y_vel,
-            # Attack-side reward flags are also disabled until the underlying
-            # player-isolated addresses are confirmed.
+            # Attack-active flags from verified per-player move signatures.
             'p1_hitstun':  p1_hitstun,
             'p2_hitstun':  p2_hitstun,
+            # Decoded move one-hot flags (richer observation inputs).
+            'p1_move_lp':  p1_move_lp,
+            'p1_move_hp':  p1_move_hp,
+            'p1_move_lk':  p1_move_lk,
+            'p1_move_hk':  p1_move_hk,
+            'p2_move_lp':  p2_move_lp,
+            'p2_move_hp':  p2_move_hp,
+            'p2_move_lk':  p2_move_lk,
+            'p2_move_hk':  p2_move_hk,
+            # Feature-validity flags:
+            #  - p2_hitstun_verified: TRUE only when real recovery/hitstun
+            #    address is proven (currently not proven; kept at 0.0).
+            #  - p2_attack_sig_verified: move-signature decode validity.
+            'p2_hitstun_verified': 0.0,
+            'p2_attack_sig_verified': p2_move_signals_verified,
+            # Short commitment window derived from decoded attack signatures.
+            # Used as punish fallback until true P2 recovery/hitstun is verified.
+            'p2_recent_attack': p2_recent_attack,
             # Crossover-aware facing
             'facing_sign': facing_sign,
             # Raw internal health words for reverse-engineering/debugging.
             'p1_health_word': self._read_u32_safe(P1_HEALTH_ADDR) or 0,
             'p2_health_word': self._read_u32_safe(P2_HEALTH_ADDR) or 0,
             'timer_raw': timer if timer is not None else 0,
-            'p1_ground_flag_raw': p1_gnd_raw if 'p1_gnd_raw' in locals() and p1_gnd_raw is not None else 0,
-            'p2_air_flag_word': p2_gnd_raw if 'p2_gnd_raw' in locals() and p2_gnd_raw is not None else 0,
-            'p1_y_vel_raw': p1_yv_raw if 'p1_yv_raw' in locals() and p1_yv_raw is not None else 0,
+            'p1_ground_flag_raw': p1_gnd_raw if p1_gnd_raw is not None else 0,
+            'p2_air_flag_word': p2_gnd_raw if p2_gnd_raw is not None else 0,
+            'p1_y_vel_raw': p1_yv_raw if p1_yv_raw is not None else 0,
+            'p1_move_sig_a_raw': p1_move_a_raw if p1_move_a_raw is not None else 0,
+            'p1_move_sig_b_raw': p1_move_b_raw if p1_move_b_raw is not None else 0,
+            'p1_move_sig_c_raw': p1_move_c_raw if p1_move_c_raw is not None else 0,
+            'p2_move_sig_a_raw': p2_move_a_raw if p2_move_a_raw is not None else 0,
+            'p2_move_sig_b_raw': p2_move_b_raw if p2_move_b_raw is not None else 0,
+            'p1_hitstun_raw': p1_hitstun_raw if p1_hitstun_raw is not None else 0,
+            'p2_hitstun_raw': p2_hitstun_raw if p2_hitstun_raw is not None else 0,
         }
 
         return TracedState(
@@ -336,20 +450,19 @@ class Mk4FightTraceProvider:
         if (p1 is None or p1 == 0) and (p2 is None or p2 == 0):
             return False
 
-        # Fight hasn't started yet — check using health: if BOTH are at full (160),
-        # the fight hasn't started. We no longer check timer >= 99 because we freeze
-        # the timer at 99 every step to prevent CPU timeout wins.
-        # Fight hasn't started yet — both at full health
+        # Fight hasn't started yet — both at full health.
+        # Timer can legitimately be high (near 99) at round start, so health is
+        # the most stable prefight gate.
         if p1 == HEALTH_MAX and p2 == HEALTH_MAX:
             return False
 
-        # KO — one player's health hit zero
+        # KO — one player's health hit zero.
         if p1 is not None and p1 <= 0:
             return True
         if p2 is not None and p2 <= 0:
             return True
 
-        # Timer expired (only matters if timer isn't frozen)
+        # Timer expired.
         if timer is not None and timer == 0:
             return True
 

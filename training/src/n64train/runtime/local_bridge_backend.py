@@ -18,7 +18,7 @@ from n64train.runtime.events import EventExtractor, SimpleCombatEventExtractor
 from n64train.runtime.frame_capture import FrameCapture, ScreenshotPollFrameCapture
 from n64train.runtime.launcher import LaunchOptions, Mupen64PlusSession
 from n64train.runtime.memory import MemoryProbe, MemoryReader, ZeroMemoryReader
-from n64train.runtime.rewards import DeltaHealthRewardExtractor, RewardExtractor
+from n64train.runtime.rewards import Mk4ShapedRewardExtractor, RewardExtractor
 from n64train.runtime.tracing import NullTraceProvider, TraceProvider
 from n64train.runtime.types import (
     ActionPacket,
@@ -102,7 +102,7 @@ class LocalBridgeBackend:
         self.memory_reader = memory_reader or ZeroMemoryReader()
         self.trace_provider = trace_provider or self._build_default_trace_provider(self.memory_reader)
         self.frame_capture = frame_capture or ScreenshotPollFrameCapture(instance_id=self.config.instance_id)
-        self.reward_extractor = reward_extractor or DeltaHealthRewardExtractor()
+        self.reward_extractor = reward_extractor or Mk4ShapedRewardExtractor()
         self.event_extractor = event_extractor or SimpleCombatEventExtractor()
 
         self.session: Mupen64PlusSession | None = None
@@ -201,11 +201,32 @@ class LocalBridgeBackend:
         path = str(savestate_path)
         target_path = Path(path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        output = self._run_debugger_passthrough_command(
-            f"statesave {path}",
-            ok_token="M64P_STATESAVE_OK",
-            timeout_s=45.0,
-        )
+        handler = getattr(self.memory_reader, "debugger_command", None)
+        if not callable(handler):
+            raise NotImplementedError(
+                f"Memory reader {self.memory_reader.__class__.__name__} does not support debugger commands"
+            )
+        output = str(handler(f"statesave {path}", timeout_s=45.0))
+        ok_token_seen = ("M64P_STATESAVE_OK" in output)
+        if not ok_token_seen:
+            # Some debugger builds occasionally omit the OK marker even when the
+            # file is successfully written. Fall back to filesystem verification.
+            try:
+                file_size = self._wait_for_savestate_file(target_path)
+            except Exception as exc:
+                tail = output[-2000:]
+                raise RuntimeError(
+                    f"Debugger command failed: 'statesave {path}'; expected "
+                    f"M64P_STATESAVE_OK; tail={tail!r}"
+                ) from exc
+            return {
+                "saved": True,
+                "savestate_path": path,
+                "debugger_command": "statesave",
+                "output_tail": output[-1000:],
+                "file_size_bytes": file_size,
+                "ok_token_seen": False,
+            }
         file_size = self._wait_for_savestate_file(target_path)
         return {
             "saved": True,
@@ -213,6 +234,7 @@ class LocalBridgeBackend:
             "debugger_command": "statesave",
             "output_tail": output[-1000:],
             "file_size_bytes": file_size,
+            "ok_token_seen": True,
         }
 
     def reset_match(self, reset_spec: ResetSpec | None = None) -> ObservationBundle:
@@ -455,7 +477,5 @@ class LocalBridgeBackend:
                 "match_setup_notes": self.match_setup.notes if self.match_setup else "",
                 "pending_reset_savestate_path": self.pending_reset_savestate_path,
                 "placeholder_bridge": True,
-                "mk4_state_contract_version": MK4_STATE_CONTRACT_VERSION,
-                "mk4_state_payload": state_payload,
             },
         )

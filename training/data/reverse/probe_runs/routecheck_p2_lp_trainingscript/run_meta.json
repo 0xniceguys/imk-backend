@@ -1,0 +1,10 @@
+{
+  "tag": "routecheck_p2_lp_trainingscript",
+  "test": "health_verify",
+  "action": "p2_lp",
+  "created_at": "2026-03-06 17:26:21",
+  "socket_path": "/tmp/mk4_probe_routecheck_p2_lp_trainingscript.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/routecheck_p2_lp_trainingscript/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/routecheck_p2_lp_trainingscript/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_routecheck_p2_lp_trainingscript/config"
+}

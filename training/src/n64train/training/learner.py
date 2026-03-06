@@ -23,9 +23,9 @@ sys.path.insert(0, str(N64_ROOT / 'training/src'))
 sys.path.insert(0, str(N64_ROOT / 'training/scripts'))
 
 from n64train.experiments.mk4_agent import (
-    N_ACTIONS, OBS_DIM,
-    LR_POLICY, LR_VALUE, GAMMA, ENTROPY_COEF, GRAD_CLIP, CKPT_DIR,
+    N_ACTIONS, OBS_DIM, GAMMA, CKPT_DIR,
 )
+from n64train.training.ppo_learner import PPO_ENT_COEF as ENTROPY_COEF, GRAD_CLIP
 from n64train.training.llm_coach import FighterCoach, RoundStats, MacroStats, MACRO_REVIEW_EVERY, FIGHTER_DESCRIPTIONS
 
 LOG_DIR        = N64_ROOT / 'training/data/logs'
@@ -49,6 +49,8 @@ class ParallelLearner:
         batch_size: int = None,
         agent_type: str = 'mlp',
         run_id: str | None = None,          # Bug 4+5: isolate per-job files
+        learner_device: str = 'cpu',
+        disable_coach: bool = False,
     ) -> None:
         self.rollout_queue  = rollout_queue
         self.weight_queues  = weight_queues
@@ -58,6 +60,8 @@ class ParallelLearner:
         self.batch_size     = batch_size or n_workers
         self.agent_type     = agent_type
         self.run_id         = run_id or agent_type
+        self.learner_device = learner_device
+        self.disable_coach  = disable_coach
 
         # Bug 4: per-run-id heartbeat so watchdog can distinguish agents
         self.heartbeat_path = HEARTBEAT_DIR / f'learner_heartbeat_{self.run_id}'
@@ -72,9 +76,19 @@ class ParallelLearner:
 
         # Build the shared agent (learner owns the canonical weights)
         from mk4_train import build_agent
-        self.agent = build_agent(agent_type)
+        self.agent = build_agent(agent_type, device=self.learner_device)
         # Bug 5: point agent's stats writes at the per-run-id stats file
         self.agent._stats_path = self.stats_path
+        # Resume from run-scoped checkpoint when available so restarted jobs
+        # continue from their own latest state, not the shared base ckpt.
+        try:
+            base = self.agent.CKPT
+            scoped = base.parent / f'{base.stem}_{self.run_id}{base.suffix}'
+            if scoped.exists():
+                self.agent.load(scoped)
+                print(f'[learner] resumed from {scoped.name}')
+        except Exception as exc:
+            print(f'[learner] WARNING: could not resume scoped checkpoint: {exc}')
 
         # Learner always gets the underlying net for weight broadcast
         self.net = self.agent.net
@@ -86,20 +100,50 @@ class ParallelLearner:
         self._acc_dealt:  float = 0.0   # running totals for macro coach stats
         self._acc_taken:  float = 0.0
         self._acc_steps:  int   = 0
+        self._acc_spam:   float = 0.0   # accumulated spam penalty
+        self._acc_reward: float = 0.0   # accumulated total reward
+        self._acc_attacks: int = 0      # total attack actions
+        self._acc_hits:    int = 0      # attacks that connected
+        self._acc_moves:   int = 0      # movement actions
+        self._acc_idles:   int = 0      # idle/neutral actions
         self._macro_win_count: int = 0
         self._macro_ep_count:  int = 0
+        self._macro_ko_wins:   int = 0   # wins where P2 health reached 0
+        self._macro_close_losses: int = 0  # losses where P2 had <30% health left
+        # Terminal breakdown counters
+        self._term_ko_wins:        int = 0
+        self._term_timer_wins:     int = 0
+        self._term_wall_wins:      int = 0
+        self._term_ko_losses:      int = 0
+        self._term_timer_losses:   int = 0
+        self._term_wall_losses:    int = 0
+        self._acc_dist_pen:   float = 0.0   # accumulated distance penalty (includes engagement penalty)
+        self._acc_approach:   float = 0.0   # accumulated approach reward (includes engagement bonus)
 
         # ── LLM Coach ──────────────────────────────────────────────────
-        # dry_run=True if no Ollama available — FighterCoach handles this gracefully
-        self.coach = FighterCoach(
-            agent_type=agent_type,
-            description=FIGHTER_DESCRIPTIONS.get(agent_type, 'balanced fighter'),
-            log_dir=LOG_DIR,
-        )
-        # Expose the live reward config so workers can consume it
-        self.reward_config = self.coach.config
+        # Optional for speed/stability runs: disable network-driven reward updates.
+        if self.disable_coach:
+            self.coach = None
+            self.reward_config = None
+            print(f'[learner] coach disabled for run={self.run_id}')
+        else:
+            self.coach = FighterCoach(
+                agent_type=agent_type,
+                description=FIGHTER_DESCRIPTIONS.get(agent_type, 'balanced fighter'),
+                log_dir=LOG_DIR,
+            )
+            # Expose the live reward config so workers can consume it
+            self.reward_config = self.coach.config
 
-        print(f'[learner] agent={agent_type}  batch={self.batch_size}')
+        print(
+            f'[learner] agent={agent_type}  batch={self.batch_size}  '
+            f'device={self.learner_device}'
+        )
+        try:
+            from n64train.training.ppo_learner import PPO_EPOCHS
+            print(f'[learner] ppo_epochs={PPO_EPOCHS}')
+        except Exception:
+            pass
 
     def run(self) -> None:
         """Main learner loop."""
@@ -110,6 +154,7 @@ class ParallelLearner:
         workers_done = 0
         start_time = time.time()
         ROLLOUT_TIMEOUT = 300.0   # seconds: max-ep (~99s) + savestate + PPO update overhead
+        timeout_count = 0
 
         while workers_done < self.n_workers:
             # Bug 4: write heartbeat to per-run-id file
@@ -121,11 +166,25 @@ class ParallelLearner:
             try:
                 rollout = self.rollout_queue.get(timeout=ROLLOUT_TIMEOUT)
             except queue.Empty:
+                timeout_count += 1
                 print(f'[learner] WARNING: no rollout received in {ROLLOUT_TIMEOUT:.0f}s — '
                       f'workers may be stuck (done={workers_done}/{self.n_workers})')
+                if timeout_count >= 3:
+                    raise RuntimeError(
+                        f'Learner timed out waiting for rollouts '
+                        f'({timeout_count} x {ROLLOUT_TIMEOUT:.0f}s)'
+                    )
                 continue
+            timeout_count = 0
 
             if rollout.get('done'):
+                if not rollout.get('completed', True):
+                    raise RuntimeError(
+                        f'Worker {rollout.get("worker_id")} incomplete: '
+                        f'valid={rollout.get("valid_episodes", "?")}/'
+                        f'{rollout.get("target_episodes", "?")} '
+                        f'attempts={rollout.get("attempts", "?")}'
+                    )
                 workers_done += 1
                 print(f'[learner] Worker {rollout["worker_id"]} done ({workers_done}/{self.n_workers})')
                 continue
@@ -163,9 +222,38 @@ class ParallelLearner:
             self._acc_dealt       += raw_dealt
             self._acc_taken       += raw_taken
             self._acc_steps       += ep_steps
+            self._acc_spam        += acc.get('spam', 0.0)
+            self._acc_reward      += ep_r
+            self._acc_attacks     += acc.get('attacks', 0)
+            self._acc_hits        += acc.get('hits', 0)
+            self._acc_moves       += acc.get('moves', 0)
+            self._acc_idles       += acc.get('idles', 0)
             self._macro_ep_count  += 1
+            self._acc_dist_pen   += acc.get('dist_pen', 0.0)
+            self._acc_approach   += acc.get('approach', 0.0)
+            tk = rollout.get('terminal_kind')  # 'ko', 'timer', 'wall_timeout'
             if won:
                 self._macro_win_count += 1
+                if tk == 'ko':
+                    self._term_ko_wins += 1
+                    self._macro_ko_wins += 1
+                elif tk == 'timer':
+                    self._term_timer_wins += 1
+                elif tk == 'wall_timeout':
+                    self._term_wall_wins += 1
+                else:
+                    self._macro_ko_wins += 1  # fallback: assume KO if unknown
+            else:
+                if tk == 'ko':
+                    self._term_ko_losses += 1
+                elif tk == 'timer':
+                    self._term_timer_losses += 1
+                elif tk == 'wall_timeout':
+                    self._term_wall_losses += 1
+                # Close loss: we lost but P2 had <30% health remaining
+                p2_final = acc.get('p2_health_final', 1.0)
+                if p2_final < 0.30:
+                    self._macro_close_losses += 1
 
             # Reward config is frozen for this entire macro cycle (MACRO_REVIEW_EVERY
             # episodes) to keep PPO's MDP stationary. Only macro review updates it.
@@ -173,14 +261,16 @@ class ParallelLearner:
 
             avg50  = sum(self.ep_rewards[-50:]) / len(self.ep_rewards[-50:])
             wr     = self.wins / self.episode_count * 100
+            tk_str = rollout.get('terminal_kind', '?')
             print(
                 f'  ep {self.episode_count:4d}  w{rollout["worker_id"]}'
                 f'  steps={rollout.get("ep_steps",0):3d}'
                 f'  r={ep_r:+7.2f}'
                 f'  [dealt={acc.get("dealt",0):+.1f}'
                 f' taken={acc.get("taken",0):+.1f}'
-                f' spam={acc.get("spam",0):+.1f}]'
-                f'  won={"✓" if rollout.get("won") else "✗"}'
+                f' spam={acc.get("spam",0):+.1f}'
+                f' dist={acc.get("dist_pen",0):+.1f}]'
+                f'  {tk_str}={"W" if rollout.get("won") else "L"}'
                 f'  win%={wr:5.1f}'
                 f'  avg50={avg50:+6.2f}'
             )
@@ -196,6 +286,16 @@ class ParallelLearner:
                     'r_spam':    round(acc.get('spam',  0), 3),
                     'r_approach':round(acc.get('approach',0),3),
                     'r_survival':round(acc.get('survival',0),3),
+                    'r_dist_pen':round(acc.get('dist_pen',0),3),
+                    'terminal_kind': rollout.get('terminal_kind'),
+                    'p1_x_final': round(acc.get('p1_x_final', 0), 2),
+                    'p2_x_final': round(acc.get('p2_x_final', 0), 2),
+                    'dist_final': round(acc.get('dist_final', 0), 2),
+                    'timer_final': acc.get('timer_final'),
+                    'p1_health_final': round(acc.get('p1_health_final', 0), 3),
+                    'p2_health_final': round(acc.get('p2_health_final', 0), 3),
+                    'dealt_hp': round(acc.get('dealt_hp', 0), 1),
+                    'taken_hp': round(acc.get('taken_hp', 0), 1),
                     'agent': self.agent_type,
                 }) + '\n')
 
@@ -206,20 +306,44 @@ class ParallelLearner:
                 # ── LLM Macro coach: every MACRO_REVIEW_EVERY episodes ─────────────
                 # Review BEFORE broadcast so the new config ships on the same
                 # _broadcast_weights() call that workers consume at next episode start.
-                if self._macro_ep_count >= MACRO_REVIEW_EVERY:
+                if self.coach is not None and self._macro_ep_count >= MACRO_REVIEW_EVERY:
+                    n = max(1, self._macro_ep_count)
+                    total_actions = self._acc_attacks + self._acc_moves + self._acc_idles
+                    total_actions = max(1, total_actions)  # avoid div/0
                     macro_stats = MacroStats(
                         episodes=self._macro_ep_count,
-                        win_rate=self._macro_win_count / max(1, self._macro_ep_count),
-                        avg_damage_dealt=self._acc_dealt / max(1, self._macro_ep_count),
-                        avg_damage_taken=self._acc_taken / max(1, self._macro_ep_count),
-                        avg_ep_steps=self._acc_steps / max(1, self._macro_ep_count),
+                        win_rate=self._macro_win_count / n,
+                        avg_damage_dealt=self._acc_dealt / n,
+                        avg_damage_taken=self._acc_taken / n,
+                        avg_ep_steps=self._acc_steps / n,
+                        wins_by_ko=self._macro_ko_wins,
+                        close_losses=self._macro_close_losses,
+                        avg_spam_penalty=self._acc_spam / n,
+                        avg_reward=self._acc_reward / n,
+                        hit_rate_pct=100.0 * self._acc_hits / max(1, self._acc_attacks),
+                        attack_pct=100.0 * self._acc_attacks / total_actions,
+                        move_pct=100.0 * self._acc_moves / total_actions,
+                        idle_pct=100.0 * self._acc_idles / total_actions,
                         current_config=None,
+                        ko_wins=self._term_ko_wins,
+                        timer_wins=self._term_timer_wins,
+                        wall_wins=self._term_wall_wins,
+                        ko_losses=self._term_ko_losses,
+                        timer_losses=self._term_timer_losses,
+                        wall_losses=self._term_wall_losses,
+                        avg_dist_pen=self._acc_dist_pen / n,
+                        avg_approach=self._acc_approach / n,
                     )
                     updated = self.coach.review_and_adjust(macro_stats)
                     self.reward_config = updated
                     # Reset accumulators
-                    self._acc_dealt = self._acc_taken = 0.0
+                    self._acc_dealt = self._acc_taken = self._acc_spam = self._acc_reward = 0.0
+                    self._acc_dist_pen = self._acc_approach = 0.0
                     self._acc_steps = self._macro_win_count = self._macro_ep_count = 0
+                    self._acc_attacks = self._acc_hits = self._acc_moves = self._acc_idles = 0
+                    self._macro_ko_wins = self._macro_close_losses = 0
+                    self._term_ko_wins = self._term_timer_wins = self._term_wall_wins = 0
+                    self._term_ko_losses = self._term_timer_losses = self._term_wall_losses = 0
 
                 self._broadcast_weights()
 
@@ -359,7 +483,10 @@ class ParallelLearner:
         # don't clobber each other.  E.g.:  mk4_policy.pt → mk4_policy_run0.pt
         base = self.agent.CKPT          # e.g. .../checkpoints/mk4_policy.pt
         scoped = base.parent / f'{base.stem}_{self.run_id}{base.suffix}'
-        self.agent.save(scoped)
+        # Atomic save: write to tmp then rename (POSIX rename is atomic)
+        tmp = scoped.with_suffix('.tmp')
+        self.agent.save(tmp)
+        tmp.rename(scoped)
         print(f'  [ckpt] saved → {scoped.name}  update={self.update_count} ep={self.episode_count}')
 
 
@@ -372,6 +499,8 @@ def run_learner(
     batch_size: int,
     agent_type: str = 'mlp',
     run_id: str | None = None,   # Bug 4+5: isolate per-job files
+    learner_device: str = 'cpu',
+    disable_coach: bool = False,
 ) -> None:
     """Entry point for learner process."""
     learner = ParallelLearner(
@@ -383,5 +512,7 @@ def run_learner(
         batch_size=batch_size,
         agent_type=agent_type,
         run_id=run_id,
+        learner_device=learner_device,
+        disable_coach=disable_coach,
     )
     learner.run()

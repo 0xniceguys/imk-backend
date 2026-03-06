@@ -18,7 +18,18 @@ from pathlib import Path
 N64_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR  = N64_ROOT / 'training/data/logs'
 BRIDGE_DIR = N64_ROOT / 'training/data/bridge'
-AGENTS = ['lstm', 'obj_belief', 'transformer', 'disc_rssm']
+AGENTS = [
+    a.strip() for a in os.environ.get(
+        'CHECK_AGENTS',
+        'lstm,obj_belief,disc_rssm',
+    ).split(',') if a.strip()
+]
+EXPECTED_TRAINERS = int(os.environ.get('CHECK_EXPECTED_TRAINERS', str(len(AGENTS))))
+EXPECTED_WORKERS_PER_AGENT = int(os.environ.get('CHECK_WORKERS_PER_AGENT', '2'))
+EXPECTED_WORKERS_TOTAL = int(os.environ.get(
+    'CHECK_EXPECTED_WORKERS_TOTAL',
+    str(EXPECTED_TRAINERS * EXPECTED_WORKERS_PER_AGENT),
+))
 
 # ── Colours ──────────────────────────────────────────────────────────────────
 GREEN  = '\033[92m'
@@ -70,12 +81,18 @@ def check_processes():
     warnings = []
     if counts.get('watchdog', 0) != 1:
         warnings.append(fail('Expected 1 watchdog'))
-    if counts.get('mk4_train_parallel', 0) != 4:
-        warnings.append(warn(f'Expected 4 trainers, got {counts.get("mk4_train_parallel", 0)}'))
-    if counts.get('bridge_server', 0) != 4:
-        warnings.append(warn(f'Expected 4 bridge servers, got {counts.get("bridge_server", 0)}'))
-    if counts.get('mupen64plus', 0) < 4:
-        warnings.append(warn(f'Expected 4+ emulators, got {counts.get("mupen64plus", 0)}'))
+    if counts.get('mk4_train_parallel', 0) != EXPECTED_TRAINERS:
+        warnings.append(warn(
+            f'Expected {EXPECTED_TRAINERS} trainers, got {counts.get("mk4_train_parallel", 0)}'
+        ))
+    if counts.get('bridge_server', 0) != EXPECTED_WORKERS_TOTAL:
+        warnings.append(warn(
+            f'Expected {EXPECTED_WORKERS_TOTAL} bridge servers, got {counts.get("bridge_server", 0)}'
+        ))
+    if counts.get('mupen64plus', 0) < EXPECTED_WORKERS_TOTAL:
+        warnings.append(warn(
+            f'Expected {EXPECTED_WORKERS_TOTAL}+ emulators, got {counts.get("mupen64plus", 0)}'
+        ))
     if counts.get('mupen64plus', 0) > counts.get('bridge_server', 0) + 1:
         orphans = counts.get('mupen64plus', 0) - counts.get('bridge_server', 0)
         warnings.append(warn(f'{orphans} possibly orphaned emulators'))

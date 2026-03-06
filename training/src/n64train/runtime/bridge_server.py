@@ -45,13 +45,18 @@ class BridgeServer:
                 except socket.timeout:
                     continue
                 with conn:
-                    conn.settimeout(120.0)
+                    # Short initial timeout: if client connects but sends nothing
+                    # (e.g. a bare probe), don't block for 120s — release quickly
+                    # so the single-threaded accept loop isn't starved.
+                    conn.settimeout(10.0)
                     reader = conn.makefile("r", encoding="utf-8")
                     writer = conn.makefile("w", encoding="utf-8")
                     try:
                         for line in reader:
                             if not line:
                                 break
+                            # First successful read — extend timeout for real training commands
+                            conn.settimeout(120.0)
                             response = self._handle_line(line)
                             try:
                                 writer.write(json.dumps(response) + "\n")

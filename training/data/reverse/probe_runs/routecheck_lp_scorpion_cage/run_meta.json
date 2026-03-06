@@ -1,0 +1,10 @@
+{
+  "tag": "routecheck_lp_scorpion_cage",
+  "test": "health_verify",
+  "action": "lp",
+  "created_at": "2026-03-06 17:26:53",
+  "socket_path": "/tmp/mk4_probe_routecheck_lp_scorpion_cage.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/routecheck_lp_scorpion_cage/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/routecheck_lp_scorpion_cage/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_routecheck_lp_scorpion_cage/config"
+}

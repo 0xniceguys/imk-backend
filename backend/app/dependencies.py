@@ -18,6 +18,31 @@ async def get_current_user(
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # DEV BYPASS: TEST_USER_WALLET=<base58_pubkey> skips Privy JWT validation for
+    # integration testing on localnet. NEVER enable in production.
+    test_wallet = os.getenv("TEST_USER_WALLET", "")
+    if test_wallet:
+        result = await db.execute(
+            select(User).where(User.privy_user_id == "test-user-bypass")
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(
+                privy_user_id="test-user-bypass",
+                wallet_address=test_wallet,
+                display_name="Test User (localnet)",
+                is_admin=False,
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        else:
+            # Keep wallet address in sync with env var
+            if user.wallet_address != test_wallet:
+                user.wallet_address = test_wallet
+                await db.commit()
+        return user
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing or invalid Authorization header")
 

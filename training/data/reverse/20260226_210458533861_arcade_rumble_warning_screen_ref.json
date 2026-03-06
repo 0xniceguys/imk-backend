@@ -1,0 +1,68 @@
+{
+  "addr_range": {
+    "end": 8388608,
+    "end_hex": "0x800000",
+    "size": 8388608,
+    "start": 0,
+    "start_hex": "0x0"
+  },
+  "bridge_hello": {
+    "payload": {
+      "backend": "LocalBridgeBackend",
+      "capabilities": {
+        "debugger_command": true,
+        "deterministic_counter_only": false,
+        "event_extraction": true,
+        "frame_capture": true,
+        "frame_capture_mode": "screenshot_poll",
+        "frame_step": true,
+        "frame_step_mode": "debugger_cli_frame",
+        "ram_export": true,
+        "ram_export_mode": "DebuggerDumpMemoryReader",
+        "reward_extraction": true,
+        "set_inputs": true,
+        "speed_mode": true,
+        "transport": "unix_socket_json"
+      },
+      "emulator_launched": false,
+      "instance_id": "reverse-visible"
+    },
+    "status": {
+      "episode_id": "episode-0",
+      "error_code": null,
+      "frame_id": 0,
+      "status": "OK"
+    }
+  },
+  "bridge_status": {
+    "memory_reader": "DebuggerDumpMemoryReader",
+    "placeholder_ram_export": false,
+    "traced_state": {
+      "extras": {},
+      "frame_id": 0,
+      "p1_facing": null,
+      "p1_health": null,
+      "p1_x": null,
+      "p1_y": null,
+      "p2_facing": null,
+      "p2_health": null,
+      "p2_x": null,
+      "p2_y": null,
+      "timer": null
+    }
+  },
+  "byte_len": 8388608,
+  "captured_at_utc": "2026-02-26T21:04:58.533861Z",
+  "chunk_size": 1048576,
+  "label": "arcade_rumble_warning_screen_ref",
+  "metadata": {
+    "capture_mode": "bridge_get_ram_features",
+    "notes": "",
+    "probe_count": 8,
+    "socket_path": "/Users/ichiropractic/code/n64/training/data/bridge/mk4-visible.sock",
+    "task_id": ""
+  },
+  "payload_file": "20260226_210458533861_arcade_rumble_warning_screen_ref.bin",
+  "schema_version": "reverse-snapshot-v1",
+  "sha256": "7cd4f4761a60e9574263af362e170d538ef2f5b7989a15a2eae9c2fe7caf3f6e"
+}

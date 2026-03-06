@@ -1,0 +1,10 @@
+{
+  "tag": "sweep_lp_addr",
+  "test": "addr_scan",
+  "action": "lp",
+  "created_at": "2026-03-06 02:52:27",
+  "socket_path": "/tmp/mk4_probe_sweep_lp_addr.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/sweep_lp_addr/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/sweep_lp_addr/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_sweep_lp_addr/config"
+}

@@ -16,6 +16,7 @@ from n64train.runtime.bridge import SocketEmulatorBridge  # noqa: E402
 from n64train.runtime.bridge_server import BridgeServer  # noqa: E402
 from n64train.runtime.local_bridge_backend import LocalBridgeBackend, LocalBridgeBackendConfig  # noqa: E402
 from n64train.runtime.memory import MemoryProbe  # noqa: E402
+from n64train.runtime.rewards import Mk4ShapedRewardExtractor  # noqa: E402
 from n64train.runtime.types import ActionPacket, ResetSpec, SpeedMode  # noqa: E402
 
 
@@ -30,6 +31,7 @@ class BridgeSocketTests(unittest.TestCase):
                     speed_mode=SpeedMode.DEBUG_VISIBLE,
                 )
             )
+            self.assertIsInstance(backend.reward_extractor, Mk4ShapedRewardExtractor)
             server = BridgeServer(sock_path, backend)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()

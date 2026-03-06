@@ -6,7 +6,7 @@ from typing import Sequence
 from n64train.runtime.types import RewardTerms, TracedState
 
 HEALTH_MAX = 160.0    # normalized from u32 0x10000 in mk4_tracing.py
-FIGHTING_RANGE = 3.0   # units — arena is only ~10-12 wide, attacks land at ~3 units
+FIGHTING_RANGE = 4.0   # units — slightly wider range to reward sustained pressure
 MAX_DIST = 15.0        # units — normalisation ceiling
 
 # Anti-spam: which actions are "attacks" (have a cooldown enforcement)
@@ -14,12 +14,22 @@ ATTACK_ACTIONS = {
     'LOW_PUNCH', 'HIGH_PUNCH', 'LOW_KICK', 'HIGH_KICK',
     'JAB_COMBO', 'PUNISH', 'SPECIAL_1', 'SPECIAL_2', 'THROW_ATTEMPT',
 }
+MOVEMENT_ACTIONS = {
+    'ADVANCE', 'RETREAT', 'RUN', 'JUMP_FORWARD', 'JUMP_BACK',
+    'JUMP_NEUTRAL', 'SIDE_STEP_IN', 'SIDE_STEP_OUT', 'CROUCH',
+}
+JUMP_ACTIONS = {'JUMP_FORWARD', 'JUMP_BACK', 'JUMP_NEUTRAL'}
+FORWARD_ENGAGE_ACTIONS = {'ADVANCE', 'RUN', 'JUMP_FORWARD'}
+RUNAWAY_ACTIONS = {'RETREAT', 'JUMP_BACK', 'NEUTRAL'}
 
-SPAM_THRESHOLD      = 8     # consecutive same moves before penalty fires
-SPAM_SCALE          = 0.3   # penalty per step OVER threshold (was 1.0 — drowning dealt signal)
-ATTACK_COOLDOWN     = 8     # steps — min gap between attacks (~0.26s at 33ms/step, realistic MK4 recovery)
-COOLDOWN_PENALTY    = 0.5   # flat penalty per cooldown violation (was 2.0)
-WHIFF_PENALTY       = 0.15  # penalty for attacking and dealing 0 damage (whiffing is normal)
+SPAM_THRESHOLD      = 6     # tighter threshold to catch alternating spam loops
+SPAM_SCALE          = 0.20  # stronger streak penalty once threshold is exceeded
+ATTACK_COOLDOWN     = 6     # force more commitment between repeated attack attempts
+COOLDOWN_PENALTY    = 0.18  # flat penalty per cooldown violation
+WHIFF_PENALTY       = 0.12  # restore whiff penalty; scaled up when whiffing at range
+MOVE_FLIP_PENALTY   = 0.05  # penalize immediate ADVANCE<->RETREAT direction jitter
+JUMP_SPAM_PENALTY   = 0.03  # penalize excessive jump frequency in a short window
+JUMP_SPAM_WINDOW    = 8
 
 
 @dataclass
@@ -42,8 +52,8 @@ class RewardConfig:
     damage_taken_scale:  float = 1.5
 
     # Positional signals
-    approach_scale:      float = 0.20
-    dist_penalty_scale:  float = 0.05
+    approach_scale:      float = 0.45
+    dist_penalty_scale:  float = 0.35
 
     # Episode outcome
     win_bonus:           float = 50.0
@@ -58,14 +68,24 @@ class RewardConfig:
     whiff_mult:          float = 1.0
 
     # LLM-introduced extras
-    aggression:          float = 0.0   # bonus per attacking step in range
+    aggression:          float = 0.5   # bonus when attack CONNECTS in range (hit confirmation)
     idle_penalty:        float = 0.0   # per-step penalty for NEUTRAL action
+    positioning_bonus:   float = 0.10  # per-step reward for being at fighting range (footsies)
+    move_flip_penalty:   float = MOVE_FLIP_PENALTY
+    jump_spam_penalty:   float = JUMP_SPAM_PENALTY
+    # Engagement shaping while outside fighting range.
+    engage_forward_bonus: float = 0.16
+    retreat_far_penalty:  float = 0.24
+    jump_back_far_penalty: float = 0.28
+    neutral_far_penalty:  float = 0.18
+    runaway_step_penalty: float = 0.24
 
     # ── New signals-based terms (verified RAM data 2026-03-03) ────────────────
     # Reward hitting P2 while P2 is airborne — teaches anti-air
     anti_air_bonus:      float = 3.0
-    # Reward attacking while P2 hitstun>0 (P2 whiffed, we punish the opening)
-    punish_bonus:        float = 2.0
+    # Reward attacking during verified P2 hitstun windows. Disabled by default
+    # until p2_hitstun address isolation is re-verified.
+    punish_bonus:        float = 0.0
     # Penalty for attacking while P1 is airborne (random jump attacks)
     reckless_jump_pen:   float = 0.5
     # Extra damage multiplier when P2 was in hitstun during our hit (confirm on committal)
@@ -73,18 +93,26 @@ class RewardConfig:
 
     def clamp(self) -> 'RewardConfig':
         """Clamp all floats to safe ranges. Called after every LLM update."""
-        self.damage_dealt_scale  = max(0.0, min(5.0, self.damage_dealt_scale))
-        self.damage_taken_scale  = max(0.0, min(5.0, self.damage_taken_scale))
-        self.approach_scale      = max(0.0, min(2.0, self.approach_scale))
+        self.damage_dealt_scale  = max(0.5, min(5.0, self.damage_dealt_scale))   # min 0.5: never zero out combat signal
+        self.damage_taken_scale  = max(0.8, min(5.0, self.damage_taken_scale))   # keep defense pressure meaningful
+        self.approach_scale      = max(0.0, min(1.0, self.approach_scale))
         self.dist_penalty_scale  = max(0.0, min(1.0, self.dist_penalty_scale))
         self.win_bonus           = max(0.0, min(200.0, self.win_bonus))
         self.loss_penalty        = max(0.0, min(100.0, self.loss_penalty))
         self.survival_per_step   = max(0.0, min(0.1,  self.survival_per_step))
-        self.spam_scale_mult     = max(0.0, min(5.0,  self.spam_scale_mult))
-        self.cooldown_mult       = max(0.0, min(5.0,  self.cooldown_mult))
-        self.whiff_mult          = max(0.0, min(5.0,  self.whiff_mult))
-        self.aggression          = max(0.0, min(3.0,  self.aggression))
-        self.idle_penalty        = max(-1.0, min(0.0, self.idle_penalty))
+        self.spam_scale_mult     = max(0.0, min(2.0,  self.spam_scale_mult))   # max 2.0: prevent spam from dominating
+        self.cooldown_mult       = max(0.0, min(2.0,  self.cooldown_mult))   # max 2.0: same
+        self.whiff_mult          = max(0.0, min(1.0,  self.whiff_mult))      # max 1.0: whiff is disabled by default
+        self.aggression          = max(0.0, min(2.0,  self.aggression))
+        self.idle_penalty        = max(-0.15, min(0.0, self.idle_penalty))
+        self.positioning_bonus   = max(0.0, min(0.2, self.positioning_bonus))
+        self.move_flip_penalty   = max(0.0, min(0.2, self.move_flip_penalty))
+        self.jump_spam_penalty   = max(0.0, min(0.2, self.jump_spam_penalty))
+        self.engage_forward_bonus = max(0.0, min(0.4, self.engage_forward_bonus))
+        self.retreat_far_penalty = max(0.0, min(0.6, self.retreat_far_penalty))
+        self.jump_back_far_penalty = max(0.0, min(0.6, self.jump_back_far_penalty))
+        self.neutral_far_penalty = max(0.0, min(0.6, self.neutral_far_penalty))
+        self.runaway_step_penalty = max(0.0, min(0.6, self.runaway_step_penalty))
         self.anti_air_bonus      = max(0.0, min(10.0, self.anti_air_bonus))
         self.punish_bonus        = max(0.0, min(10.0, self.punish_bonus))
         self.reckless_jump_pen   = max(0.0, min(5.0,  self.reckless_jump_pen))
@@ -137,8 +165,8 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
 
     damage_dealt_scale: float = 1.0
     damage_taken_scale: float = 1.5
-    approach_scale:     float = 0.20
-    dist_penalty_scale: float = 0.05
+    approach_scale:     float = 0.45
+    dist_penalty_scale: float = 0.15
     win_bonus:          float = 50.0
     loss_penalty:       float = 25.0
     survival_per_step:  float = 0.001
@@ -191,6 +219,13 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
         punish_b      = self._get('punish_bonus')
         reckless_j    = self._get('reckless_jump_pen')
         hst_mult      = self._get('hitstun_damage_mult')
+        move_flip_p   = self._get('move_flip_penalty')
+        jump_spam_p   = self._get('jump_spam_penalty')
+        engage_forward_b = self._get('engage_forward_bonus')
+        retreat_far_pen = self._get('retreat_far_penalty')
+        jump_back_far_pen = self._get('jump_back_far_penalty')
+        neutral_far_pen = self._get('neutral_far_penalty')
+        runaway_step_pen = self._get('runaway_step_penalty')
 
         # ── Health delta ──────────────────────────────────────────────────────
         dealt = 0.0
@@ -202,8 +237,17 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
 
         # Was P2 airborne *before* this step? (anti-air context)
         p2_was_airborne = float(prev_ex.get('p2_airborne', 0.0)) > 0.5
-        # Was P2's hitbox active *before* this step? (punish window)
-        p2_was_attacking = float(prev_ex.get('p2_hitstun', 0.0)) > 0.0
+        # Punish context:
+        # 1) Preferred path: real P2 recovery/hitstun signal when verified.
+        # 2) Fallback path: decoded move signatures + short recent-attack window.
+        p2_hitstun_verified = float(prev_ex.get('p2_hitstun_verified', 0.0)) > 0.5
+        p2_attack_sig_verified = float(prev_ex.get('p2_attack_sig_verified', 0.0)) > 0.5
+        p2_attack_active = float(prev_ex.get('p2_hitstun', 0.0)) > 0.0
+        p2_recent_attack = float(prev_ex.get('p2_recent_attack', 0.0)) > 0.0
+        if p2_hitstun_verified:
+            p2_was_committing = p2_attack_active
+        else:
+            p2_was_committing = p2_attack_sig_verified and (p2_attack_active or p2_recent_attack)
         # Is P1 currently airborne? (reckless jump attack)
         p1_is_airborne = float(next_ex.get('p1_airborne', 0.0)) > 0.5
 
@@ -212,7 +256,7 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
             # Base damage reward
             dealt = hp2_lost * dealt_scale
             # Bonus multiplier: extra reward when we landed hit while P2 was committing
-            if hp2_lost > 0 and p2_was_attacking:
+            if hp2_lost > 0 and p2_was_committing:
                 dealt += hp2_lost * hst_mult
         if prev_state.p1_health is not None and next_state.p1_health is not None:
             hp1_lost = float(prev_state.p1_health - next_state.p1_health)
@@ -232,6 +276,8 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
         approach = 0.0
         dist_pen = 0.0
         current_dist = None
+        prev_dist = None
+        next_dist = None
         if (prev_state.p1_x is not None and prev_state.p2_x is not None and
                 next_state.p1_x is not None and next_state.p2_x is not None):
 
@@ -242,20 +288,51 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
             if next_dist < prev_dist and prev_dist > FIGHTING_RANGE:
                 approach = (prev_dist - next_dist) * app_scale
             if next_dist > FIGHTING_RANGE:
-                dist_pen = -dist_pen_s
+                # Scale distance penalty by how far outside fighting range we are.
+                overshoot = min(1.0, max(0.0, (next_dist - FIGHTING_RANGE) / (MAX_DIST - FIGHTING_RANGE)))
+                dist_pen = -(dist_pen_s * (1.0 + 2.0 * overshoot))
 
         # ── Survival ──────────────────────────────────────────────────────────
         survival = survival_s
 
-        # ── Aggression bonus (LLM-tunable) ────────────────────────────────────
+        # ── Hit confirmation bonus (LLM-tunable) ──────────────────────────────
+        # Only rewards attacks that actually CONNECT — prevents button mashing
         current_action = action_history[-1] if action_history else None
         aggression_bonus = 0.0
-        if (aggression > 0 and current_action in ATTACK_ACTIONS
+        if (aggression > 0 and dealt > 0
+                and current_action in ATTACK_ACTIONS
                 and current_dist is not None and current_dist <= FIGHTING_RANGE):
             aggression_bonus = aggression
 
+        # ── Positioning bonus (footsies) ─────────────────────────────────────
+        # Small per-step reward for being at fighting range — teaches spacing
+        pos_bonus_val = self._get('positioning_bonus')
+        positioning = 0.0
+        if pos_bonus_val > 0 and current_dist is not None and current_dist <= FIGHTING_RANGE:
+            positioning = pos_bonus_val
+
         # ── Idle penalty (LLM-tunable) ────────────────────────────────────────
         idle_bonus = idle_pen if current_action == 'NEUTRAL' else 0.0
+        engagement_bonus = 0.0
+        engagement_penalty = 0.0
+        if current_dist is not None and current_dist > FIGHTING_RANGE:
+            if current_action in FORWARD_ENGAGE_ACTIONS:
+                # Reward forward pressure even if opponent is backing away.
+                engagement_bonus += engage_forward_b
+                if prev_dist is not None and next_dist is not None:
+                    if next_dist < prev_dist:
+                        engagement_bonus += 0.5 * engage_forward_b
+                    elif next_dist > prev_dist:
+                        engagement_bonus -= 0.25 * engage_forward_b
+            if current_action == 'RETREAT':
+                engagement_penalty -= retreat_far_pen
+            elif current_action == 'JUMP_BACK':
+                engagement_penalty -= jump_back_far_pen
+            elif current_action == 'NEUTRAL':
+                engagement_penalty -= neutral_far_pen
+        if (current_action in RUNAWAY_ACTIONS and prev_dist is not None and next_dist is not None
+                and next_dist > prev_dist):
+            engagement_penalty -= runaway_step_pen
 
         # ── RAM-signal shaped bonuses ─────────────────────────────────────────
         # 1. Anti-air: bonus when we dealt damage AND P2 was airborne beforehand
@@ -263,9 +340,9 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
         if dealt > 0 and p2_was_airborne:
             anti_air = anti_air_b
 
-        # 2. Punish bonus: bonus for attacking while P2 had active hitbox (punish whiff)
+        # 2. Punish bonus: counter-attack that actually CONNECTS during P2 recovery
         punish = 0.0
-        if current_action in ATTACK_ACTIONS and p2_was_attacking:
+        if dealt > 0 and p2_was_committing:
             punish = punish_b
 
         # 3. Reckless jump penalty: penalise attacking while P1 is in the air
@@ -275,6 +352,34 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
 
         # ── Anti-spam (multipliers now LLM-tunable) ───────────────────────────
         spam = 0.0
+        if current_action and action_history and len(action_history) >= 2:
+            prev_action = action_history[-2]
+            if ((current_action == 'ADVANCE' and prev_action == 'RETREAT')
+                    or (current_action == 'RETREAT' and prev_action == 'ADVANCE')):
+                spam -= move_flip_p
+        if current_action in JUMP_ACTIONS and action_history:
+            recent = action_history[-JUMP_SPAM_WINDOW:]
+            jump_count = sum(1 for act in recent if act in JUMP_ACTIONS)
+            if jump_count > 2:
+                spam -= jump_spam_p * float(jump_count - 2)
+        if current_action and action_history:
+            # 1. Attack cooldown (always active; no threshold gate)
+            if current_action in ATTACK_ACTIONS:
+                steps_since_last_attack = ATTACK_COOLDOWN
+                for i, act in enumerate(reversed(action_history[:-1])):
+                    if act in ATTACK_ACTIONS:
+                        steps_since_last_attack = i + 1
+                        break
+                if steps_since_last_attack < ATTACK_COOLDOWN:
+                    spam -= COOLDOWN_PENALTY * cool_mult
+
+            # 2. Whiff penalty (always active; heavier when too far to hit)
+            if current_action in ATTACK_ACTIONS and dealt == 0.0:
+                far_mult = 1.0
+                if current_dist is not None and current_dist > FIGHTING_RANGE:
+                    far_mult = 1.75
+                spam -= WHIFF_PENALTY * whiff_mult * far_mult
+
         if current_action and action_history and len(action_history) >= SPAM_THRESHOLD:
             # 1. Repeat-attack penalty
             if current_action in ATTACK_ACTIONS:
@@ -287,27 +392,13 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
                 if streak >= SPAM_THRESHOLD:
                     spam -= SPAM_SCALE * spam_mult * (streak - SPAM_THRESHOLD + 1)
 
-            # 2. Attack cooldown
-            if current_action in ATTACK_ACTIONS:
-                steps_since_last_attack = len(action_history)
-                for i, act in enumerate(reversed(action_history[:-1])):
-                    if act in ATTACK_ACTIONS:
-                        steps_since_last_attack = i + 1
-                        break
-                if steps_since_last_attack < ATTACK_COOLDOWN:
-                    spam -= COOLDOWN_PENALTY * cool_mult
-
-            # 3. Whiff penalty
-            if current_action in ATTACK_ACTIONS and dealt == 0.0:
-                spam -= WHIFF_PENALTY * whiff_mult
-
         return RewardTerms(
             damage_dealt=dealt,
             damage_taken=taken,
             win_bonus=win,
             loss_penalty=loss,
-            approach_reward=approach + aggression_bonus + anti_air + punish,
-            distance_penalty=dist_pen + idle_bonus + reckless,
+            approach_reward=approach + aggression_bonus + anti_air + punish + positioning + engagement_bonus,
+            distance_penalty=dist_pen + idle_bonus + reckless + engagement_penalty,
             survival=survival,
             spam_penalty=spam,
         )

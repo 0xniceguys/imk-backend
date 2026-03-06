@@ -82,6 +82,9 @@ class Controller:
 _instances = {}   # instance_id -> {proc, sock}
 
 def _make_bridge_cmd(sock, ctrl_p1=P1_FILE, ctrl_p2=P2_FILE):
+    env = os.environ.copy()
+    env['N64TRAIN_CTRL_P1'] = ctrl_p1
+    env['N64TRAIN_CTRL_P2'] = ctrl_p2   # ← tells the plugin to register P2
     return [
         'python3', f'{N64_ROOT}/training/scripts/run_bridge_server.py',
         '--socket-path', sock, '--instance-id', INST,
@@ -95,7 +98,7 @@ def _make_bridge_cmd(sock, ctrl_p1=P1_FILE, ctrl_p2=P2_FILE):
         '--debugger-input-plugin', CUSTOM_INPUT,
         '--debugger-rsp-plugin',   'mupen64plus-rsp-hle.dylib',
         '--debugger-emumode', '0',
-    ]
+    ], env
 
 def _get_bridge(sock):
     from n64train.runtime.bridge import SocketEmulatorBridge
@@ -110,7 +113,8 @@ def launch_instance(name, sock, status_cb):
     except: pass
     open(INPUT_LOG, 'w').close()
     log = open(f'/tmp/mk4_bridge_{name}.log', 'w')
-    proc = subprocess.Popen(_make_bridge_cmd(sock), stdout=log, stderr=log)
+    cmd, env = _make_bridge_cmd(sock)
+    proc = subprocess.Popen(cmd, stdout=log, stderr=log, env=env)
     _instances[name] = {'proc': proc, 'sock': sock}
     status_cb(f'⏳ [{name}] Starting…')
     deadline = time.time() + 45
@@ -635,10 +639,13 @@ class App:
     def _kp(self, e):
         k = e.keysym
         if k == 'space': self.p1_pad.release_all(); self.p2_pad.release_all(); return
-        self.p1_pad.key_down(k); self.p2_pad.key_down(k)
+        # Route each key only to its own pad to avoid cross-contamination
+        if k in self.p1_pad._key_map: self.p1_pad.key_down(k)
+        if k in self.p2_pad._key_map: self.p2_pad.key_down(k)
     def _kr(self, e):
         k = e.keysym
-        self.p1_pad.key_up(k); self.p2_pad.key_up(k)
+        if k in self.p1_pad._key_map: self.p1_pad.key_up(k)
+        if k in self.p2_pad._key_map: self.p2_pad.key_up(k)
 
     def _on_close(self):
         self.p1.close(); self.p2.close()

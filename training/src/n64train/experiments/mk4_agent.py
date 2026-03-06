@@ -2,12 +2,12 @@
 mk4_agent.py — MK4 Policy Agents (MLP + LSTM) with REINFORCE + Baseline
 ────────────────────────────────────────────────────────────────────────
 
-Observation: 7 raw floats × 4 stacked frames = 28 floats total
+Observation: RAW_OBS_DIM raw floats × 4 stacked frames
   Frame stacking gives the model velocity, damage rate, temporal context.
 
 Architectures:
-  MLP  : Linear(28→128→128) + policy/value heads  (fast, memoryless within stack)
-  LSTM : Linear(28→64) → LSTM(128) + policy/value heads  (full episode memory, BPTT)
+  MLP  : Linear(OBS_DIM→128→128) + policy/value heads  (fast, memoryless within stack)
+  LSTM : Linear(OBS_DIM→64) → LSTM(128) + policy/value heads  (full episode memory, BPTT)
 
 Algorithm: REINFORCE with baseline (Monte Carlo policy gradient)
   - MLP:  obs replayed at episode end with gradients
@@ -43,16 +43,12 @@ CKPT_DIR    = N64_ROOT / 'training/data/checkpoints'
 CKPT_PATH   = CKPT_DIR / 'mk4_policy.pt'
 STATS_PATH  = CKPT_DIR / 'mk4_training_stats.jsonl'
 
-OBS_DIM     = 56   # 14 raw floats × 4 stacked frames
-RAW_OBS_DIM = 14   # single-frame obs size (for FrameStack)
+RAW_OBS_DIM = 22   # single-frame obs size (mirrors mk4_train.RAW_OBS_DIM)
+OBS_DIM     = RAW_OBS_DIM * 4
 N_ACTIONS   = len(MacroAction)
 ACTIONS     = list(MacroAction)
 
-LR_POLICY   = 3e-4
-LR_VALUE    = 1e-3
 GAMMA       = 0.99
-ENTROPY_COEF= 0.02
-GRAD_CLIP   = 1.0
 
 
 # ── Network ────────────────────────────────────────────────────────────────────
@@ -267,12 +263,12 @@ class FrameStack:
     Gives the policy implicit access to velocity (position delta),
     damage rate (hp delta), and recent temporal context without an RNN.
 
-    obs_dim  : size of a single observation (default 14)
+    obs_dim  : size of a single observation (default RAW_OBS_DIM)
     n_frames : number of frames to stack         (default 4)
-    out_dim  : obs_dim × n_frames                (default 56)
+    out_dim  : obs_dim × n_frames                (default OBS_DIM)
     """
 
-    def __init__(self, obs_dim: int = OBS_DIM, n_frames: int = 4) -> None:
+    def __init__(self, obs_dim: int = RAW_OBS_DIM, n_frames: int = 4) -> None:
         self.obs_dim  = obs_dim
         self.n_frames = n_frames
         self.out_dim  = obs_dim * n_frames
@@ -298,21 +294,23 @@ class FrameStack:
 
 # ── LSTM Network ───────────────────────────────────────────────────────────────
 
-LSTM_HIDDEN = 128
+LSTM_HIDDEN = 256
 LSTM_LAYERS = 1
+LSTM_ENC_DIM = 256
 LSTM_CKPT_PATH = CKPT_DIR / 'mk4_lstm_policy.pt'
 
 
 class Mk4LstmNet(nn.Module):
     """
-    LSTM policy network.
+    LSTM policy network — upgraded per "37 PPO Implementation Details".
 
     Input per step: obs_dim floats (raw obs, NOT stacked — LSTM handles memory)
     Architecture:
-      Linear(obs_dim → 64) → ReLU
-      LSTM(64, hidden_size=128, num_layers=1)
-      policy_head: Linear(128 → n_actions)
-      value_head:  Linear(128 → 1)
+      Linear(obs_dim → 128) → LayerNorm → ReLU
+      Linear(128 → 256) → LayerNorm → ReLU
+      LSTM(256, hidden_size=256, num_layers=1)
+      policy_head: Linear(256 → n_actions)
+      value_head:  Linear(256 → 1)
     """
 
     def __init__(self, obs_dim: int = OBS_DIM, n_actions: int = N_ACTIONS,
@@ -320,16 +318,26 @@ class Mk4LstmNet(nn.Module):
         super().__init__()
         self.hidden = hidden
         self.encoder = nn.Sequential(
-            nn.Linear(obs_dim, 64),
+            nn.Linear(obs_dim, 128),
+            nn.LayerNorm(128),
+            nn.ReLU(),
+            nn.Linear(128, LSTM_ENC_DIM),
+            nn.LayerNorm(LSTM_ENC_DIM),
             nn.ReLU(),
         )
-        self.lstm = nn.LSTM(input_size=64, hidden_size=hidden,
+        self.lstm = nn.LSTM(input_size=LSTM_ENC_DIM, hidden_size=hidden,
                             num_layers=LSTM_LAYERS, batch_first=True)
         self.policy_head = nn.Linear(hidden, n_actions)
         self.value_head  = nn.Linear(hidden, 1)
 
+        # Orthogonal init on ALL layers (37 PPO details)
+        from n64train.training.ppo_learner import ortho_init
+        ortho_init(self.encoder, gain=2**0.5)
+        ortho_init(self.lstm, gain=1.0)
         nn.init.orthogonal_(self.policy_head.weight, gain=0.01)
+        nn.init.zeros_(self.policy_head.bias)
         nn.init.orthogonal_(self.value_head.weight, gain=1.0)
+        nn.init.zeros_(self.value_head.bias)
 
     def forward(
         self,
@@ -344,7 +352,7 @@ class Mk4LstmNet(nn.Module):
         if single_step:
             x = x.unsqueeze(1)  # (batch, 1, obs_dim)
 
-        enc = self.encoder(x)                    # (batch, seq, 64)
+        enc = self.encoder(x)                    # (batch, seq, 256)
         out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
         last = out[:, -1, :]                     # (batch, hidden)
 
@@ -363,28 +371,24 @@ class Mk4LstmNet(nn.Module):
 
 class Mk4LstmAgent:
     """
-    REINFORCE agent using an LSTM policy.
+    PPO agent using an LSTM policy — upgraded per 37 PPO Implementation Details.
 
-    The key difference from Mk4MlpAgent:
     - Hidden state (h, c) persists across EVERY STEP within an episode
     - Resets to zeros at the start of each new episode
     - During learn(): BPTT over the full episode sequence
-    - Obs input: 14 raw floats per step (no frame stacking — LSTM handles memory)
+    - Obs input: OBS_DIM floats per step (stacked frames)
+    - Single optimizer with LR annealing
     """
     CKPT = LSTM_CKPT_PATH   # class-level path — learner uses this for run-scoped saves
     ARCH = 'lstm'
 
     def __init__(self, device: str = 'cpu') -> None:
+        from n64train.training.ppo_learner import LR
         self.device = torch.device(device)
         self.net = Mk4LstmNet().to(self.device)
 
-        self.opt_policy = torch.optim.Adam(
-            list(self.net.encoder.parameters()) +
-            list(self.net.lstm.parameters()) +
-            list(self.net.policy_head.parameters()),
-            lr=LR_POLICY)
-        self.opt_value = torch.optim.Adam(
-            self.net.value_head.parameters(), lr=LR_VALUE)
+        # Single optimizer for all params (37 PPO details)
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=LR, eps=1e-5)
 
         # Episode buffers
         self._obs_buf:    list[list[float]] = []
@@ -439,7 +443,8 @@ class Mk4LstmAgent:
     def learn(self) -> dict[str, float] | None:
         """PPO update over full episode rollout — K epochs of clipped surrogate."""
         from n64train.training.ppo_learner import (
-            gae_advantages, ppo_loss, entropy_schedule, PPO_EPOCHS, GRAD_CLIP,
+            gae_advantages, ppo_loss, entropy_schedule, anneal_lr,
+            PPO_EPOCHS, GRAD_CLIP,
         )
 
         n = min(len(self._obs_buf), len(self._act_buf), len(self._rewards))
@@ -449,6 +454,7 @@ class Mk4LstmAgent:
 
         self.episode += 1
         ent_coef = entropy_schedule(self.episode)  # 0.05 → 0.01 over 500 eps
+        anneal_lr(self.optimizer, self.episode)     # linear LR decay
 
         # Tensors for this episode
         obs_seq  = torch.tensor(self._obs_buf[:n],  dtype=torch.float32, device=self.device)
@@ -467,7 +473,7 @@ class Mk4LstmAgent:
         self.net.train()
         for _ in range(PPO_EPOCHS):
             hc0 = self.net.init_hidden(batch=1, device=self.device)
-            enc = self.net.encoder(obs_seq.unsqueeze(0))      # (1, n, 64)
+            enc = self.net.encoder(obs_seq.unsqueeze(0))      # (1, n, enc_dim)
             lstm_out, _ = self.net.lstm(enc, hc0)             # (1, n, hidden)
             logits_seq  = self.net.policy_head(lstm_out[0])   # (n, n_actions)
             values_seq  = self.net.value_head(lstm_out[0]).squeeze(-1)  # (n,)
@@ -477,12 +483,10 @@ class Mk4LstmAgent:
                 ent_coef=ent_coef,
             )
 
-            self.opt_policy.zero_grad()
-            self.opt_value.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.net.parameters(), GRAD_CLIP)
-            self.opt_policy.step()
-            self.opt_value.step()
+            self.optimizer.step()
 
         self.total_updates += 1
         metrics = {
@@ -505,8 +509,7 @@ class Mk4LstmAgent:
         path = path or LSTM_CKPT_PATH
         torch.save({
             'net':           self.net.state_dict(),
-            'opt_policy':    self.opt_policy.state_dict(),
-            'opt_value':     self.opt_value.state_dict(),
+            'optimizer':     self.optimizer.state_dict(),
             'episode':       self.episode,
             'total_updates': self.total_updates,
         }, path)
@@ -514,9 +517,12 @@ class Mk4LstmAgent:
     def load(self, path: Path | None = None) -> None:
         path = path or LSTM_CKPT_PATH
         ckpt = torch.load(path, map_location=self.device)
-        self.net.load_state_dict(ckpt['net'])
-        self.opt_policy.load_state_dict(ckpt['opt_policy'])
-        self.opt_value.load_state_dict(ckpt['opt_value'])
+        self.net.load_state_dict(ckpt['net'], strict=False)
+        if 'optimizer' in ckpt:
+            try:
+                self.optimizer.load_state_dict(ckpt['optimizer'])
+            except (ValueError, KeyError):
+                print('[lstm] Optimizer state mismatch — using fresh optimizer')
         self.episode       = ckpt.get('episode', 0)
         self.total_updates = ckpt.get('total_updates', 0)
         print(f'[lstm] Loaded checkpoint — ep={self.episode} updates={self.total_updates}')
@@ -529,4 +535,3 @@ class Mk4LstmAgent:
                 print(f'[lstm] Could not load checkpoint ({e}) — starting fresh')
         else:
             print(f'[lstm] No checkpoint found — starting fresh')
-

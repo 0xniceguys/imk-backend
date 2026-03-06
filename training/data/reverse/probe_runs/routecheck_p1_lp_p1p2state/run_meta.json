@@ -1,0 +1,10 @@
+{
+  "tag": "routecheck_p1_lp_p1p2state",
+  "test": "health_verify",
+  "action": "lp",
+  "created_at": "2026-03-06 17:25:44",
+  "socket_path": "/tmp/mk4_probe_routecheck_p1_lp_p1p2state.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/routecheck_p1_lp_p1p2state/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/routecheck_p1_lp_p1p2state/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_routecheck_p1_lp_p1p2state/config"
+}

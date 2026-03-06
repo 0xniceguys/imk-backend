@@ -24,6 +24,14 @@ logger = logging.getLogger(__name__)
 ACTIONS = list(MacroAction)
 
 
+def _shape_dim(shape: list[object], idx: int, default: int) -> int:
+    """Extract an integer dim from ONNX shape metadata with fallback."""
+    if idx < 0 or idx >= len(shape):
+        return default
+    value = shape[idx]
+    return value if isinstance(value, int) and value > 0 else default
+
+
 class OnnxAgent(FighterAgent):
     """Generic ONNX-based agent.
 
@@ -115,9 +123,8 @@ class OnnxLstmAgent(FighterAgent):
       "c_out"  — float32 (1, 1, hidden_size)
     """
 
-    def __init__(self, model_path: str | Path, *, hidden_size: int = 128) -> None:
+    def __init__(self, model_path: str | Path, *, hidden_size: int | None = None) -> None:
         self.model_path = str(model_path)
-        self.hidden_size = hidden_size
 
         opts = ort.SessionOptions()
         opts.inter_op_num_threads = 1
@@ -130,14 +137,16 @@ class OnnxLstmAgent(FighterAgent):
         self._obs_name = inputs[0].name
         self._h_name = inputs[1].name
         self._c_name = inputs[2].name
-        self._obs_dim = inputs[0].shape[1]
+        self._obs_dim = _shape_dim(inputs[0].shape, 1, RAW_OBS_DIM)
+        inferred_hidden = _shape_dim(inputs[1].shape, 2, 128)
+        self.hidden_size = hidden_size or inferred_hidden
 
         self._h: np.ndarray | None = None
         self._c: np.ndarray | None = None
 
         logger.info(
             "ONNX LSTM agent loaded: %s (obs_dim=%s, hidden=%d, outputs=%d)",
-            model_path, self._obs_dim, hidden_size, len(outputs),
+            model_path, self._obs_dim, self.hidden_size, len(outputs),
         )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
@@ -188,9 +197,8 @@ class OnnxDiscRssmAgent(FighterAgent):
       "h_out"  — float32 (1, det_size)
     """
 
-    def __init__(self, model_path: str | Path, *, det_size: int = 128) -> None:
+    def __init__(self, model_path: str | Path, *, det_size: int | None = None) -> None:
         self.model_path = str(model_path)
-        self.det_size = det_size
 
         opts = ort.SessionOptions()
         opts.inter_op_num_threads = 1
@@ -201,12 +209,14 @@ class OnnxDiscRssmAgent(FighterAgent):
         self._obs_name = inputs[0].name
         self._h_name = inputs[1].name
         self._act_name = inputs[2].name
+        inferred_det = _shape_dim(inputs[1].shape, 1, 128)
+        self.det_size = det_size or inferred_det
 
         self._h: np.ndarray | None = None
         self._prev_act: int = 0
         self.frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
 
-        logger.info("ONNX DiscRSSM agent loaded: %s (det=%d)", model_path, det_size)
+        logger.info("ONNX DiscRSSM agent loaded: %s (det=%d)", model_path, self.det_size)
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
         if self._h is None:

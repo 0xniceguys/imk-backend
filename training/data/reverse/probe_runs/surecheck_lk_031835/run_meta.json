@@ -1,0 +1,10 @@
+{
+  "tag": "surecheck_lk_031835",
+  "test": "health_verify",
+  "action": "lk",
+  "created_at": "2026-03-06 03:18:35",
+  "socket_path": "/tmp/mk4_probe_surecheck_lk_031835.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/surecheck_lk_031835/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/surecheck_lk_031835/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_surecheck_lk_031835/config"
+}

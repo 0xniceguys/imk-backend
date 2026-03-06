@@ -1,0 +1,77 @@
+{
+  "addr_range": {
+    "end": 8388608,
+    "end_hex": "0x800000",
+    "size": 8388608,
+    "start": 0,
+    "start_hex": "0x0"
+  },
+  "bridge_hello": {
+    "payload": {
+      "backend": "LocalBridgeBackend",
+      "capabilities": {
+        "debugger_command": true,
+        "deterministic_counter_only": false,
+        "event_extraction": true,
+        "frame_capture": true,
+        "frame_capture_mode": "screenshot_poll",
+        "frame_step": true,
+        "frame_step_mode": "debugger_cli_frame",
+        "ram_export": true,
+        "ram_export_mode": "DebuggerDumpMemoryReader",
+        "reward_extraction": true,
+        "set_inputs": true,
+        "speed_mode": true,
+        "transport": "unix_socket_json"
+      },
+      "emulator_launched": false,
+      "instance_id": "reverse-visible"
+    },
+    "status": {
+      "episode_id": "episode-0",
+      "error_code": null,
+      "frame_id": 0,
+      "status": "OK"
+    }
+  },
+  "bridge_status": {
+    "memory_reader": "DebuggerDumpMemoryReader",
+    "placeholder_ram_export": false,
+    "traced_state": {
+      "extras": {},
+      "frame_id": 0,
+      "p1_facing": null,
+      "p1_health": null,
+      "p1_x": null,
+      "p1_y": null,
+      "p2_facing": null,
+      "p2_health": null,
+      "p2_x": null,
+      "p2_y": null,
+      "timer": null
+    }
+  },
+  "byte_len": 8388608,
+  "captured_at_utc": "2026-02-26T21:42:38.280689Z",
+  "chunk_size": 1048576,
+  "label": "charselect_p1_r02_c02_jax",
+  "metadata": {
+    "automation": "mk4_capture_arcade_p1_char_grid",
+    "capture_mode": "bridge_get_ram_features",
+    "character_name": "Jax",
+    "col": 2,
+    "phase": "char_grid",
+    "probe_count": 8,
+    "row": 2,
+    "screen_probe": {
+      "primary_state": 38,
+      "shared_cursor": 35,
+      "sig_a_0x546D0": 3,
+      "sig_b_0x5472E": 3,
+      "sig_c_0x5472F": 0
+    }
+  },
+  "payload_file": "20260226_214238280689_charselect_p1_r02_c02_jax.bin",
+  "schema_version": "reverse-snapshot-v1",
+  "sha256": "249e91e99691dac44df9c6bab87f1f70347ebac6b1191a90f6f8ed3e59d454af"
+}

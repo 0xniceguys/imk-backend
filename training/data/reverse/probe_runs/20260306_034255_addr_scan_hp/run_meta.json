@@ -1,0 +1,10 @@
+{
+  "tag": "20260306_034255_addr_scan_hp",
+  "test": "addr_scan",
+  "action": "hp",
+  "created_at": "2026-03-06 03:42:55",
+  "socket_path": "/tmp/mk4_probe_20260306_034255_addr_scan_hp.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/20260306_034255_addr_scan_hp/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/20260306_034255_addr_scan_hp/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_20260306_034255_addr_scan_hp/config"
+}

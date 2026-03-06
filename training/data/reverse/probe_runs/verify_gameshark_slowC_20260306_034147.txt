@@ -1,0 +1,111 @@
+[1mBooting emulator...[0m
+Waiting for bridge...
+[92mBridge ready[0m
+
+Loading savestate: p1p2state.st
+Settling (120 frames)...
+Walking P1 toward P2 (260 frames D_RIGHT)...
+
+[1m══════════════════════════════════════════════════════════════════════[0m
+[1m  BASELINE (P1 idle, after walk into range)[0m
+[1m══════════════════════════════════════════════════════════════════════[0m
+  P1_HITSTUN_A         = 0x00000000 (0)
+  P1_HITSTUN_B         = 0x00000000 (0)
+  P1_HITSTUN_C         = 0xFFFFF856 (4294965334)
+  P1_ACTION_ST         = 0x00000000 (0)
+  P1_ATTACK_TYPE       = 0x00000000 (0)
+  P2_HITSTUN           = 0x00000002 (2)
+  P2_ACTION_ST         = 0x0003FA90 (260752)
+  P2_ATTACK_TYPE       = 0x00000000 (0)
+  P1_HEALTH            = 0x00010000 (65536)
+  P2_HEALTH            = 0x00010000 (65536)
+
+[1m══════════════════════════════════════════════════════════════════════[0m
+[1m  P1 ATTACK SEQUENCES — P2 regs must stay at baseline[0m
+[1m══════════════════════════════════════════════════════════════════════[0m
+Attack params: hold=16 release=70 repeats=3 between=80 actions=['lp', 'hp', 'lk', 'hk']
+
+  [1m── P1 LOW PUNCH (A) ──[0m
+    rep 1  DURING (16f hold):
+  [96m                              [0m   [92mP1_HITSTUN_A=0x00000976[0m   [92mP1_HITSTUN_B=0x00000681[0m   [92mP1_HITSTUN_C=0xFFFFF6A7[0m   [92mP1_ACTION_ST=0x00000002[0m   P1_ATTACK_TYPE=0x00000000[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x00000000[0m   P2_ATTACK_TYPE=0x00000000[0m   P1_HEALTH=0x00010000[0m   P2_HEALTH=0x00010000[0m
+    rep 1  AFTER  (70f release):
+  [96m                              [0m   [92mP1_HITSTUN_A=0xFFFFFFFB[0m   [92mP1_HITSTUN_B=0xFFFFE6D8[0m   [92mP1_HITSTUN_C=0xFFFFF74D[0m   [92mP1_ACTION_ST=0x00000002[0m   P1_ATTACK_TYPE=0x00000000[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x00000000[0m   P2_ATTACK_TYPE=0x00000000[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  DURING (16f hold):
+  [96m                              [0m   [92mP1_HITSTUN_A=0x00003449[0m   [92mP1_HITSTUN_B=0x00000199[0m   [92mP1_HITSTUN_C=0xFFFFEE44[0m   [92mP1_ACTION_ST=0x00000002[0m   P1_ATTACK_TYPE=0x00000000[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   P2_ATTACK_TYPE=0x00000000[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  AFTER  (70f release):
+  [96m                              [0m   [92mP1_HITSTUN_A=0x00000032[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0xFFFFFFE7[0m   [92mP1_ACTION_ST=0x00000002[0m   P1_ATTACK_TYPE=0x00000000[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   P2_ATTACK_TYPE=0x00000000[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  DURING (16f hold):
+  [96m                              [0m   [92mP1_HITSTUN_A=0x00000045[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0xFFFFFFF0[0m   [92mP1_ACTION_ST=0x00000002[0m   P1_ATTACK_TYPE=0x00000000[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   P2_ATTACK_TYPE=0x00000000[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009CC9B[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFE9405[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+
+  [1m── P1 HIGH PUNCH (B) ──[0m
+    rep 1  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009CC9B[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFE9405[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 1  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009EED2[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFE28C2[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009EED2[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFE28C2[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009F3FC[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFE28C2[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009F3FC[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFE28C2[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009ED91[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFE28C2[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+
+  [1m── P1 LOW KICK (C_RIGHT) ──[0m
+    rep 1  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009ED91[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFE28C2[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 1  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009CA70[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFEA5F1[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009CA70[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFEA5F1[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009C25C[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFEA5F1[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009C25C[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFEA5F1[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009CC9B[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFEA5F1[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+
+  [1m── P1 HIGH KICK (C_UP) ──[0m
+    rep 1  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009CC9B[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFEA5F1[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 1  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009EFC0[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFDFD3D[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009EFC0[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFDFD3D[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 2  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009F496[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFDFD3D[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  DURING (16f hold):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009F496[0m   P2_HITSTUN=0x00000002[0m   [92mP2_ACTION_ST=0x0003FAB1[0m   [92mP2_ATTACK_TYPE=0xFFFDFD3D[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+    rep 3  AFTER  (70f release):
+  [96m                              [0m   P1_HITSTUN_A=0x00000000[0m   P1_HITSTUN_B=0x00000000[0m   [92mP1_HITSTUN_C=0x00000000[0m   [92mP1_ACTION_ST=0x00000002[0m   [92mP1_ATTACK_TYPE=0x0009E7DD[0m   P2_HITSTUN=0x00000002[0m   P2_ACTION_ST=0x0003FA90[0m   [92mP2_ATTACK_TYPE=0xFFFDFD3D[0m   P1_HEALTH=0x00010000[0m   [92mP2_HEALTH=0x0000D99A[0m
+
+[1m══════════════════════════════════════════════════════════════════════[0m
+[1m  CROSS-PLAYER COUPLING CHECK[0m
+[1m  (if P2_HITSTUN / P2_ACTION_ST changed above → coupled)[0m
+[1m══════════════════════════════════════════════════════════════════════[0m
+
+  [92mPASS[0m  P2_HITSTUN stayed 0x00000002 during P1 attacks
+  [92mPASS[0m  P2_ACTION_ST unchanged during P1 attacks
+
+  [92mPASS[0m  P2 took damage: 0x10000 → 0xD99A (confirms P1 punches landed)
+  INFO  P1 health: 0x10000 → 0x10000 (CPU attacked back?)
+
+[1m  P1 attack registers during attacks:[0m
+  [93mP1_HITSTUN_A        [0m  idle=0x00000000  →  after=0x00000000  [93mstatic[0m
+  [93mP1_HITSTUN_B        [0m  idle=0x00000000  →  after=0x00000000  [93mstatic[0m
+  [92mP1_HITSTUN_C        [0m  idle=0xFFFFF856  →  after=0x00000000  [92mVARIED[0m
+  [92mP1_ACTION_ST        [0m  idle=0x00000000  →  after=0x00000002  [92mVARIED[0m
+  [92mP1_ATTACK_TYPE      [0m  idle=0x00000000  →  after=0x0009E7DD  [92mVARIED[0m
+
+  [1mRecommendation:[0m
+  P1_HITSTUN_A (0x800FE310): non-zero ONLY during attack frames = usable as binary flag
+  P1_ATTACK_TYPE (0x800FE090): unique per attack = usable for attack-type obs
+  P2_HITSTUN (0x80126F9C): should vary when CPU punches (check if P1_HEALTH dropped)
+
+  If P2_HITSTUN stayed 0 even though P2 clearly attacked (P1 HP dropped),
+  the P2 addresses may still need a dedicated P2-triggers-P1 probe.
+
+Shutting down emulator...
+Done.

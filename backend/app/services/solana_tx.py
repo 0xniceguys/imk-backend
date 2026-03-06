@@ -191,26 +191,24 @@ def build_place_bet_ix(
     side: str,            # "A" or "B"
     amount_base_units: int,
     blockhash: str,
+    admin_keypair: Keypair,  # Fee sponsor — pays gas so user needs zero SOL
     program_id_str: str = BETTING_PROGRAM_ID,
 ) -> bytes:
     """
-    Build an unsigned `place_bet` transaction.
+    Build a partially-signed `place_bet` transaction.
 
-    Args:
-        user_pubkey: Base58 public key of the bettor (Privy embedded wallet)
-        match_pda_str: Base58 pubkey of the on-chain Match account
-        skr_mint_str: Base58 pubkey of the SKR mint
-        side: "A" (fighter1) or "B" (fighter2)
-        amount_base_units: SKR amount in base units (1 SKR = 1_000_000)
-        blockhash: Recent blockhash from getLatestBlockhash
-        program_id_str: The deployed betting program ID
+    The admin wallet is the fee payer (gas sponsor). It pre-signs the tx.
+    Privy then adds the user's signature as the authority for their ATA.
+    This means users only need SKR — zero SOL required in their wallet.
+
     Returns:
-        Raw unsigned transaction bytes (base64-encode before sending to Privy)
+        Partially-signed transaction bytes (base64-encode before sending to Privy)
     """
-    prog   = Pubkey.from_string(program_id_str)
-    user   = Pubkey.from_string(user_pubkey)
-    match_pda  = Pubkey.from_string(match_pda_str)
-    skr_mint   = Pubkey.from_string(skr_mint_str)
+    prog      = Pubkey.from_string(program_id_str)
+    user      = Pubkey.from_string(user_pubkey)
+    admin     = admin_keypair.pubkey()
+    match_pda = Pubkey.from_string(match_pda_str)
+    skr_mint  = Pubkey.from_string(skr_mint_str)
 
     config_pda   = derive_config_pda(prog)
     vault_auth   = derive_vault_auth_pda(match_pda, prog)
@@ -238,7 +236,10 @@ def build_place_bet_ix(
         ],
         data=bytes(data),
     )
-    return _tx_bytes(ix, user, blockhash)
+    # Admin is fee payer — pre-sign. User's signature added by Privy.
+    msg = Message.new_with_blockhash([ix], admin, Hash.from_string(blockhash))
+    tx = Transaction([admin_keypair], msg, Hash.from_string(blockhash))
+    return bytes(tx)
 
 
 def build_claim_ix(
@@ -246,19 +247,22 @@ def build_claim_ix(
     match_pda_str: str,
     skr_mint_str: str,
     treasury_wallet_str: str,
-    admin_pubkey_str: str,
+    admin_keypair: Keypair,  # Fee sponsor — pays gas + provides admin pubkey
     blockhash: str,
     program_id_str: str = BETTING_PROGRAM_ID,
 ) -> bytes:
     """
-    Build an unsigned `claim` transaction (winner claims their SKR payout).
+    Build a partially-signed `claim` transaction.
+
+    Admin is fee payer (gas sponsor). Pre-signs so user needs zero SOL.
+    Privy adds the user's authority signature to complete the tx.
     """
     prog     = Pubkey.from_string(program_id_str)
     user     = Pubkey.from_string(user_pubkey)
+    admin    = admin_keypair.pubkey()
     match_pda = Pubkey.from_string(match_pda_str)
     skr_mint  = Pubkey.from_string(skr_mint_str)
     treasury_wallet = Pubkey.from_string(treasury_wallet_str)
-    admin    = Pubkey.from_string(admin_pubkey_str)
 
     config_pda    = derive_config_pda(prog)
     vault_auth    = derive_vault_auth_pda(match_pda, prog)
@@ -272,23 +276,26 @@ def build_claim_ix(
     ix = Instruction(
         program_id=prog,
         accounts=[
-            AccountMeta(pubkey=config_pda,   is_signer=False, is_writable=False),
-            AccountMeta(pubkey=match_pda,    is_signer=False, is_writable=True),
-            AccountMeta(pubkey=user_bet_pda, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=user_skr_ata, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=vault_ata,    is_signer=False, is_writable=True),
-            AccountMeta(pubkey=vault_auth,   is_signer=False, is_writable=True),
-            AccountMeta(pubkey=treasury_ata, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=config_pda,      is_signer=False, is_writable=False),
+            AccountMeta(pubkey=match_pda,       is_signer=False, is_writable=True),
+            AccountMeta(pubkey=user_bet_pda,    is_signer=False, is_writable=True),
+            AccountMeta(pubkey=user_skr_ata,    is_signer=False, is_writable=True),
+            AccountMeta(pubkey=vault_ata,       is_signer=False, is_writable=True),
+            AccountMeta(pubkey=vault_auth,      is_signer=False, is_writable=True),
+            AccountMeta(pubkey=treasury_ata,    is_signer=False, is_writable=True),
             AccountMeta(pubkey=treasury_wallet, is_signer=False, is_writable=False),
-            AccountMeta(pubkey=admin,        is_signer=False, is_writable=True),
-            AccountMeta(pubkey=skr_mint,     is_signer=False, is_writable=False),
-            AccountMeta(pubkey=user,         is_signer=True,  is_writable=True),
+            AccountMeta(pubkey=admin,           is_signer=False, is_writable=True),
+            AccountMeta(pubkey=skr_mint,        is_signer=False, is_writable=False),
+            AccountMeta(pubkey=user,            is_signer=True,  is_writable=True),
             AccountMeta(pubkey=_TOKEN_PROGRAM_ID,  is_signer=False, is_writable=False),
             AccountMeta(pubkey=_SYSTEM_PROGRAM_ID, is_signer=False, is_writable=False),
         ],
         data=bytes(data),
     )
-    return _tx_bytes(ix, user, blockhash)
+    # Admin pre-signs as fee payer. Privy adds user signature.
+    msg = Message.new_with_blockhash([ix], admin, Hash.from_string(blockhash))
+    tx = Transaction([admin_keypair], msg, Hash.from_string(blockhash))
+    return bytes(tx)
 
 
 def build_create_match_ix(

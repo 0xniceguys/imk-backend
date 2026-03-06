@@ -1,7 +1,37 @@
 {
   "permissions": {
     "allow": [
-      "Read(//opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/bin/**)"
+      "Read(//opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/bin/**)",
+      "Bash(# Check if there are stale socket files or bridge processes from any previous run ls -la /Users/ichiropractic/code/n64/training/data/bridge/mk4-train-*.sock ps aux)",
+      "Bash(PYTHONUNBUFFERED=1 /opt/homebrew/bin/python3 /Users/ichiropractic/code/n64/training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id quicktest --workers 1 --episodes 3 --save-every 3)",
+      "Bash(/opt/homebrew/bin/python3 -c \":*)",
+      "Bash(# Check lsof — does the bridge actually have the socket listening? lsof -p 5346)",
+      "Bash(PYTHONPATH=/Users/ichiropractic/code/n64/training/src /opt/homebrew/bin/python3 -c \":*)",
+      "Read(//Users/ichiropractic/code/n64/**)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 -c \"from n64train.runtime.local_bridge_backend import LocalBridgeBackend; print\\(''Import OK''\\)\")",
+      "Bash(PYTHONUNBUFFERED=1 /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id test-smoke --workers 1 --episodes 3 --save-every 100)",
+      "Bash(lsof -p 14919)",
+      "Bash(PYTHONUNBUFFERED=1 /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id lstm --workers 1 --episodes 10 --save-every 100)",
+      "Bash(lsof -p 44242)",
+      "Bash(/opt/homebrew/bin/python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'' win%={d.get\\(\"\"win_rate_50\"\",\"\"?\"\"\\):.1f} avg_r={d.get\\(\"\"avg_reward_50\"\",\"\"?\"\"\\):.1f} dealt={d.get\\(\"\"reward_dealt\"\",\"\"?\"\"\\)} taken={d.get\\(\"\"reward_taken\"\",\"\"?\"\"\\)}''\\)\")",
+      "Bash(fi)",
+      "Bash(/opt/homebrew/bin/python3 -c \"import json,sys; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\(list\\(d.keys\\(\\)\\)\\)\")",
+      "Bash(/tmp/training_analysis.py:*)",
+      "Bash(__NEW_LINE_b9e2888c63367c56__ /opt/homebrew/bin/python3 /tmp/training_analysis.py)",
+      "Bash(/tmp/archive_analysis.py:*)",
+      "Bash(__NEW_LINE_9c9f763f6cebe679__ /opt/homebrew/bin/python3 /tmp/archive_analysis.py)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 -c \":*)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id upgrade-smoke --workers 1 --episodes 3 --save-every 100)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id stability-test --workers 1 --episodes 3 --save-every 100)",
+      "Bash(! ls training/data/checkpoints/*.tmp)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id flow-test --workers 1 --episodes 20 --save-every 5)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id smoke-reward --workers 1 --episodes 3 --save-every 100)",
+      "Bash(PYTHONPATH=training/src /opt/homebrew/bin/python3 training/scripts/mk4_train_parallel_cpu.py --agent lstm --run-id smoke-llm --workers 1 --episodes 3 --save-every 100)"
+    ],
+    "additionalDirectories": [
+      "/Users/ichiropractic/code/n64/training/data/bridge",
+      "/tmp",
+      "/Users/ichiropractic/code/n64/training/data/logs"
     ]
   }
 }

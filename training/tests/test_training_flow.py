@@ -32,10 +32,11 @@ class TestButtonMapping(unittest.TestCase):
     """Verify every MacroAction produces the right hardware bitmask."""
 
     def setUp(self):
-        from mk4_train import _BTN, _MACRO_MAP, macro_to_ctrl_state
+        from mk4_train import _BTN, _MACRO_MAP, macro_to_ctrl_state, macro_to_ctrl_state_facing
         self._BTN = _BTN
         self._MACRO_MAP = _MACRO_MAP
         self.macro_to_ctrl_state = macro_to_ctrl_state
+        self.macro_to_ctrl_state_facing = macro_to_ctrl_state_facing
 
     def _mask(self, *buttons: Button) -> int:
         return sum(self._BTN[b] for b in buttons)
@@ -115,6 +116,14 @@ class TestButtonMapping(unittest.TestCase):
             self.assertIsInstance(ctrl, ControllerState,
                                   f"MacroAction.{m.name} missing from _MACRO_MAP")
 
+    def test_facing_aware_mapping_flips_directions(self):
+        left_side = self.macro_to_ctrl_state_facing(MacroAction.ADVANCE, facing_sign=1.0)
+        right_side = self.macro_to_ctrl_state_facing(MacroAction.ADVANCE, facing_sign=-1.0)
+        self.assertEqual(sum(self._BTN.get(b, 0) for b in left_side.pressed),
+                         self._mask(Button.D_RIGHT))
+        self.assertEqual(sum(self._BTN.get(b, 0) for b in right_side.pressed),
+                         self._mask(Button.D_LEFT))
+
     def test_bitmask_packed_fits_uint16(self):
         """The mmap write uses struct.pack('<Hbb') — mask must fit in uint16."""
         from mk4_train import _BTN
@@ -141,12 +150,13 @@ class FakeState:
 
 class TestObsBuilder(unittest.TestCase):
     def setUp(self):
-        from mk4_train import build_obs
+        from mk4_train import RAW_OBS_DIM, build_obs
+        self.raw_obs_dim = RAW_OBS_DIM
         self.build_obs = build_obs
 
-    def test_obs_length_is_14(self):
+    def test_obs_length_is_raw_dim(self):
         obs = self.build_obs(FakeState())
-        self.assertEqual(len(obs), 14)
+        self.assertEqual(len(obs), self.raw_obs_dim)
 
     def test_full_health_normalises_to_1(self):
         obs = self.build_obs(FakeState(p1_health=160, p2_health=160))
@@ -184,7 +194,7 @@ class TestObsBuilder(unittest.TestCase):
         state.p1_health = None; state.p2_health = None
         state.timer = None; state.p1_x = None; state.p2_x = None
         obs = self.build_obs(state)
-        self.assertEqual(len(obs), 14)
+        self.assertEqual(len(obs), self.raw_obs_dim)
         self.assertFalse(any(v != v for v in obs), "NaN in obs")  # NaN check
 
 
@@ -250,6 +260,8 @@ class TestRewardExtractor(unittest.TestCase):
 
     def test_no_approach_inside_fighting_range(self):
         """No approach reward if already within FIGHTING_RANGE (3 units)."""
+        from n64train.runtime.rewards import RewardConfig
+        self.ext.update_config(RewardConfig(positioning_bonus=0.0))
         prev = self._state(p1_x=0.0, p2_x=2.0)
         nxt  = self._state(p1_x=0.5, p2_x=2.0)
         terms = self.ext.compute(prev, nxt)
@@ -268,6 +280,66 @@ class TestRewardExtractor(unittest.TestCase):
         prev = self._state(); nxt = self._state()
         terms = self.ext.compute(prev, nxt, action_history=hist)
         self.assertEqual(terms.spam_penalty, 0.0)
+
+    def test_direction_flip_penalised(self):
+        hist = ['ADVANCE', 'RETREAT']
+        prev = self._state(); nxt = self._state()
+        terms = self.ext.compute(prev, nxt, action_history=hist)
+        self.assertLess(terms.spam_penalty, 0.0)
+
+    def test_jump_spam_penalised(self):
+        hist = ['JUMP_FORWARD', 'JUMP_BACK', 'JUMP_NEUTRAL', 'JUMP_FORWARD']
+        prev = self._state(); nxt = self._state()
+        terms = self.ext.compute(prev, nxt, action_history=hist)
+        self.assertLess(terms.spam_penalty, 0.0)
+
+    def test_punish_bonus_disabled_without_any_commitment_signal(self):
+        from n64train.runtime.rewards import RewardConfig
+        self.ext.update_config(RewardConfig(punish_bonus=2.0))
+        prev = self._state(
+            p2_health=160,
+            extras={
+                'p2_hitstun': 1.0,
+                'p2_hitstun_verified': 0.0,
+                'p2_attack_sig_verified': 0.0,
+                'p2_recent_attack': 0.0,
+            },
+        )
+        nxt = self._state(p2_health=150)
+        terms = self.ext.compute(prev, nxt, action_history=['LOW_PUNCH'])
+        self.assertEqual(terms.approach_reward, 0.0)
+
+    def test_punish_bonus_uses_verified_hitstun_signal(self):
+        from n64train.runtime.rewards import RewardConfig
+        self.ext.update_config(RewardConfig(punish_bonus=2.0))
+        prev = self._state(
+            p2_health=160,
+            extras={
+                'p2_hitstun': 1.0,
+                'p2_hitstun_verified': 1.0,
+                'p2_attack_sig_verified': 0.0,
+                'p2_recent_attack': 0.0,
+            },
+        )
+        nxt = self._state(p2_health=150)
+        terms = self.ext.compute(prev, nxt, action_history=['LOW_PUNCH'])
+        self.assertGreater(terms.approach_reward, 0.0)
+
+    def test_punish_bonus_uses_attack_signature_fallback(self):
+        from n64train.runtime.rewards import RewardConfig
+        self.ext.update_config(RewardConfig(punish_bonus=2.0))
+        prev = self._state(
+            p2_health=160,
+            extras={
+                'p2_hitstun': 0.0,
+                'p2_hitstun_verified': 0.0,
+                'p2_attack_sig_verified': 1.0,
+                'p2_recent_attack': 1.0,
+            },
+        )
+        nxt = self._state(p2_health=150)
+        terms = self.ext.compute(prev, nxt, action_history=['LOW_PUNCH'])
+        self.assertGreater(terms.approach_reward, 0.0)
 
     def test_scalar_is_sum_of_terms(self):
         prev = self._state(p2_health=160, p1_health=160)
@@ -293,25 +365,25 @@ class TestMk4TrainRecurrentRewards(unittest.TestCase):
     the learner path (parallel) to inject rewards. Single-path must work too."""
 
     def test_lstm_record_accumulates_rewards(self):
-        from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack
+        from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack, RAW_OBS_DIM
         agent = Mk4LstmAgent(device='cpu')
         agent.reset_episode()
-        fs = FrameStack(obs_dim=14, n_frames=4)
+        fs = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
         import random
         for _ in range(5):
-            obs = fs.push([random.random() for _ in range(14)])
+            obs = fs.push([random.random() for _ in range(RAW_OBS_DIM)])
             agent(obs)
             agent.record(random.random())
         self.assertEqual(len(agent._rewards), 5)
 
     def test_lstm_learn_after_records(self):
-        from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack
+        from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack, RAW_OBS_DIM
         import random
         agent = Mk4LstmAgent(device='cpu')
         agent.reset_episode()
-        fs = FrameStack(obs_dim=14, n_frames=4)
+        fs = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
         for _ in range(6):
-            obs = fs.push([random.random() for _ in range(14)])
+            obs = fs.push([random.random() for _ in range(RAW_OBS_DIM)])
             agent(obs)
             agent.record(random.random())
         m = agent.learn()
@@ -329,8 +401,9 @@ class TestLearnerPPOInjection(unittest.TestCase):
 
     def _build_rollout(self, n=6):
         import random
+        from n64train.experiments.mk4_agent import OBS_DIM
         return {
-            'obs':     [[random.random()] * 56 for _ in range(n)],
+            'obs':     [[random.random()] * OBS_DIM for _ in range(n)],
             'acts':    [random.randint(0, 19) for _ in range(n)],
             'rewards': [random.random() for _ in range(n)],
             'old_lps': [random.gauss(0, 1) for _ in range(n)],
@@ -384,43 +457,45 @@ class TestLearnerPPOInjection(unittest.TestCase):
 
 class TestFrameStack(unittest.TestCase):
     def setUp(self):
-        from n64train.experiments.mk4_agent import FrameStack
+        from n64train.experiments.mk4_agent import FrameStack, OBS_DIM, RAW_OBS_DIM
         self.FrameStack = FrameStack
+        self.obs_dim = RAW_OBS_DIM
+        self.stacked_dim = OBS_DIM
 
-    def test_output_dim_is_56(self):
-        fs = self.FrameStack(obs_dim=14, n_frames=4)
-        out = fs.push([1.0] * 14)
-        self.assertEqual(len(out), 56)
+    def test_output_dim_is_obs_dim(self):
+        fs = self.FrameStack(obs_dim=self.obs_dim, n_frames=4)
+        out = fs.push([1.0] * self.obs_dim)
+        self.assertEqual(len(out), self.stacked_dim)
 
     def test_first_push_pads_with_zeros(self):
-        fs = self.FrameStack(obs_dim=14, n_frames=4)
-        out = fs.push([1.0] * 14)
-        # First 3 frames should be zero-padded (3 × 14 = 42 zeros)
-        self.assertEqual(out[:42], [0.0] * 42)
-        self.assertEqual(out[42:], [1.0] * 14)
+        fs = self.FrameStack(obs_dim=self.obs_dim, n_frames=4)
+        out = fs.push([1.0] * self.obs_dim)
+        # First 3 frames should be zero-padded.
+        pad = 3 * self.obs_dim
+        self.assertEqual(out[:pad], [0.0] * pad)
+        self.assertEqual(out[pad:], [1.0] * self.obs_dim)
 
     def test_four_pushes_fills_completely(self):
-        fs = self.FrameStack(obs_dim=14, n_frames=4)
+        fs = self.FrameStack(obs_dim=self.obs_dim, n_frames=4)
         for i in range(4):
-            out = fs.push([float(i)] * 14)
-        # Should be [0,0,...(14), 1,...(14), 2,...(14), 3,...(14)]
-        expected = [float(i) for i in range(4) for _ in range(14)]
+            out = fs.push([float(i)] * self.obs_dim)
+        expected = [float(i) for i in range(4) for _ in range(self.obs_dim)]
         self.assertEqual(out, expected)
 
     def test_oldest_frame_dropped_after_5_pushes(self):
-        fs = self.FrameStack(obs_dim=14, n_frames=4)
+        fs = self.FrameStack(obs_dim=self.obs_dim, n_frames=4)
         for i in range(5):
-            out = fs.push([float(i)] * 14)
+            out = fs.push([float(i)] * self.obs_dim)
         # After 5 pushes, window = [1,2,3,4]
-        expected = [float(i) for i in range(1, 5) for _ in range(14)]
+        expected = [float(i) for i in range(1, 5) for _ in range(self.obs_dim)]
         self.assertEqual(out, expected)
 
-    def test_opponent_stack_gives_56_float(self):
+    def test_opponent_stack_gives_stacked_dim(self):
         """Reproduce the Bug 2 fix: opponent uses its own FrameStack."""
-        opp_fs = self.FrameStack(obs_dim=14, n_frames=4)
-        raw = [0.5] * 14
+        opp_fs = self.FrameStack(obs_dim=self.obs_dim, n_frames=4)
+        raw = [0.5] * self.obs_dim
         stacked = opp_fs.push(raw)
-        self.assertEqual(len(stacked), 56)
+        self.assertEqual(len(stacked), self.stacked_dim)
 
 
 if __name__ == '__main__':

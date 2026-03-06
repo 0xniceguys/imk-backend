@@ -1,0 +1,8 @@
+{"episode": 1, "steps": 1521, "reward": -108.9, "won": true, "win_rate": 100.0, "avg50": -108.9, "r_dealt": 160.0, "r_taken": -223.5, "r_spam": -42.9, "r_approach": 25.68, "r_survival": 1.52, "agent": "lstm"}
+{"episode": 2, "steps": 1433, "reward": -270.65, "won": false, "win_rate": 50.0, "avg50": -189.775, "r_dealt": 216.0, "r_taken": -112.0, "r_spam": -39.6, "r_approach": 7.89, "r_survival": 7.16, "agent": "lstm"}
+{"episode": 3, "steps": 1471, "reward": -365.06, "won": false, "win_rate": 33.33, "avg50": -248.2033, "r_dealt": 154.8, "r_taken": -112.0, "r_spam": -38.6, "r_approach": 6.99, "r_survival": 7.35, "agent": "lstm"}
+{"episode": 4, "steps": 1634, "reward": -72.825, "won": true, "win_rate": 50.0, "avg50": -204.3587, "r_dealt": 288.0, "r_taken": -109.9, "r_spam": -49.3, "r_approach": 17.51, "r_survival": 8.165, "agent": "lstm"}
+{"episode": 5, "steps": 1269, "reward": -301.03, "won": false, "win_rate": 40.0, "avg50": -223.693, "r_dealt": 162.0, "r_taken": -112.0, "r_spam": -33.2, "r_approach": 7.23, "r_survival": 6.34, "agent": "lstm"}
+{"episode": 6, "steps": 1425, "reward": -316.44, "won": false, "win_rate": 33.33, "avg50": -239.1508, "r_dealt": 153.0, "r_taken": -112.0, "r_spam": -45.4, "r_approach": 12.24, "r_survival": 7.12, "agent": "lstm"}
+{"episode": 7, "steps": 832, "reward": 137.445, "won": true, "win_rate": 42.86, "avg50": -185.3514, "r_dealt": 288.0, "r_taken": -28.7, "r_spam": -24.0, "r_approach": 5.79, "r_survival": 4.155, "agent": "lstm"}
+{"episode": 8, "steps": 1746, "reward": 34.075, "won": true, "win_rate": 50.0, "avg50": -157.9231, "r_dealt": 288.0, "r_taken": -87.5, "r_spam": -53.8, "r_approach": 31.25, "r_survival": 8.725, "agent": "lstm"}

@@ -27,18 +27,19 @@ async def get_wallet_id_and_sign(
     user_jwt: str, wallet_address: str, tx_b64: str, devnet: bool = False
 ) -> tuple[str, str | None]:
     """
-    Locate user's Solana wallet and sign + broadcast a transaction via Privy's
-    server RPC using user-delegated JWT authentication.
+    Locate user's Solana wallet and sign + broadcast a transaction via Privy.
 
-    Args:
-        user_jwt: The user's JWT access token from Privy
-        wallet_address: The user's wallet address stored in DB
-        tx_b64: Base64-encoded transaction to sign
-        devnet: Whether to use devnet or mainnet
-
-    Returns:
-        tuple: (transaction_signature, corrected_wallet_address_or_none)
+    LOCALNET / TEST MODE: If the env var TEST_USER_PRIVKEY_B58 is set, this
+    function bypasses Privy entirely and signs the transaction with that keypair
+    locally, broadcasting to LOCAL_RPC_URL (default: http://127.0.0.1:8899).
+    Set TEST_USER_WALLET to the matching public key in the backend env.
+    NEVER set these vars in production.
     """
+    import os
+    test_privkey_b58 = os.getenv("TEST_USER_PRIVKEY_B58", "")
+    if test_privkey_b58:
+        return await _mock_sign_and_send(tx_b64, test_privkey_b58, devnet)
+
     caip2 = _CAIP2_DEVNET if devnet else _CAIP2_MAINNET
 
     def _sync() -> tuple[str, str | None]:
@@ -153,3 +154,56 @@ async def get_wallet_id_and_sign(
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(502, f"Privy wallet operation failed: {e}")
+
+
+async def _mock_sign_and_send(
+    tx_b64: str,
+    user_privkey_b58: str,
+    devnet: bool = False,
+) -> tuple[str, str | None]:
+    """
+    Localnet/test signing path. Signs the partially-signed tx (admin pre-signed
+    as fee payer) with the test user keypair and broadcasts to localnet RPC.
+    """
+    import os
+    import base64
+    import httpx
+    from solders.keypair import Keypair as _Keypair
+    from solders.transaction import Transaction as _Tx
+
+    rpc_url = os.getenv("LOCAL_RPC_URL", "http://127.0.0.1:8899")
+
+    def _sign_and_broadcast() -> str:
+        user_kp = _Keypair.from_base58_string(user_privkey_b58)
+        raw = base64.b64decode(tx_b64)
+        tx = _Tx.from_bytes(raw)
+
+        # The tx already has admin's fee-payer signature. Add user's signature.
+        tx.sign([user_kp])  # partial_sign — adds user sig without clearing admin sig
+
+        signed_b64 = base64.b64encode(bytes(tx)).decode()
+
+        # Broadcast via JSON-RPC to localnet
+        body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sendTransaction",
+            "params": [
+                signed_b64,
+                {"encoding": "base64", "skipPreflight": False,
+                 "preflightCommitment": "confirmed"},
+            ],
+        }
+        resp = httpx.post(rpc_url, json=body, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data and data["error"]:
+            raise ValueError(f"RPC sendTransaction error: {data['error']}")
+        return data["result"]
+
+    try:
+        sig = await run_in_threadpool(_sign_and_broadcast)
+        print(f"[MOCK PRIVY] Tx broadcast to {rpc_url}: {sig}")
+        return sig, None
+    except Exception as e:
+        raise HTTPException(502, f"Mock signing failed: {e}")

@@ -6,7 +6,7 @@ Verifies (without an emulator):
   2. transformer.learn() no longer raises AttributeError on _old_lp / _val
   3. obj_belief.learn() no longer raises AttributeError on _old_lp / _val / _rew
   4. obj_belief.reset_episode() clears _rewards (not a stale _rew)
-  5. Opponent agent receives 28-float obs (not 7-float raw obs)
+  5. Opponent agent receives stacked obs (not raw single-frame obs)
 """
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import torch
 import unittest
 import random
+from n64train.experiments.mk4_agent import OBS_DIM, RAW_OBS_DIM
 
 random.seed(0); torch.manual_seed(0)
 
 N_STEPS = 6
-OBS_DIM = 56   # 14 raw features × 4 stacked frames
 
 
 def _fake_episode(agent, n=N_STEPS):
@@ -103,23 +103,26 @@ class TestObjBelief(unittest.TestCase):
 
 
 class TestSelfPlayObsStacking(unittest.TestCase):
-    def test_opponent_receives_56_float_obs(self):
-        """Opponent agent must receive 56-float stacked obs (14 × 4 frames), not raw 14-float."""
+    def test_opponent_receives_stacked_obs(self):
+        """Opponent must receive OBS_DIM stacked obs, not RAW_OBS_DIM raw obs."""
         from n64train.experiments.mk4_agent import FrameStack
-        opp_frame_stack = FrameStack(obs_dim=14, n_frames=4)
-        raw_obs = [0.5] * 14
+        opp_frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
+        raw_obs = [0.5] * RAW_OBS_DIM
         stacked = opp_frame_stack.push(raw_obs)
-        self.assertEqual(len(stacked), 56,
-                         f"Stacked obs should be 56-float, got {len(stacked)}")
+        self.assertEqual(
+            len(stacked),
+            OBS_DIM,
+            f"Stacked obs should be {OBS_DIM}-float, got {len(stacked)}",
+        )
 
-    def test_lstm_accepts_56_float_obs(self):
-        """LSTM agent should not crash when given 56-float stacked obs."""
+    def test_lstm_accepts_stacked_obs(self):
+        """LSTM agent should not crash when given OBS_DIM stacked obs."""
         from n64train.experiments.mk4_agent import Mk4LstmAgent, FrameStack
         agent = Mk4LstmAgent(device='cpu')
         agent.reset_episode()
-        fs = FrameStack(obs_dim=14, n_frames=4)
-        obs56 = fs.push([random.random() for _ in range(14)])
-        result = agent(obs56)
+        fs = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
+        obs_stacked = fs.push([random.random() for _ in range(RAW_OBS_DIM)])
+        result = agent(obs_stacked)
         self.assertIsNotNone(result)
 
 

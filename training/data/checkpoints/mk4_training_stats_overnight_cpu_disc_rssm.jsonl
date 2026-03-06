@@ -1,0 +1,198 @@
+{"episode": 1, "arch": "discrete_rssm_hier_ac", "n_steps": 1054, "kl": 0.1287, "ppo_policy_loss": -0.011, "ppo_value_loss": 3.9031, "ppo_entropy": 3.0425, "ppo_ratio_mean": 1.0017, "ppo_clip_frac": 0.0}
+{"update": 1, "agent": "disc_rssm", "episode": 1, "batch_eps": 1}
+{"episode": 2, "arch": "discrete_rssm_hier_ac", "n_steps": 1883, "kl": 0.1083, "ppo_policy_loss": -0.007, "ppo_value_loss": 5.9424, "ppo_entropy": 3.0361, "ppo_ratio_mean": 0.9963, "ppo_clip_frac": 0.0143}
+{"update": 2, "agent": "disc_rssm", "episode": 2, "batch_eps": 1}
+{"episode": 3, "arch": "discrete_rssm_hier_ac", "n_steps": 1661, "kl": 0.0749, "ppo_policy_loss": -0.0009, "ppo_value_loss": 6.5326, "ppo_entropy": 3.0294, "ppo_ratio_mean": 1.0, "ppo_clip_frac": 0.0}
+{"update": 3, "agent": "disc_rssm", "episode": 3, "batch_eps": 1}
+{"episode": 4, "arch": "discrete_rssm_hier_ac", "n_steps": 1032, "kl": 0.0618, "ppo_policy_loss": -0.0066, "ppo_value_loss": 7.8771, "ppo_entropy": 3.0227, "ppo_ratio_mean": 0.9987, "ppo_clip_frac": 0.0}
+{"update": 4, "agent": "disc_rssm", "episode": 4, "batch_eps": 1}
+{"episode": 5, "arch": "discrete_rssm_hier_ac", "n_steps": 1414, "kl": 0.0307, "ppo_policy_loss": -0.0043, "ppo_value_loss": 6.5351, "ppo_entropy": 3.0114, "ppo_ratio_mean": 1.0016, "ppo_clip_frac": 0.0537}
+{"update": 5, "agent": "disc_rssm", "episode": 5, "batch_eps": 1}
+{"episode": 6, "arch": "discrete_rssm_hier_ac", "n_steps": 1606, "kl": 0.0448, "ppo_policy_loss": 0.0032, "ppo_value_loss": 6.1245, "ppo_entropy": 2.9972, "ppo_ratio_mean": 1.0015, "ppo_clip_frac": 0.2621}
+{"update": 6, "agent": "disc_rssm", "episode": 6, "batch_eps": 1}
+{"episode": 7, "arch": "discrete_rssm_hier_ac", "n_steps": 1491, "kl": 0.0455, "ppo_policy_loss": -0.0046, "ppo_value_loss": 5.8079, "ppo_entropy": 2.9853, "ppo_ratio_mean": 1.0062, "ppo_clip_frac": 0.0973}
+{"update": 7, "agent": "disc_rssm", "episode": 7, "batch_eps": 1}
+{"episode": 8, "arch": "discrete_rssm_hier_ac", "n_steps": 1889, "kl": 0.0438, "ppo_policy_loss": 0.0013, "ppo_value_loss": 4.7686, "ppo_entropy": 2.9744, "ppo_ratio_mean": 0.9994, "ppo_clip_frac": 0.0582}
+{"update": 8, "agent": "disc_rssm", "episode": 8, "batch_eps": 1}
+{"episode": 9, "arch": "discrete_rssm_hier_ac", "n_steps": 1477, "kl": 0.0547, "ppo_policy_loss": -0.0048, "ppo_value_loss": 5.9852, "ppo_entropy": 2.9825, "ppo_ratio_mean": 0.9973, "ppo_clip_frac": 0.0271}
+{"update": 9, "agent": "disc_rssm", "episode": 9, "batch_eps": 1}
+{"episode": 10, "arch": "discrete_rssm_hier_ac", "n_steps": 1336, "kl": 0.0311, "ppo_policy_loss": -0.003, "ppo_value_loss": 7.4397, "ppo_entropy": 2.9691, "ppo_ratio_mean": 1.003, "ppo_clip_frac": 0.1347}
+{"update": 10, "agent": "disc_rssm", "episode": 10, "batch_eps": 1}
+{"episode": 11, "arch": "discrete_rssm_hier_ac", "n_steps": 1602, "kl": 0.0321, "ppo_policy_loss": 0.0015, "ppo_value_loss": 6.337, "ppo_entropy": 2.9598, "ppo_ratio_mean": 0.9991, "ppo_clip_frac": 0.2409}
+{"update": 11, "agent": "disc_rssm", "episode": 11, "batch_eps": 1}
+{"episode": 12, "arch": "discrete_rssm_hier_ac", "n_steps": 1507, "kl": 0.0254, "ppo_policy_loss": -0.0001, "ppo_value_loss": 6.4024, "ppo_entropy": 2.9476, "ppo_ratio_mean": 0.9973, "ppo_clip_frac": 0.1785}
+{"update": 12, "agent": "disc_rssm", "episode": 12, "batch_eps": 1}
+{"episode": 13, "arch": "discrete_rssm_hier_ac", "n_steps": 1226, "kl": 0.0252, "ppo_policy_loss": -0.0046, "ppo_value_loss": 6.0006, "ppo_entropy": 2.9334, "ppo_ratio_mean": 1.0034, "ppo_clip_frac": 0.1803}
+{"update": 13, "agent": "disc_rssm", "episode": 13, "batch_eps": 1}
+{"episode": 14, "arch": "discrete_rssm_hier_ac", "n_steps": 1451, "kl": 0.0174, "ppo_policy_loss": -0.0014, "ppo_value_loss": 6.2795, "ppo_entropy": 2.9444, "ppo_ratio_mean": 0.9998, "ppo_clip_frac": 0.2302}
+{"update": 14, "agent": "disc_rssm", "episode": 14, "batch_eps": 1}
+{"episode": 15, "arch": "discrete_rssm_hier_ac", "n_steps": 972, "kl": 0.0215, "ppo_policy_loss": 0.0114, "ppo_value_loss": 6.3999, "ppo_entropy": 2.9483, "ppo_ratio_mean": 0.9991, "ppo_clip_frac": 0.3549}
+{"update": 15, "agent": "disc_rssm", "episode": 15, "batch_eps": 1}
+{"episode": 16, "arch": "discrete_rssm_hier_ac", "n_steps": 2199, "kl": 0.0149, "ppo_policy_loss": 0.0005, "ppo_value_loss": 5.382, "ppo_entropy": 2.9449, "ppo_ratio_mean": 0.9956, "ppo_clip_frac": 0.1182}
+{"update": 16, "agent": "disc_rssm", "episode": 16, "batch_eps": 1}
+{"episode": 17, "arch": "discrete_rssm_hier_ac", "n_steps": 1501, "kl": 0.0089, "ppo_policy_loss": -0.0096, "ppo_value_loss": 7.3675, "ppo_entropy": 2.9403, "ppo_ratio_mean": 0.9997, "ppo_clip_frac": 0.3078}
+{"update": 17, "agent": "disc_rssm", "episode": 17, "batch_eps": 1}
+{"episode": 18, "arch": "discrete_rssm_hier_ac", "n_steps": 1636, "kl": 0.0158, "ppo_policy_loss": 0.0163, "ppo_value_loss": 6.773, "ppo_entropy": 2.9312, "ppo_ratio_mean": 0.9967, "ppo_clip_frac": 0.4529}
+{"update": 18, "agent": "disc_rssm", "episode": 18, "batch_eps": 1}
+{"episode": 19, "arch": "discrete_rssm_hier_ac", "n_steps": 1741, "kl": 0.0152, "ppo_policy_loss": 0.0041, "ppo_value_loss": 4.8768, "ppo_entropy": 2.9278, "ppo_ratio_mean": 1.0061, "ppo_clip_frac": 0.1924}
+{"update": 19, "agent": "disc_rssm", "episode": 19, "batch_eps": 1}
+{"episode": 20, "arch": "discrete_rssm_hier_ac", "n_steps": 1841, "kl": 0.0364, "ppo_policy_loss": -0.0042, "ppo_value_loss": 5.8176, "ppo_entropy": 2.9648, "ppo_ratio_mean": 0.9975, "ppo_clip_frac": 0.0788}
+{"update": 20, "agent": "disc_rssm", "episode": 20, "batch_eps": 1}
+{"episode": 21, "arch": "discrete_rssm_hier_ac", "n_steps": 1611, "kl": 0.0107, "ppo_policy_loss": -0.0028, "ppo_value_loss": 6.5732, "ppo_entropy": 2.9203, "ppo_ratio_mean": 1.0039, "ppo_clip_frac": 0.1868}
+{"update": 21, "agent": "disc_rssm", "episode": 21, "batch_eps": 1}
+{"episode": 22, "arch": "discrete_rssm_hier_ac", "n_steps": 1182, "kl": 0.0125, "ppo_policy_loss": 0.0082, "ppo_value_loss": 5.1937, "ppo_entropy": 2.9126, "ppo_ratio_mean": 1.0039, "ppo_clip_frac": 0.3105}
+{"update": 22, "agent": "disc_rssm", "episode": 22, "batch_eps": 1}
+{"episode": 23, "arch": "discrete_rssm_hier_ac", "n_steps": 1528, "kl": 0.0089, "ppo_policy_loss": -0.0031, "ppo_value_loss": 6.1678, "ppo_entropy": 2.9043, "ppo_ratio_mean": 1.0014, "ppo_clip_frac": 0.1093}
+{"update": 23, "agent": "disc_rssm", "episode": 23, "batch_eps": 1}
+{"episode": 24, "arch": "discrete_rssm_hier_ac", "n_steps": 1501, "kl": 0.0285, "ppo_policy_loss": -0.0014, "ppo_value_loss": 6.7002, "ppo_entropy": 2.9324, "ppo_ratio_mean": 1.0027, "ppo_clip_frac": 0.1286}
+{"update": 24, "agent": "disc_rssm", "episode": 24, "batch_eps": 1}
+{"episode": 25, "arch": "discrete_rssm_hier_ac", "n_steps": 1806, "kl": 0.012, "ppo_policy_loss": 0.001, "ppo_value_loss": 6.3063, "ppo_entropy": 2.8897, "ppo_ratio_mean": 1.0024, "ppo_clip_frac": 0.0653}
+{"update": 25, "agent": "disc_rssm", "episode": 25, "batch_eps": 1}
+{"episode": 26, "arch": "discrete_rssm_hier_ac", "n_steps": 1778, "kl": 0.0129, "ppo_policy_loss": -0.0025, "ppo_value_loss": 4.4098, "ppo_entropy": 2.8938, "ppo_ratio_mean": 0.9986, "ppo_clip_frac": 0.248}
+{"update": 26, "agent": "disc_rssm", "episode": 26, "batch_eps": 1}
+{"episode": 27, "arch": "discrete_rssm_hier_ac", "n_steps": 1511, "kl": 0.026, "ppo_policy_loss": 0.003, "ppo_value_loss": 6.7019, "ppo_entropy": 2.9327, "ppo_ratio_mean": 1.0003, "ppo_clip_frac": 0.184}
+{"update": 27, "agent": "disc_rssm", "episode": 27, "batch_eps": 1}
+{"episode": 28, "arch": "discrete_rssm_hier_ac", "n_steps": 1523, "kl": 0.0342, "ppo_policy_loss": -0.0062, "ppo_value_loss": 7.0296, "ppo_entropy": 2.9529, "ppo_ratio_mean": 1.0013, "ppo_clip_frac": 0.0492}
+{"update": 28, "agent": "disc_rssm", "episode": 28, "batch_eps": 1}
+{"episode": 29, "arch": "discrete_rssm_hier_ac", "n_steps": 1075, "kl": 0.0295, "ppo_policy_loss": 0.0014, "ppo_value_loss": 5.0034, "ppo_entropy": 2.8742, "ppo_ratio_mean": 0.9991, "ppo_clip_frac": 0.1033}
+{"update": 29, "agent": "disc_rssm", "episode": 29, "batch_eps": 1}
+{"episode": 30, "arch": "discrete_rssm_hier_ac", "n_steps": 1855, "kl": 0.0353, "ppo_policy_loss": -0.0014, "ppo_value_loss": 3.9565, "ppo_entropy": 2.8389, "ppo_ratio_mean": 1.0005, "ppo_clip_frac": 0.0081}
+{"update": 30, "agent": "disc_rssm", "episode": 30, "batch_eps": 1}
+{"episode": 31, "arch": "discrete_rssm_hier_ac", "n_steps": 1751, "kl": 0.0165, "ppo_policy_loss": -0.0064, "ppo_value_loss": 5.2896, "ppo_entropy": 2.8605, "ppo_ratio_mean": 1.0004, "ppo_clip_frac": 0.165}
+{"update": 31, "agent": "disc_rssm", "episode": 31, "batch_eps": 1}
+{"episode": 32, "arch": "discrete_rssm_hier_ac", "n_steps": 1412, "kl": 0.0166, "ppo_policy_loss": 0.0113, "ppo_value_loss": 6.3916, "ppo_entropy": 2.8572, "ppo_ratio_mean": 0.9947, "ppo_clip_frac": 0.4773}
+{"update": 32, "agent": "disc_rssm", "episode": 32, "batch_eps": 1}
+{"episode": 33, "arch": "discrete_rssm_hier_ac", "n_steps": 1516, "kl": 0.0219, "ppo_policy_loss": 0.0011, "ppo_value_loss": 6.5475, "ppo_entropy": 2.8539, "ppo_ratio_mean": 0.9977, "ppo_clip_frac": 0.2104}
+{"update": 33, "agent": "disc_rssm", "episode": 33, "batch_eps": 1}
+{"episode": 34, "arch": "discrete_rssm_hier_ac", "n_steps": 1044, "kl": 0.0206, "ppo_policy_loss": 0.0005, "ppo_value_loss": 6.4641, "ppo_entropy": 2.8643, "ppo_ratio_mean": 0.9977, "ppo_clip_frac": 0.0}
+{"update": 34, "agent": "disc_rssm", "episode": 34, "batch_eps": 1}
+{"episode": 35, "arch": "discrete_rssm_hier_ac", "n_steps": 1496, "kl": 0.0123, "ppo_policy_loss": -0.0041, "ppo_value_loss": 6.3455, "ppo_entropy": 2.844, "ppo_ratio_mean": 1.0026, "ppo_clip_frac": 0.0254}
+{"update": 35, "agent": "disc_rssm", "episode": 35, "batch_eps": 1}
+{"episode": 36, "arch": "discrete_rssm_hier_ac", "n_steps": 1234, "kl": 0.0088, "ppo_policy_loss": -0.0078, "ppo_value_loss": 8.0166, "ppo_entropy": 2.8759, "ppo_ratio_mean": 1.0036, "ppo_clip_frac": 0.2188}
+{"update": 36, "agent": "disc_rssm", "episode": 36, "batch_eps": 1}
+{"episode": 37, "arch": "discrete_rssm_hier_ac", "n_steps": 2154, "kl": 0.0143, "ppo_policy_loss": 0.008, "ppo_value_loss": 3.8759, "ppo_entropy": 2.9079, "ppo_ratio_mean": 1.0027, "ppo_clip_frac": 0.2827}
+{"update": 37, "agent": "disc_rssm", "episode": 37, "batch_eps": 1}
+{"episode": 38, "arch": "discrete_rssm_hier_ac", "n_steps": 1413, "kl": 0.025, "ppo_policy_loss": -0.0043, "ppo_value_loss": 4.4818, "ppo_entropy": 2.9882, "ppo_ratio_mean": 0.9984, "ppo_clip_frac": 0.0269}
+{"update": 38, "agent": "disc_rssm", "episode": 38, "batch_eps": 1}
+{"episode": 39, "arch": "discrete_rssm_hier_ac", "n_steps": 854, "kl": 0.0155, "ppo_policy_loss": 0.0069, "ppo_value_loss": 5.8716, "ppo_entropy": 2.9242, "ppo_ratio_mean": 0.9874, "ppo_clip_frac": 0.2143}
+{"update": 39, "agent": "disc_rssm", "episode": 39, "batch_eps": 1}
+{"episode": 40, "arch": "discrete_rssm_hier_ac", "n_steps": 1456, "kl": 0.0182, "ppo_policy_loss": -0.001, "ppo_value_loss": 8.5545, "ppo_entropy": 2.9159, "ppo_ratio_mean": 0.998, "ppo_clip_frac": 0.138}
+{"update": 40, "agent": "disc_rssm", "episode": 40, "batch_eps": 1}
+{"episode": 41, "arch": "discrete_rssm_hier_ac", "n_steps": 1761, "kl": 0.0147, "ppo_policy_loss": -0.0063, "ppo_value_loss": 3.854, "ppo_entropy": 2.9232, "ppo_ratio_mean": 0.9981, "ppo_clip_frac": 0.1919}
+{"update": 41, "agent": "disc_rssm", "episode": 41, "batch_eps": 1}
+{"episode": 42, "arch": "discrete_rssm_hier_ac", "n_steps": 1585, "kl": 0.0106, "ppo_policy_loss": 0.0028, "ppo_value_loss": 6.7294, "ppo_entropy": 2.9443, "ppo_ratio_mean": 0.9953, "ppo_clip_frac": 0.236}
+{"update": 42, "agent": "disc_rssm", "episode": 42, "batch_eps": 1}
+{"episode": 43, "arch": "discrete_rssm_hier_ac", "n_steps": 1329, "kl": 0.0157, "ppo_policy_loss": 0.0031, "ppo_value_loss": 7.507, "ppo_entropy": 2.9515, "ppo_ratio_mean": 0.9985, "ppo_clip_frac": 0.2175}
+{"update": 43, "agent": "disc_rssm", "episode": 43, "batch_eps": 1}
+{"episode": 44, "arch": "discrete_rssm_hier_ac", "n_steps": 1920, "kl": 0.0234, "ppo_policy_loss": 0.0018, "ppo_value_loss": 5.5529, "ppo_entropy": 2.9661, "ppo_ratio_mean": 1.0014, "ppo_clip_frac": 0.075}
+{"update": 44, "agent": "disc_rssm", "episode": 44, "batch_eps": 1}
+{"episode": 45, "arch": "discrete_rssm_hier_ac", "n_steps": 1954, "kl": 0.0127, "ppo_policy_loss": -0.0007, "ppo_value_loss": 5.1067, "ppo_entropy": 2.9379, "ppo_ratio_mean": 1.0002, "ppo_clip_frac": 0.0476}
+{"update": 45, "agent": "disc_rssm", "episode": 45, "batch_eps": 1}
+{"episode": 1, "arch": "discrete_rssm_hier_ac", "n_steps": 2029, "kl": 0.1791, "ppo_policy_loss": -0.0071, "ppo_value_loss": 2.8681, "ppo_entropy": 3.0412, "ppo_ratio_mean": 1.0, "ppo_clip_frac": 0.0}
+{"update": 1, "agent": "disc_rssm", "episode": 1, "batch_eps": 1}
+{"episode": 2, "arch": "discrete_rssm_hier_ac", "n_steps": 1488, "kl": 0.0643, "ppo_policy_loss": -0.0022, "ppo_value_loss": 7.073, "ppo_entropy": 3.036, "ppo_ratio_mean": 1.0043, "ppo_clip_frac": 0.1176}
+{"update": 2, "agent": "disc_rssm", "episode": 2, "batch_eps": 1}
+{"episode": 3, "arch": "discrete_rssm_hier_ac", "n_steps": 1378, "kl": 0.0442, "ppo_policy_loss": -0.0028, "ppo_value_loss": 8.3258, "ppo_entropy": 3.0337, "ppo_ratio_mean": 1.002, "ppo_clip_frac": 0.0414}
+{"update": 3, "agent": "disc_rssm", "episode": 3, "batch_eps": 1}
+{"episode": 4, "arch": "discrete_rssm_hier_ac", "n_steps": 1163, "kl": 0.0886, "ppo_policy_loss": -0.004, "ppo_value_loss": 7.4515, "ppo_entropy": 3.0274, "ppo_ratio_mean": 1.0018, "ppo_clip_frac": 0.0533}
+{"update": 4, "agent": "disc_rssm", "episode": 4, "batch_eps": 1}
+{"episode": 5, "arch": "discrete_rssm_hier_ac", "n_steps": 2180, "kl": 0.0582, "ppo_policy_loss": 0.0007, "ppo_value_loss": 5.0982, "ppo_entropy": 3.0208, "ppo_ratio_mean": 0.9959, "ppo_clip_frac": 0.0018}
+{"update": 5, "agent": "disc_rssm", "episode": 5, "batch_eps": 1}
+{"episode": 6, "arch": "discrete_rssm_hier_ac", "n_steps": 1633, "kl": 0.0692, "ppo_policy_loss": -0.0061, "ppo_value_loss": 6.8867, "ppo_entropy": 3.0228, "ppo_ratio_mean": 1.0011, "ppo_clip_frac": 0.0612}
+{"update": 6, "agent": "disc_rssm", "episode": 6, "batch_eps": 1}
+{"episode": 7, "arch": "discrete_rssm_hier_ac", "n_steps": 2256, "kl": 0.0375, "ppo_policy_loss": 0.006, "ppo_value_loss": 4.9018, "ppo_entropy": 3.0109, "ppo_ratio_mean": 1.0, "ppo_clip_frac": 0.1463}
+{"update": 7, "agent": "disc_rssm", "episode": 7, "batch_eps": 1}
+{"episode": 8, "arch": "discrete_rssm_hier_ac", "n_steps": 2220, "kl": 0.0392, "ppo_policy_loss": -0.0004, "ppo_value_loss": 4.5022, "ppo_entropy": 3.0, "ppo_ratio_mean": 1.0013, "ppo_clip_frac": 0.0405}
+{"update": 8, "agent": "disc_rssm", "episode": 8, "batch_eps": 1}
+{"episode": 9, "arch": "discrete_rssm_hier_ac", "n_steps": 1532, "kl": 0.029, "ppo_policy_loss": -0.0075, "ppo_value_loss": 7.7297, "ppo_entropy": 2.9906, "ppo_ratio_mean": 1.0033, "ppo_clip_frac": 0.0888}
+{"update": 9, "agent": "disc_rssm", "episode": 9, "batch_eps": 1}
+{"episode": 10, "arch": "discrete_rssm_hier_ac", "n_steps": 2073, "kl": 0.0343, "ppo_policy_loss": 0.0007, "ppo_value_loss": 4.7268, "ppo_entropy": 2.9698, "ppo_ratio_mean": 0.9983, "ppo_clip_frac": 0.3695}
+{"update": 10, "agent": "disc_rssm", "episode": 10, "batch_eps": 1}
+{"episode": 11, "arch": "discrete_rssm_hier_ac", "n_steps": 2061, "kl": 0.0249, "ppo_policy_loss": 0.0002, "ppo_value_loss": 4.9814, "ppo_entropy": 2.9793, "ppo_ratio_mean": 1.0055, "ppo_clip_frac": 0.1339}
+{"update": 11, "agent": "disc_rssm", "episode": 11, "batch_eps": 1}
+{"episode": 12, "arch": "discrete_rssm_hier_ac", "n_steps": 1858, "kl": 0.019, "ppo_policy_loss": -0.001, "ppo_value_loss": 5.7498, "ppo_entropy": 2.9865, "ppo_ratio_mean": 0.9992, "ppo_clip_frac": 0.0872}
+{"update": 12, "agent": "disc_rssm", "episode": 12, "batch_eps": 1}
+{"episode": 13, "arch": "discrete_rssm_hier_ac", "n_steps": 1482, "kl": 0.0174, "ppo_policy_loss": -0.0054, "ppo_value_loss": 6.6371, "ppo_entropy": 2.973, "ppo_ratio_mean": 1.0028, "ppo_clip_frac": 0.3374}
+{"update": 13, "agent": "disc_rssm", "episode": 13, "batch_eps": 1}
+{"episode": 14, "arch": "discrete_rssm_hier_ac", "n_steps": 2291, "kl": 0.0166, "ppo_policy_loss": -0.0013, "ppo_value_loss": 4.7527, "ppo_entropy": 2.9589, "ppo_ratio_mean": 1.0028, "ppo_clip_frac": 0.3776}
+{"update": 14, "agent": "disc_rssm", "episode": 14, "batch_eps": 1}
+{"episode": 15, "arch": "discrete_rssm_hier_ac", "n_steps": 1439, "kl": 0.0135, "ppo_policy_loss": -0.008, "ppo_value_loss": 5.8858, "ppo_entropy": 2.9777, "ppo_ratio_mean": 0.9996, "ppo_clip_frac": 0.246}
+{"update": 15, "agent": "disc_rssm", "episode": 15, "batch_eps": 1}
+{"episode": 16, "arch": "discrete_rssm_hier_ac", "n_steps": 1219, "kl": 0.012, "ppo_policy_loss": 0.0053, "ppo_value_loss": 5.113, "ppo_entropy": 2.9742, "ppo_ratio_mean": 1.0006, "ppo_clip_frac": 0.4897}
+{"update": 16, "agent": "disc_rssm", "episode": 16, "batch_eps": 1}
+{"episode": 17, "arch": "discrete_rssm_hier_ac", "n_steps": 2077, "kl": 0.0115, "ppo_policy_loss": 0.0002, "ppo_value_loss": 4.2576, "ppo_entropy": 2.9676, "ppo_ratio_mean": 1.0025, "ppo_clip_frac": 0.1141}
+{"update": 17, "agent": "disc_rssm", "episode": 17, "batch_eps": 1}
+{"episode": 18, "arch": "discrete_rssm_hier_ac", "n_steps": 965, "kl": 0.0262, "ppo_policy_loss": -0.0009, "ppo_value_loss": 8.4429, "ppo_entropy": 2.9735, "ppo_ratio_mean": 1.0082, "ppo_clip_frac": 0.113}
+{"update": 18, "agent": "disc_rssm", "episode": 18, "batch_eps": 1}
+{"episode": 19, "arch": "discrete_rssm_hier_ac", "n_steps": 1679, "kl": 0.0217, "ppo_policy_loss": 0.0034, "ppo_value_loss": 6.0152, "ppo_entropy": 2.9783, "ppo_ratio_mean": 0.9977, "ppo_clip_frac": 0.0488}
+{"update": 19, "agent": "disc_rssm", "episode": 19, "batch_eps": 1}
+{"episode": 20, "arch": "discrete_rssm_hier_ac", "n_steps": 1658, "kl": 0.0179, "ppo_policy_loss": -0.0018, "ppo_value_loss": 6.4667, "ppo_entropy": 2.9711, "ppo_ratio_mean": 1.0012, "ppo_clip_frac": 0.0989}
+{"update": 20, "agent": "disc_rssm", "episode": 20, "batch_eps": 1}
+{"episode": 21, "arch": "discrete_rssm_hier_ac", "n_steps": 2364, "kl": 0.021, "ppo_policy_loss": -0.0035, "ppo_value_loss": 4.2965, "ppo_entropy": 2.9737, "ppo_ratio_mean": 0.998, "ppo_clip_frac": 0.0148}
+{"update": 21, "agent": "disc_rssm", "episode": 21, "batch_eps": 1}
+{"episode": 22, "arch": "discrete_rssm_hier_ac", "n_steps": 1502, "kl": 0.0308, "ppo_policy_loss": -0.001, "ppo_value_loss": 6.842, "ppo_entropy": 2.9894, "ppo_ratio_mean": 0.991, "ppo_clip_frac": 0.0566}
+{"update": 22, "agent": "disc_rssm", "episode": 22, "batch_eps": 1}
+{"episode": 23, "arch": "discrete_rssm_hier_ac", "n_steps": 1176, "kl": 0.0225, "ppo_policy_loss": 0.0029, "ppo_value_loss": 8.3231, "ppo_entropy": 2.9678, "ppo_ratio_mean": 0.9956, "ppo_clip_frac": 0.1658}
+{"update": 23, "agent": "disc_rssm", "episode": 23, "batch_eps": 1}
+{"episode": 24, "arch": "discrete_rssm_hier_ac", "n_steps": 1748, "kl": 0.0174, "ppo_policy_loss": -0.0007, "ppo_value_loss": 4.7397, "ppo_entropy": 2.9629, "ppo_ratio_mean": 0.9997, "ppo_clip_frac": 0.1253}
+{"update": 24, "agent": "disc_rssm", "episode": 24, "batch_eps": 1}
+{"episode": 25, "arch": "discrete_rssm_hier_ac", "n_steps": 1903, "kl": 0.0186, "ppo_policy_loss": 0.0044, "ppo_value_loss": 6.5824, "ppo_entropy": 2.9655, "ppo_ratio_mean": 0.9996, "ppo_clip_frac": 0.1025}
+{"update": 25, "agent": "disc_rssm", "episode": 25, "batch_eps": 1}
+{"episode": 26, "arch": "discrete_rssm_hier_ac", "n_steps": 1407, "kl": 0.0307, "ppo_policy_loss": -0.0049, "ppo_value_loss": 7.4022, "ppo_entropy": 2.9923, "ppo_ratio_mean": 1.0005, "ppo_clip_frac": 0.0021}
+{"update": 26, "agent": "disc_rssm", "episode": 26, "batch_eps": 1}
+{"episode": 27, "arch": "discrete_rssm_hier_ac", "n_steps": 1543, "kl": 0.0136, "ppo_policy_loss": -0.0007, "ppo_value_loss": 5.8392, "ppo_entropy": 2.9632, "ppo_ratio_mean": 1.0038, "ppo_clip_frac": 0.1828}
+{"update": 27, "agent": "disc_rssm", "episode": 27, "batch_eps": 1}
+{"episode": 28, "arch": "discrete_rssm_hier_ac", "n_steps": 1981, "kl": 0.0085, "ppo_policy_loss": -0.0039, "ppo_value_loss": 5.7875, "ppo_entropy": 2.9598, "ppo_ratio_mean": 0.9988, "ppo_clip_frac": 0.1994}
+{"update": 28, "agent": "disc_rssm", "episode": 28, "batch_eps": 1}
+{"episode": 29, "arch": "discrete_rssm_hier_ac", "n_steps": 1921, "kl": 0.0334, "ppo_policy_loss": -0.001, "ppo_value_loss": 5.2217, "ppo_entropy": 2.9919, "ppo_ratio_mean": 1.0036, "ppo_clip_frac": 0.2176}
+{"update": 29, "agent": "disc_rssm", "episode": 29, "batch_eps": 1}
+{"episode": 30, "arch": "discrete_rssm_hier_ac", "n_steps": 772, "kl": 0.0191, "ppo_policy_loss": -0.0021, "ppo_value_loss": 10.7706, "ppo_entropy": 2.9474, "ppo_ratio_mean": 1.0013, "ppo_clip_frac": 0.0907}
+{"update": 30, "agent": "disc_rssm", "episode": 30, "batch_eps": 1}
+{"episode": 31, "arch": "discrete_rssm_hier_ac", "n_steps": 1977, "kl": 0.0233, "ppo_policy_loss": 0.0009, "ppo_value_loss": 6.0462, "ppo_entropy": 2.9987, "ppo_ratio_mean": 1.0026, "ppo_clip_frac": 0.0081}
+{"update": 31, "agent": "disc_rssm", "episode": 31, "batch_eps": 1}
+{"episode": 32, "arch": "discrete_rssm_hier_ac", "n_steps": 926, "kl": 0.0124, "ppo_policy_loss": -0.0046, "ppo_value_loss": 5.4296, "ppo_entropy": 2.9559, "ppo_ratio_mean": 1.0005, "ppo_clip_frac": 0.1026}
+{"update": 32, "agent": "disc_rssm", "episode": 32, "batch_eps": 1}
+{"episode": 33, "arch": "discrete_rssm_hier_ac", "n_steps": 1103, "kl": 0.0156, "ppo_policy_loss": -0.0026, "ppo_value_loss": 6.1486, "ppo_entropy": 2.9765, "ppo_ratio_mean": 0.999, "ppo_clip_frac": 0.0562}
+{"update": 33, "agent": "disc_rssm", "episode": 33, "batch_eps": 1}
+{"episode": 34, "arch": "discrete_rssm_hier_ac", "n_steps": 1921, "kl": 0.0173, "ppo_policy_loss": 0.0024, "ppo_value_loss": 5.9166, "ppo_entropy": 2.9626, "ppo_ratio_mean": 1.0014, "ppo_clip_frac": 0.2504}
+{"update": 34, "agent": "disc_rssm", "episode": 34, "batch_eps": 1}
+{"episode": 35, "arch": "discrete_rssm_hier_ac", "n_steps": 1378, "kl": 0.0106, "ppo_policy_loss": 0.002, "ppo_value_loss": 7.3789, "ppo_entropy": 2.9731, "ppo_ratio_mean": 1.0031, "ppo_clip_frac": 0.1408}
+{"update": 35, "agent": "disc_rssm", "episode": 35, "batch_eps": 1}
+{"episode": 36, "arch": "discrete_rssm_hier_ac", "n_steps": 1472, "kl": 0.0087, "ppo_policy_loss": -0.0048, "ppo_value_loss": 7.3524, "ppo_entropy": 2.9538, "ppo_ratio_mean": 1.0024, "ppo_clip_frac": 0.0442}
+{"update": 36, "agent": "disc_rssm", "episode": 36, "batch_eps": 1}
+{"episode": 37, "arch": "discrete_rssm_hier_ac", "n_steps": 1588, "kl": 0.0111, "ppo_policy_loss": 0.0008, "ppo_value_loss": 5.0574, "ppo_entropy": 2.9685, "ppo_ratio_mean": 1.0014, "ppo_clip_frac": 0.245}
+{"update": 37, "agent": "disc_rssm", "episode": 37, "batch_eps": 1}
+{"episode": 38, "arch": "discrete_rssm_hier_ac", "n_steps": 1295, "kl": 0.0117, "ppo_policy_loss": 0.0017, "ppo_value_loss": 8.6292, "ppo_entropy": 2.9582, "ppo_ratio_mean": 0.9992, "ppo_clip_frac": 0.2154}
+{"update": 38, "agent": "disc_rssm", "episode": 38, "batch_eps": 1}
+{"episode": 39, "arch": "discrete_rssm_hier_ac", "n_steps": 1518, "kl": 0.0133, "ppo_policy_loss": -0.0003, "ppo_value_loss": 6.5641, "ppo_entropy": 2.9709, "ppo_ratio_mean": 1.0055, "ppo_clip_frac": 0.195}
+{"update": 39, "agent": "disc_rssm", "episode": 39, "batch_eps": 1}
+{"episode": 40, "arch": "discrete_rssm_hier_ac", "n_steps": 1092, "kl": 0.0077, "ppo_policy_loss": -0.0014, "ppo_value_loss": 8.2035, "ppo_entropy": 2.9623, "ppo_ratio_mean": 1.0027, "ppo_clip_frac": 0.0623}
+{"update": 40, "agent": "disc_rssm", "episode": 40, "batch_eps": 1}
+{"episode": 41, "arch": "discrete_rssm_hier_ac", "n_steps": 1977, "kl": 0.0152, "ppo_policy_loss": -0.0036, "ppo_value_loss": 4.6647, "ppo_entropy": 2.9766, "ppo_ratio_mean": 0.9957, "ppo_clip_frac": 0.1072}
+{"update": 41, "agent": "disc_rssm", "episode": 41, "batch_eps": 1}
+{"episode": 42, "arch": "discrete_rssm_hier_ac", "n_steps": 1825, "kl": 0.0074, "ppo_policy_loss": -0.005, "ppo_value_loss": 6.142, "ppo_entropy": 2.9285, "ppo_ratio_mean": 1.0014, "ppo_clip_frac": 0.4033}
+{"update": 42, "agent": "disc_rssm", "episode": 42, "batch_eps": 1}
+{"episode": 43, "arch": "discrete_rssm_hier_ac", "n_steps": 1109, "kl": 0.0134, "ppo_policy_loss": 0.002, "ppo_value_loss": 7.2958, "ppo_entropy": 2.9399, "ppo_ratio_mean": 0.9974, "ppo_clip_frac": 0.3598}
+{"update": 43, "agent": "disc_rssm", "episode": 43, "batch_eps": 1}
+{"episode": 44, "arch": "discrete_rssm_hier_ac", "n_steps": 1622, "kl": 0.0122, "ppo_policy_loss": -0.004, "ppo_value_loss": 6.3184, "ppo_entropy": 2.9346, "ppo_ratio_mean": 1.0037, "ppo_clip_frac": 0.2293}
+{"update": 44, "agent": "disc_rssm", "episode": 44, "batch_eps": 1}
+{"episode": 45, "arch": "discrete_rssm_hier_ac", "n_steps": 2146, "kl": 0.0072, "ppo_policy_loss": -0.0037, "ppo_value_loss": 4.8528, "ppo_entropy": 2.917, "ppo_ratio_mean": 1.0054, "ppo_clip_frac": 0.0233}
+{"update": 45, "agent": "disc_rssm", "episode": 45, "batch_eps": 1}
+{"episode": 46, "arch": "discrete_rssm_hier_ac", "n_steps": 1618, "kl": 0.0059, "ppo_policy_loss": -0.006, "ppo_value_loss": 5.404, "ppo_entropy": 2.9091, "ppo_ratio_mean": 1.002, "ppo_clip_frac": 0.2441}
+{"update": 46, "agent": "disc_rssm", "episode": 46, "batch_eps": 1}
+{"episode": 47, "arch": "discrete_rssm_hier_ac", "n_steps": 1853, "kl": 0.0069, "ppo_policy_loss": 0.0062, "ppo_value_loss": 5.1386, "ppo_entropy": 2.8952, "ppo_ratio_mean": 0.9947, "ppo_clip_frac": 0.5559}
+{"update": 47, "agent": "disc_rssm", "episode": 47, "batch_eps": 1}
+{"episode": 48, "arch": "discrete_rssm_hier_ac", "n_steps": 2487, "kl": 0.0093, "ppo_policy_loss": 0.0016, "ppo_value_loss": 4.5994, "ppo_entropy": 2.9434, "ppo_ratio_mean": 0.9977, "ppo_clip_frac": 0.2622}
+{"update": 48, "agent": "disc_rssm", "episode": 48, "batch_eps": 1}
+{"episode": 49, "arch": "discrete_rssm_hier_ac", "n_steps": 1378, "kl": 0.007, "ppo_policy_loss": 0.0002, "ppo_value_loss": 7.0926, "ppo_entropy": 2.9415, "ppo_ratio_mean": 1.0004, "ppo_clip_frac": 0.1096}
+{"update": 49, "agent": "disc_rssm", "episode": 49, "batch_eps": 1}
+{"episode": 50, "arch": "discrete_rssm_hier_ac", "n_steps": 1486, "kl": 0.0173, "ppo_policy_loss": 0.0026, "ppo_value_loss": 4.8539, "ppo_entropy": 2.9263, "ppo_ratio_mean": 0.9966, "ppo_clip_frac": 0.2355}
+{"update": 50, "agent": "disc_rssm", "episode": 50, "batch_eps": 1}
+{"episode": 51, "arch": "discrete_rssm_hier_ac", "n_steps": 1453, "kl": 0.0077, "ppo_policy_loss": -0.0064, "ppo_value_loss": 7.3235, "ppo_entropy": 2.8895, "ppo_ratio_mean": 0.9976, "ppo_clip_frac": 0.053}
+{"update": 51, "agent": "disc_rssm", "episode": 51, "batch_eps": 1}
+{"episode": 52, "arch": "discrete_rssm_hier_ac", "n_steps": 1195, "kl": 0.0097, "ppo_policy_loss": 0.0012, "ppo_value_loss": 6.8034, "ppo_entropy": 2.908, "ppo_ratio_mean": 1.0032, "ppo_clip_frac": 0.0502}
+{"update": 52, "agent": "disc_rssm", "episode": 52, "batch_eps": 1}
+{"episode": 53, "arch": "discrete_rssm_hier_ac", "n_steps": 1213, "kl": 0.0075, "ppo_policy_loss": 0.0039, "ppo_value_loss": 7.4413, "ppo_entropy": 2.9188, "ppo_ratio_mean": 1.0028, "ppo_clip_frac": 0.3553}
+{"update": 53, "agent": "disc_rssm", "episode": 53, "batch_eps": 1}
+{"episode": 54, "arch": "discrete_rssm_hier_ac", "n_steps": 1380, "kl": 0.0051, "ppo_policy_loss": -0.0039, "ppo_value_loss": 6.6492, "ppo_entropy": 2.922, "ppo_ratio_mean": 0.9989, "ppo_clip_frac": 0.0906}
+{"update": 54, "agent": "disc_rssm", "episode": 54, "batch_eps": 1}

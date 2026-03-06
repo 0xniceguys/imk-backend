@@ -1,0 +1,1 @@
+{"episode": 1, "steps": 1468, "reward": -243.773, "won": false, "win_rate": 0.0, "avg50": -243.773, "r_dealt": 98.5, "r_taken": -240.0, "r_spam": -42.23, "r_approach": 31.44, "r_survival": 1.467, "agent": "lstm"}

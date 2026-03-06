@@ -1,0 +1,6979 @@
+{
+  "generated_at": "2026-03-06 04:14:18",
+  "tag": "20260306_041307",
+  "savestate": "/Users/ichiropractic/code/n64/training/data/savestates/mk4_arcade/p1p2state.st",
+  "scan_offsets": {
+    "start": "0x000",
+    "end": "0x1FC",
+    "words": 128
+  },
+  "config": {
+    "repeats": 3,
+    "pre_frames": 8,
+    "hold_frames": 10,
+    "post_frames": 14,
+    "walk_frames": 220
+  },
+  "routes": {
+    "p1": "p1",
+    "p2": "p2"
+  },
+  "channels": {
+    "p1": "p1",
+    "p2": "p2"
+  },
+  "actions": [
+    "lp",
+    "hp",
+    "lk",
+    "hk"
+  ],
+  "actors": {
+    "p1": {
+      "top": [
+        {
+          "actor": "p1",
+          "offset": "0x08C",
+          "address": "0x800FE08C",
+          "score": 1.4,
+          "strong": false,
+          "distinct_modes": 3,
+          "accuracy": 0.5,
+          "unknown_rate": 0.5,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000002",
+            "hp": "0x00000003",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x1AC",
+          "address": "0x800FE1AC",
+          "score": 1.4,
+          "strong": false,
+          "distinct_modes": 3,
+          "accuracy": 0.5,
+          "unknown_rate": 0.5,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00065EA7",
+            "lk": "0x00000000",
+            "hk": "0x00064A2C"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x118",
+          "address": "0x800FE118",
+          "score": 1.0,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x0003F9E3",
+            "hp": "0x0003F9E3",
+            "lk": "0x0003F9E3",
+            "hk": "0x0003F9E3"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x044",
+          "address": "0x800FE044",
+          "score": 0.9,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.25,
+          "unknown_rate": 0.75,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00010000",
+            "hp": "0x00010000",
+            "lk": "0x00010000",
+            "hk": "0x0000FAE2"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x048",
+          "address": "0x800FE048",
+          "score": 0.9,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.25,
+          "unknown_rate": 0.75,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000060",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x054",
+          "address": "0x800FE054",
+          "score": 0.9,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.25,
+          "unknown_rate": 0.75,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00010000",
+            "hp": "0x00010000",
+            "lk": "0x0000FFF0",
+            "hk": "0x00010000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x058",
+          "address": "0x800FE058",
+          "score": 0.85,
+          "strong": false,
+          "distinct_modes": 3,
+          "accuracy": 0.333333,
+          "unknown_rate": 0.5,
+          "avg_purity": 0.833333,
+          "min_purity": 0.666667,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x0000FFF0",
+            "hp": "0x00010000",
+            "lk": "0x00000000",
+            "hk": "0x00010000"
+          },
+          "action_purity": {
+            "lp": 0.666667,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x04C",
+          "address": "0x800FE04C",
+          "score": 0.783333,
+          "strong": false,
+          "distinct_modes": 3,
+          "accuracy": 0.333333,
+          "unknown_rate": 0.666667,
+          "avg_purity": 0.833333,
+          "min_purity": 0.666667,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0xFFFFFFA0",
+            "hp": "0x00000000",
+            "lk": "0x000000D0",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 0.666667,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x144",
+          "address": "0x800FE144",
+          "score": 0.691667,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x8011DE38",
+            "hp": "0x8011DE38",
+            "lk": "0x8011DE38",
+            "hk": "0x8011DE38"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x138",
+          "address": "0x800FE138",
+          "score": 0.641667,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.25,
+          "unknown_rate": 0.75,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.916667,
+          "action_modes": {
+            "lp": "0x0005A3C7",
+            "hp": "0x0005A3C7",
+            "lk": "0x0005A3C7",
+            "hk": "0x0005A656"
+          },
+          "action_purity": {
+            "lp": 0.666667,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x060",
+          "address": "0x800FE060",
+          "score": 0.5,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0xFFFE5368",
+            "lk": "0x00000000",
+            "hk": "0xFFFE5368"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x090",
+          "address": "0x800FE090",
+          "score": 0.5,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x0005A697",
+            "lk": "0x00000000",
+            "hk": "0x0005A697"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x174",
+          "address": "0x800FE174",
+          "score": 0.5,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x0005A697",
+            "lk": "0x00000000",
+            "hk": "0x0005A697"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x000",
+          "address": "0x800FE000",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x004",
+          "address": "0x800FE004",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x008",
+          "address": "0x800FE008",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x00C",
+          "address": "0x800FE00C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x010",
+          "address": "0x800FE010",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x014",
+          "address": "0x800FE014",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x018",
+          "address": "0x800FE018",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x01C",
+          "address": "0x800FE01C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x020",
+          "address": "0x800FE020",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x024",
+          "address": "0x800FE024",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x028",
+          "address": "0x800FE028",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x02C",
+          "address": "0x800FE02C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x030",
+          "address": "0x800FE030",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x034",
+          "address": "0x800FE034",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x038",
+          "address": "0x800FE038",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x03C",
+          "address": "0x800FE03C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x040",
+          "address": "0x800FE040",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x050",
+          "address": "0x800FE050",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x05C",
+          "address": "0x800FE05C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00010000",
+            "hp": "0x00010000",
+            "lk": "0x00010000",
+            "hk": "0x00010000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x064",
+          "address": "0x800FE064",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x068",
+          "address": "0x800FE068",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x06C",
+          "address": "0x800FE06C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x070",
+          "address": "0x800FE070",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000001",
+            "hp": "0x00000001",
+            "lk": "0x00000001",
+            "hk": "0x00000001"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x074",
+          "address": "0x800FE074",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x078",
+          "address": "0x800FE078",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x005A4000",
+            "hp": "0x005A4000",
+            "lk": "0x005A4000",
+            "hk": "0x005A4000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x07C",
+          "address": "0x800FE07C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "offset": "0x080",
+          "address": "0x800FE080",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0xFEDCBA98",
+            "hp": "0xFEDCBA98",
+            "lk": "0xFEDCBA98",
+            "hk": "0xFEDCBA98"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        }
+      ],
+      "strong": [],
+      "combo_top": [
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x118"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE118"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x0003F9E3"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x0003F9E3"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0003F9E3"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x0003F9E3"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x044"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE044"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x044",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE044",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00010000",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x044",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE044",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x1AC",
+            "0x118",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE1AC",
+            "0x800FE118",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00065EA7",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00064A2C",
+              "0x0003F9E3",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x1AC",
+            "0x118",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE1AC",
+            "0x800FE118",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00065EA7",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00064A2C",
+              "0x0003F9E3",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x144"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE144"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x8011DE38"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x8011DE38"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x8011DE38"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x8011DE38"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x138"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE138"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x0005A3C7"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x0005A3C7"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0005A3C7"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0005A656"
+            ]
+          },
+          "action_purity": {
+            "lp": 0.666667,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x044",
+            "0x144"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE044",
+            "0x800FE144"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x8011DE38"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x8011DE38"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00010000",
+              "0x8011DE38"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x8011DE38"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x144"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE144"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x8011DE38"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0x8011DE38"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x8011DE38"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x8011DE38"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x138"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE138"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x0005A3C7"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0x0005A3C7"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x0005A3C7"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0005A656"
+            ]
+          },
+          "action_purity": {
+            "lp": 0.666667,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x144"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE144"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x8011DE38"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x8011DE38"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x8011DE38"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0x8011DE38"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x138"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE138"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x0005A3C7"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x0005A3C7"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x0005A3C7"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0005A656"
+            ]
+          },
+          "action_purity": {
+            "lp": 0.666667,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x144",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE144",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x8011DE38",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x8011DE38",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x8011DE38",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x8011DE38",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x144",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE144",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x8011DE38",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x8011DE38",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x8011DE38",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x8011DE38",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x144",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE144",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x8011DE38",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x8011DE38",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x8011DE38",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x8011DE38",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x1AC",
+            "0x048",
+            "0x144"
+          ],
+          "combo_addresses": [
+            "0x800FE1AC",
+            "0x800FE048",
+            "0x800FE144"
+          ],
+          "size": 3,
+          "score": 2.716667,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 0.916667,
+          "unknown_rate": 0.083333,
+          "avg_purity": 0.916667,
+          "min_purity": 0.666667,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000000",
+              "0x8011DE38"
+            ],
+            "hp": [
+              "0x00065EA7",
+              "0x00000000",
+              "0x8011DE38"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x8011DE38"
+            ],
+            "hk": [
+              "0x00064A2C",
+              "0x00000000",
+              "0x8011DE38"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 0.666667,
+            "hk": 1.0
+          }
+        }
+      ],
+      "combo_strong": [
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x118"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE118"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x0003F9E3"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x0003F9E3"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0003F9E3"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x0003F9E3"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x1AC",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE1AC",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00065EA7",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00064A2C",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x044"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE044"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x118",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE118",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x0003F9E3",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x044",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE044",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00010000",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x044",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE044",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x048",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE048",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00000000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000060",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x060"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE060"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0xFFFE5368"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0xFFFE5368"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x090"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE090"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x08C",
+            "0x054",
+            "0x174"
+          ],
+          "combo_addresses": [
+            "0x800FE08C",
+            "0x800FE054",
+            "0x800FE174"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000003",
+              "0x00010000",
+              "0x0005A697"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0000FFF0",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00010000",
+              "0x0005A697"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x1AC",
+            "0x118",
+            "0x048"
+          ],
+          "combo_addresses": [
+            "0x800FE1AC",
+            "0x800FE118",
+            "0x800FE048"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00065EA7",
+              "0x0003F9E3",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00000060"
+            ],
+            "hk": [
+              "0x00064A2C",
+              "0x0003F9E3",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p1",
+          "combo_offsets": [
+            "0x1AC",
+            "0x118",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x800FE1AC",
+            "0x800FE118",
+            "0x800FE054"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00065EA7",
+              "0x0003F9E3",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003F9E3",
+              "0x0000FFF0"
+            ],
+            "hk": [
+              "0x00064A2C",
+              "0x0003F9E3",
+              "0x00010000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        }
+      ],
+      "trace_csv": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/move_type_gt_20260306_041307_p1_trace.csv"
+    },
+    "p2": {
+      "top": [
+        {
+          "actor": "p2",
+          "offset": "0x080",
+          "address": "0x80126E80",
+          "score": 1.4,
+          "strong": false,
+          "distinct_modes": 3,
+          "accuracy": 0.5,
+          "unknown_rate": 0.5,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x0000003F",
+            "hp": "0x00000000",
+            "lk": "0x00000002",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x094",
+          "address": "0x80126E94",
+          "score": 1.4,
+          "strong": false,
+          "distinct_modes": 3,
+          "accuracy": 0.5,
+          "unknown_rate": 0.5,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0xFFFE4C8C",
+            "lk": "0x00000000",
+            "hk": "0xFFFEB2B1"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x0D0",
+          "address": "0x80126ED0",
+          "score": 1.1,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x00000017",
+            "hp": "0x00000018",
+            "lk": "0x00000017",
+            "hk": "0x00000018"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x04C",
+          "address": "0x80126E4C",
+          "score": 1.0,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x00082258",
+            "hp": "0x00082258",
+            "lk": "0x00082258",
+            "hk": "0x00082258"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x0C0",
+          "address": "0x80126EC0",
+          "score": 1.0,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x0003FA90",
+            "hp": "0x0003FA90",
+            "lk": "0x0003FA90",
+            "hk": "0x0003FA90"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x0C4",
+          "address": "0x80126EC4",
+          "score": 1.0,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x0CC",
+          "address": "0x80126ECC",
+          "score": 1.0,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x00000001",
+            "hp": "0x00000001",
+            "lk": "0x00000001",
+            "hk": "0x00000001"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x130",
+          "address": "0x80126F30",
+          "score": 1.0,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": "0x00000BCA",
+            "hp": "0x00000BCA",
+            "lk": "0x00000BCA",
+            "hk": "0x00000BCA"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x054",
+          "address": "0x80126E54",
+          "score": 0.9,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.25,
+          "unknown_rate": 0.75,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00010000",
+            "hp": "0x00010000",
+            "lk": "0x00010000",
+            "hk": "0x0000FAE2"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x134",
+          "address": "0x80126F34",
+          "score": 0.9,
+          "strong": false,
+          "distinct_modes": 2,
+          "accuracy": 0.25,
+          "unknown_rate": 0.75,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000BC9",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x000",
+          "address": "0x80126E00",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x004",
+          "address": "0x80126E04",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x008",
+          "address": "0x80126E08",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x00C",
+          "address": "0x80126E0C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x010",
+          "address": "0x80126E10",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x014",
+          "address": "0x80126E14",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x018",
+          "address": "0x80126E18",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x01C",
+          "address": "0x80126E1C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x020",
+          "address": "0x80126E20",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x0003FA90",
+            "hp": "0x0003FA90",
+            "lk": "0x0003FA90",
+            "hk": "0x0003FA90"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x024",
+          "address": "0x80126E24",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x0003FAB1",
+            "hp": "0x0003FAB1",
+            "lk": "0x0003FAB1",
+            "hk": "0x0003FAB1"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x028",
+          "address": "0x80126E28",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x02C",
+          "address": "0x80126E2C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x030",
+          "address": "0x80126E30",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x034",
+          "address": "0x80126E34",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x038",
+          "address": "0x80126E38",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x03C",
+          "address": "0x80126E3C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x040",
+          "address": "0x80126E40",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x044",
+          "address": "0x80126E44",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x048",
+          "address": "0x80126E48",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x050",
+          "address": "0x80126E50",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x058",
+          "address": "0x80126E58",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x05C",
+          "address": "0x80126E5C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x060",
+          "address": "0x80126E60",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000400",
+            "hp": "0x00000400",
+            "lk": "0x00000400",
+            "hk": "0x00000400"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x064",
+          "address": "0x80126E64",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x068",
+          "address": "0x80126E68",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x06C",
+          "address": "0x80126E6C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x070",
+          "address": "0x80126E70",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00010001",
+            "hp": "0x00010001",
+            "lk": "0x00010001",
+            "hk": "0x00010001"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x074",
+          "address": "0x80126E74",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x078",
+          "address": "0x80126E78",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000000",
+            "hp": "0x00000000",
+            "lk": "0x00000000",
+            "hk": "0x00000000"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "offset": "0x07C",
+          "address": "0x80126E7C",
+          "score": 0.4,
+          "strong": false,
+          "distinct_modes": 1,
+          "accuracy": 0.0,
+          "unknown_rate": 1.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": "0x00000008",
+            "hp": "0x00000008",
+            "lk": "0x00000008",
+            "hk": "0x00000008"
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        }
+      ],
+      "strong": [],
+      "combo_top": [
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94"
+          ],
+          "size": 2,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0D0"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126ED0"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000017"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000018"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000017"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000018"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x04C"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E4C"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00082258"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00082258"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00082258"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00082258"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0C0"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126EC0"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x0003FA90"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x0003FA90"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x0003FA90"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x0003FA90"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0C4"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126EC4"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0CC"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126ECC"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000001"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000001"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000001"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000001"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x130"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126F30"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000BCA"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000BCA"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000BCA"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000BCA"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x000"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E00"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x004"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E04"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x008"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E08"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x00C"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E0C"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0D0",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126ED0",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000017",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000018",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000017",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000018",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x04C",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E4C",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00082258",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00082258",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00082258",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00082258",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0C0",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126EC0",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x0003FA90",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x0003FA90",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x0003FA90",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003FA90",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0C4",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126EC4",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0CC",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126ECC",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000001",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000001",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000001",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000001",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x130",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126F30",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000BCA",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000BCA",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000BCA",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000BCA",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x0D0",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126ED0",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000017",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00000018",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000017",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00000018",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x04C",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126E4C",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00082258",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00082258",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00082258",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00082258",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x0C0",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126EC0",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x0003FA90",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x0003FA90",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x0003FA90",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x0003FA90",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x0C4",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126EC4",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000000",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00000000",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x0CC",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126ECC",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000001",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00000001",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000001",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00000001",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x130",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126F30",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000BCA",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00000BCA",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000BCA",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00000BCA",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x0D0",
+            "0x054",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126ED0",
+            "0x80126E54",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000017",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000018",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000017",
+              "0x00010000",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0x00000018",
+              "0x0000FAE2",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E54"
+          ],
+          "size": 2,
+          "score": 2.5,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126F34"
+          ],
+          "size": 2,
+          "score": 2.5,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x054",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E54",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 2.5,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x054",
+            "0x000"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E54",
+            "0x80126E00"
+          ],
+          "size": 3,
+          "score": 2.5,
+          "strong": false,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 1.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00010000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0000FAE2",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        }
+      ],
+      "combo_strong": [
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94"
+          ],
+          "size": 2,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0D0"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126ED0"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000017"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000018"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000017"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000018"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x04C"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E4C"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00082258"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00082258"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00082258"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00082258"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0C0"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126EC0"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x0003FA90"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x0003FA90"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x0003FA90"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x0003FA90"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0C4"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126EC4"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x0CC"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126ECC"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000001"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000001"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000001"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000001"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x130"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126F30"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000BCA"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000BCA"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000BCA"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000BCA"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x000"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E00"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x004"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E04"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x008"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E08"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x094",
+            "0x00C"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E94",
+            "0x80126E0C"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0xFFFE4C8C",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00000000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0xFFFEB2B1",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0D0",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126ED0",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000017",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000018",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000017",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000018",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x04C",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126E4C",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00082258",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00082258",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00082258",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00082258",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0C0",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126EC0",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x0003FA90",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x0003FA90",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x0003FA90",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x0003FA90",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0C4",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126EC4",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000000",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000000",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x0CC",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126ECC",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000001",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000001",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000001",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000001",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x080",
+            "0x130",
+            "0x054"
+          ],
+          "combo_addresses": [
+            "0x80126E80",
+            "0x80126F30",
+            "0x80126E54"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x0000003F",
+              "0x00000BCA",
+              "0x00010000"
+            ],
+            "hp": [
+              "0x00000000",
+              "0x00000BCA",
+              "0x00010000"
+            ],
+            "lk": [
+              "0x00000002",
+              "0x00000BCA",
+              "0x00010000"
+            ],
+            "hk": [
+              "0x00000000",
+              "0x00000BCA",
+              "0x0000FAE2"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        },
+        {
+          "actor": "p2",
+          "combo_offsets": [
+            "0x094",
+            "0x0D0",
+            "0x134"
+          ],
+          "combo_addresses": [
+            "0x80126E94",
+            "0x80126ED0",
+            "0x80126F34"
+          ],
+          "size": 3,
+          "score": 3.2,
+          "strong": true,
+          "distinct_modes": 4,
+          "accuracy": 1.0,
+          "unknown_rate": 0.0,
+          "avg_purity": 1.0,
+          "min_purity": 1.0,
+          "pre_match_rate": 0.0,
+          "action_modes": {
+            "lp": [
+              "0x00000000",
+              "0x00000017",
+              "0x00000000"
+            ],
+            "hp": [
+              "0xFFFE4C8C",
+              "0x00000018",
+              "0x00000000"
+            ],
+            "lk": [
+              "0x00000000",
+              "0x00000017",
+              "0x00000BC9"
+            ],
+            "hk": [
+              "0xFFFEB2B1",
+              "0x00000018",
+              "0x00000000"
+            ]
+          },
+          "action_purity": {
+            "lp": 1.0,
+            "hp": 1.0,
+            "lk": 1.0,
+            "hk": 1.0
+          }
+        }
+      ],
+      "trace_csv": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/move_type_gt_20260306_041307_p2_trace.csv"
+    }
+  }
+}

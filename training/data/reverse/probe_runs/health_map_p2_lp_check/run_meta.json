@@ -1,0 +1,10 @@
+{
+  "tag": "health_map_p2_lp_check",
+  "test": "health_verify",
+  "action": "p2_lp",
+  "created_at": "2026-03-06 02:30:43",
+  "socket_path": "/tmp/mk4_probe_health_map_p2_lp_check.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/health_map_p2_lp_check/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/health_map_p2_lp_check/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_health_map_p2_lp_check/config"
+}

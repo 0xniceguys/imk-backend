@@ -1,0 +1,10 @@
+{
+  "tag": "smoke_lp_single_side_v3",
+  "test": "health_verify",
+  "action": "lp",
+  "created_at": "2026-03-06 03:03:04",
+  "socket_path": "/tmp/mk4_probe_smoke_lp_single_side_v3.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/smoke_lp_single_side_v3/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/smoke_lp_single_side_v3/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_smoke_lp_single_side_v3/config"
+}

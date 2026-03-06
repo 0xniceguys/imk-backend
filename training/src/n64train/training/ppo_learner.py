@@ -11,18 +11,21 @@ correctly handle LSTM/GRU/RSSM hidden state chains.
 """
 from __future__ import annotations
 
+import os
 import torch
 import torch.nn.functional as F
 from torch.distributions import Categorical
 
-# PPO hyperparameters
-PPO_EPOCHS   = 4       # epochs over each collected rollout
+# PPO hyperparameters — aligned with "37 PPO Implementation Details" (ICLR)
+# Runtime override for throughput tuning (e.g. N64_PPO_EPOCHS=2 for faster updates).
+PPO_EPOCHS   = max(1, int(os.environ.get('N64_PPO_EPOCHS', '4')))
 PPO_EPSILON  = 0.2     # clipping range for policy ratio
 PPO_VF_COEF  = 0.5     # value loss weight
-PPO_ENT_COEF = 0.02    # entropy bonus (decays with schedule)
+PPO_ENT_COEF = 0.01    # entropy bonus (schedule decays 0.05→0.01)
 GAE_GAMMA    = 0.99    # discount factor
 GAE_LAMBDA   = 0.95    # GAE smoothing (1.0 = Monte Carlo, 0.0 = TD(1))
-GRAD_CLIP    = 1.0
+GRAD_CLIP    = 0.5     # tighter clipping for stability (was 1.0)
+LR           = 2.5e-4  # single LR for all params (annealed linearly to 0)
 
 
 def gae_advantages(
@@ -46,7 +49,9 @@ def gae_advantages(
         returns:    (T,) target values for value function
     """
     T   = len(rewards)
-    adv = torch.zeros(T, dtype=torch.float32)
+    # Keep GAE tensors on the same device as value predictions to avoid
+    # cross-device ops when learner runs on MPS/CUDA.
+    adv = torch.zeros(T, dtype=torch.float32, device=values.device)
     last_gae = 0.0
 
     for t in reversed(range(T)):
@@ -91,8 +96,8 @@ def ppo_loss(
     clip_adv = torch.clamp(ratio, 1.0 - eps, 1.0 + eps) * adv
     pol_loss = -torch.min(ratio * adv, clip_adv).mean()
 
-    # Value — clipped MSE (prevents value explosion)
-    vf_loss = F.mse_loss(values, returns)
+    # Value — Huber loss (less sensitive to outliers than MSE)
+    vf_loss = F.smooth_l1_loss(values, returns)
 
     # Total
     loss = pol_loss + vf_coef * vf_loss - ent_coef * entropy.mean()
@@ -110,3 +115,19 @@ def entropy_schedule(episode: int, start: float = 0.05, end: float = 0.01, decay
     """Linear entropy decay from start→end over `decay` episodes."""
     frac = min(1.0, episode / decay)
     return start + (end - start) * frac
+
+
+def anneal_lr(optimizer: torch.optim.Optimizer, episode: int, total_episodes: int = 25000) -> None:
+    """Linear LR decay from initial LR → 0 over total_episodes."""
+    frac = max(0.0, 1.0 - episode / total_episodes)
+    for pg in optimizer.param_groups:
+        pg['lr'] = LR * frac
+
+
+def ortho_init(module: torch.nn.Module, gain: float = 2**0.5) -> None:
+    """Orthogonal init on all Linear/LSTM/GRU weights in a module (recursive)."""
+    for name, param in module.named_parameters():
+        if 'weight' in name and param.dim() >= 2:
+            torch.nn.init.orthogonal_(param, gain=gain)
+        elif 'bias' in name:
+            torch.nn.init.zeros_(param)

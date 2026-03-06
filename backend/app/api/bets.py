@@ -70,19 +70,25 @@ async def _build_and_sign_place_bet(
     amount_skr: float,
     privy_jwt: str,
 ) -> str:
-    """Build place_bet tx, sign via Privy, return tx signature."""
+    """Build place_bet tx (admin-sponsored gas), sign via Privy, return tx sig."""
     from app.services import solana_tx
     from app.services.privy_wallet import get_wallet_id_and_sign
+    from app.services.admin_keypair import get_admin_keypair
 
-    rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
+    rpc  = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
     mint = settings.skr_mint
     prog = settings.betting_program_id
 
     if not user.wallet_address:
         raise HTTPException(400, "User has no Solana wallet linked")
 
-    blockhash = await solana_tx.get_recent_blockhash(rpc)
-    amount_base = int(round(amount_skr * SKR_DECIMALS))
+    try:
+        admin_kp = get_admin_keypair()
+    except ValueError as exc:
+        raise HTTPException(500, f"Admin keypair not configured (needed for gas sponsorship): {exc}")
+
+    blockhash    = await solana_tx.get_recent_blockhash(rpc)
+    amount_base  = int(round(amount_skr * SKR_DECIMALS))
 
     tx_bytes = solana_tx.build_place_bet_ix(
         user_pubkey=user.wallet_address,
@@ -91,6 +97,7 @@ async def _build_and_sign_place_bet(
         side=side,
         amount_base_units=amount_base,
         blockhash=blockhash,
+        admin_keypair=admin_kp,
         program_id_str=prog,
     )
 

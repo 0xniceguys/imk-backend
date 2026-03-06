@@ -1,0 +1,334 @@
+{
+  "flow": [
+    {
+      "label": "flow_character_select_entry_existing",
+      "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214234138104_flow_character_select_entry_existing.json",
+      "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214234138104_flow_character_select_entry_existing.bin",
+      "sha256": "34223dda04c243fc1d31a197b024af68b59ee346c170defe64d809603bec6bac",
+      "byte_len": 8388608,
+      "screen_probe": {
+        "primary_state": 38,
+        "shared_cursor": 243,
+        "sig_a_0x546D0": 3,
+        "sig_b_0x5472E": 3,
+        "sig_c_0x5472F": 0
+      }
+    }
+  ],
+  "character_grid": [
+    {
+      "row": 1,
+      "col": 1,
+      "character_name": "Kai",
+      "snapshot": {
+        "label": "charselect_p1_r01_c01_kai",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214234203997_charselect_p1_r01_c01_kai.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214234203997_charselect_p1_r01_c01_kai.bin",
+        "sha256": "34223dda04c243fc1d31a197b024af68b59ee346c170defe64d809603bec6bac",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 243,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 1,
+      "col": 2,
+      "character_name": "Raiden",
+      "snapshot": {
+        "label": "charselect_p1_r01_c02_raiden",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214234635791_charselect_p1_r01_c02_raiden.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214234635791_charselect_p1_r01_c02_raiden.bin",
+        "sha256": "78e8a7b05a109199c964798780b4ebc735914e8b5015b68017895b3122cc2bdf",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 243,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 1,
+      "col": 3,
+      "character_name": "Shinnok",
+      "snapshot": {
+        "label": "charselect_p1_r01_c03_shinnok",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214235066560_charselect_p1_r01_c03_shinnok.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214235066560_charselect_p1_r01_c03_shinnok.bin",
+        "sha256": "736db735045b3bc5238c3848f88ddba07af0ba86bbf4f6307dd6f5e3fd6188d3",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 243,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 1,
+      "col": 4,
+      "character_name": "Liu Kang",
+      "snapshot": {
+        "label": "charselect_p1_r01_c04_liu_kang",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214235492369_charselect_p1_r01_c04_liu_kang.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214235492369_charselect_p1_r01_c04_liu_kang.bin",
+        "sha256": "e89deb9672e7be354ec4e1bdb100f5565994cfe5897d0e8f371c7693280f02e9",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 243,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 1,
+      "col": 5,
+      "character_name": "Reptile",
+      "snapshot": {
+        "label": "charselect_p1_r01_c05_reptile",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214235918716_charselect_p1_r01_c05_reptile.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214235918716_charselect_p1_r01_c05_reptile.bin",
+        "sha256": "b6d64754a29c65ecc91e483c91e03d93b232a989acf0087451829876687925d9",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 243,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 2,
+      "col": 1,
+      "character_name": "Scorpion",
+      "snapshot": {
+        "label": "charselect_p1_r02_c01_scorpion",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214237819187_charselect_p1_r02_c01_scorpion.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214237819187_charselect_p1_r02_c01_scorpion.bin",
+        "sha256": "ec50cce98db50c8deeab22ff7601ce110f92f567f55f6de5ffba7c14fe2aa589",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 35,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 2,
+      "col": 2,
+      "character_name": "Jax",
+      "snapshot": {
+        "label": "charselect_p1_r02_c02_jax",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214238280689_charselect_p1_r02_c02_jax.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214238280689_charselect_p1_r02_c02_jax.bin",
+        "sha256": "249e91e99691dac44df9c6bab87f1f70347ebac6b1191a90f6f8ed3e59d454af",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 35,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 2,
+      "col": 3,
+      "character_name": "Reiko",
+      "snapshot": {
+        "label": "charselect_p1_r02_c03_reiko",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214238727331_charselect_p1_r02_c03_reiko.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214238727331_charselect_p1_r02_c03_reiko.bin",
+        "sha256": "c9792e84cbce45740fe035703fde20932ed2201f1fe2b36478d690e8cb9c4dc8",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 35,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 2,
+      "col": 4,
+      "character_name": "Johnny Cage",
+      "snapshot": {
+        "label": "charselect_p1_r02_c04_johnny_cage",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214239188948_charselect_p1_r02_c04_johnny_cage.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214239188948_charselect_p1_r02_c04_johnny_cage.bin",
+        "sha256": "f75fa4d68d364c1c285728aa7fdd1e0c143bf452f6f107eb5b48b45aa9da669f",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 35,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 2,
+      "col": 5,
+      "character_name": "Jarek",
+      "snapshot": {
+        "label": "charselect_p1_r02_c05_jarek",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214239615343_charselect_p1_r02_c05_jarek.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214239615343_charselect_p1_r02_c05_jarek.bin",
+        "sha256": "1674d126362f0b098430a21aeda0acdbb7818e6995aab9e41a30023ab56c9631",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 35,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 3,
+      "col": 1,
+      "character_name": "Tanya",
+      "snapshot": {
+        "label": "charselect_p1_r03_c01_tanya",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214241486860_charselect_p1_r03_c01_tanya.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214241486860_charselect_p1_r03_c01_tanya.bin",
+        "sha256": "c3a06d1717488b6fde499a882345bf4694c8e3a0bf23e92a17d215e7c4169ad1",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 218,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 3,
+      "col": 2,
+      "character_name": "Fujin",
+      "snapshot": {
+        "label": "charselect_p1_r03_c02_fujin",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214241913588_charselect_p1_r03_c02_fujin.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214241913588_charselect_p1_r03_c02_fujin.bin",
+        "sha256": "98ab91a421361a1c967ce12080989d26e9e0668f94e2c536af4345fde7011e12",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 218,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 3,
+      "col": 3,
+      "character_name": "Sub-Zero",
+      "snapshot": {
+        "label": "charselect_p1_r03_c03_sub-zero",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214242366426_charselect_p1_r03_c03_sub-zero.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214242366426_charselect_p1_r03_c03_sub-zero.bin",
+        "sha256": "466f3ad57df8b7d154e7b85ca69e4124d0de32f6490f3beae577cb33b4be1449",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 218,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 3,
+      "col": 4,
+      "character_name": "Quan Chi",
+      "snapshot": {
+        "label": "charselect_p1_r03_c04_quan_chi",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214242818264_charselect_p1_r03_c04_quan_chi.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214242818264_charselect_p1_r03_c04_quan_chi.bin",
+        "sha256": "fc4037a39dfb23ae04212eaf298ff5fb9ffeb7acd521b9aa030eb134565cdc2c",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 218,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    },
+    {
+      "row": 3,
+      "col": 5,
+      "character_name": "Sonya",
+      "snapshot": {
+        "label": "charselect_p1_r03_c05_sonya",
+        "manifest": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214243263997_charselect_p1_r03_c05_sonya.json",
+        "payload": "/Users/ichiropractic/code/n64/training/data/reverse/20260226_214243263997_charselect_p1_r03_c05_sonya.bin",
+        "sha256": "dbebc513a651b7200cc185a55e53e62685bfd878672668cfdd46a6d9539a4928",
+        "byte_len": 8388608,
+        "screen_probe": {
+          "primary_state": 38,
+          "shared_cursor": 218,
+          "sig_a_0x546D0": 3,
+          "sig_b_0x5472E": 3,
+          "sig_c_0x5472F": 0
+        }
+      }
+    }
+  ],
+  "notes": [
+    "Automated via macOS AppleScript keystrokes + bridge debugger pause/capture.",
+    "Character labels use user-provided row order (3x5 grid)."
+  ],
+  "socket_path": "/Users/ichiropractic/code/n64/training/data/bridge/mk4-visible.sock",
+  "captured_at_utc": "2026-02-26T21:42:43Z",
+  "character_rows": [
+    [
+      "Kai",
+      "Raiden",
+      "Shinnok",
+      "Liu Kang",
+      "Reptile"
+    ],
+    [
+      "Scorpion",
+      "Jax",
+      "Reiko",
+      "Johnny Cage",
+      "Jarek"
+    ],
+    [
+      "Tanya",
+      "Fujin",
+      "Sub-Zero",
+      "Quan Chi",
+      "Sonya"
+    ]
+  ]
+}

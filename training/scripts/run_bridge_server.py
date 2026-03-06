@@ -88,7 +88,9 @@ def main() -> int:
                 audio_plugin=args.debugger_audio_plugin,
                 input_plugin=args.debugger_input_plugin,
                 rsp_plugin=args.debugger_rsp_plugin,
-                nospeedlimit=True,
+                # Respect requested bridge speed mode. Previously this was always
+                # True, which made DEBUG_VISIBLE behave like turbo.
+                nospeedlimit=(SpeedMode(args.speed_mode) is SpeedMode.TRAIN_TURBO),
                 emumode=args.debugger_emumode,
             )
         )

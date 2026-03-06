@@ -1,0 +1,16 @@
+{"episode": 1, "arch": "transformer_wm_hier_ac", "n_steps": 1246, "ppo_policy_loss": -0.0121, "ppo_value_loss": 4.1774, "ppo_entropy": 3.0393, "ppo_ratio_mean": 0.9951, "ppo_clip_frac": 0.0}
+{"update": 1, "agent": "transformer", "episode": 1, "batch_eps": 1}
+{"episode": 2, "arch": "transformer_wm_hier_ac", "n_steps": 1455, "ppo_policy_loss": 0.0033, "ppo_value_loss": 3.6638, "ppo_entropy": 3.0297, "ppo_ratio_mean": 1.0054, "ppo_clip_frac": 0.2268}
+{"update": 2, "agent": "transformer", "episode": 2, "batch_eps": 1}
+{"episode": 3, "arch": "transformer_wm_hier_ac", "n_steps": 1643, "ppo_policy_loss": -0.0038, "ppo_value_loss": 4.4425, "ppo_entropy": 3.0359, "ppo_ratio_mean": 1.0022, "ppo_clip_frac": 0.0}
+{"update": 3, "agent": "transformer", "episode": 3, "batch_eps": 1}
+{"episode": 4, "arch": "transformer_wm_hier_ac", "n_steps": 2011, "ppo_policy_loss": -0.0022, "ppo_value_loss": 3.8729, "ppo_entropy": 3.0352, "ppo_ratio_mean": 0.9985, "ppo_clip_frac": 0.0313}
+{"update": 4, "agent": "transformer", "episode": 4, "batch_eps": 1}
+{"episode": 5, "arch": "transformer_wm_hier_ac", "n_steps": 1924, "ppo_policy_loss": -0.0021, "ppo_value_loss": 4.9247, "ppo_entropy": 3.0303, "ppo_ratio_mean": 1.0026, "ppo_clip_frac": 0.0}
+{"update": 5, "agent": "transformer", "episode": 5, "batch_eps": 1}
+{"episode": 6, "arch": "transformer_wm_hier_ac", "n_steps": 2077, "ppo_policy_loss": -0.0004, "ppo_value_loss": 3.0578, "ppo_entropy": 3.0262, "ppo_ratio_mean": 1.0024, "ppo_clip_frac": 0.0}
+{"update": 6, "agent": "transformer", "episode": 6, "batch_eps": 1}
+{"episode": 7, "arch": "transformer_wm_hier_ac", "n_steps": 2172, "ppo_policy_loss": -0.0053, "ppo_value_loss": 4.3283, "ppo_entropy": 3.0199, "ppo_ratio_mean": 0.9987, "ppo_clip_frac": 0.0}
+{"update": 7, "agent": "transformer", "episode": 7, "batch_eps": 1}
+{"episode": 8, "arch": "transformer_wm_hier_ac", "n_steps": 1837, "ppo_policy_loss": 0.002, "ppo_value_loss": 3.8949, "ppo_entropy": 3.0112, "ppo_ratio_mean": 1.0032, "ppo_clip_frac": 0.0}
+{"update": 8, "agent": "transformer", "episode": 8, "batch_eps": 1}

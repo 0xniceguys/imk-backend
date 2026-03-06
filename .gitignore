@@ -1,6 +1,3 @@
-# ── Training (excluded entirely — runs on server) ─────────────────────────────
-training/
-
 # ── Python runtime / build artifacts ──────────────────────────────────────────
 __pycache__/
 *.py[cod]
@@ -36,12 +33,6 @@ backend/alembic/versions/
 .m64p/
 
 # ── ROM / binary game files (large, distribute separately) ────────────────────
-*.z64
-*.n64
-*.rom
-*.sfc
-*.cue
-*.bin
 
 # ── Vendor compiled binaries ──────────────────────────────────────────────────
 vendor/mupen64plus-core/build/

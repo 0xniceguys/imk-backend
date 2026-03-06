@@ -1,0 +1,2 @@
+{"episode": 1, "agent": "lstm", "n_steps": 2048, "mean_return": -2.672, "ent_coef": 0.0499, "ppo_policy_loss": -0.0025, "ppo_value_loss": 3.1133, "ppo_entropy": 3.0443, "ppo_ratio_mean": 0.9989, "ppo_clip_frac": 0.0}
+{"update": 1, "agent": "lstm", "episode": 1, "batch_eps": 1}

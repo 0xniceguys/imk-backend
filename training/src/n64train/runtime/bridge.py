@@ -175,8 +175,12 @@ class SocketEmulatorBridge:
         if self._socket is not None:
             return
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(self.timeout_sec)
-        sock.connect(self.socket_path)
+        try:
+            sock.settimeout(self.timeout_sec)
+            sock.connect(self.socket_path)
+        except Exception:
+            sock.close()
+            raise
         self._socket = sock
         self._reader = sock.makefile("r", encoding="utf-8")
         self._writer = sock.makefile("w", encoding="utf-8")

@@ -1,0 +1,10 @@
+{
+  "tag": "movegt_routecheck",
+  "test": "health_verify",
+  "action": "p2_lp",
+  "created_at": "2026-03-06 04:04:52",
+  "socket_path": "/tmp/mk4_probe_movegt_routecheck.sock",
+  "log_path": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/movegt_routecheck/probe.log",
+  "dump_dir": "/Users/ichiropractic/code/n64/training/data/reverse/probe_runs/movegt_routecheck/debugger_dumps",
+  "cfg_dir": "/Users/ichiropractic/code/n64/.m64p/instances/probe_v2_movegt_routecheck/config"
+}

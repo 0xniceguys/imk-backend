@@ -1,0 +1,222 @@
+{
+  "savestate": "arcade_training_scorpion.st",
+  "frames_per_scenario": 1200,
+  "scenarios": {
+    "neutral": {
+      "p1_hp_final": 33425,
+      "p2_hp_final": 65536,
+      "p1_damage_events": 3,
+      "first_events": [
+        {
+          "frame": 114,
+          "p1_hp_before": 65536,
+          "p1_hp_after": 53740,
+          "p2_action_pre": 0,
+          "p2_action_now": 0,
+          "p2_attack_pre": 0,
+          "p2_attack_now": 0,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2513,
+          "p2_lk_now": 2513
+        },
+        {
+          "frame": 324,
+          "p1_hp_before": 53740,
+          "p1_hp_after": 43910,
+          "p2_action_pre": 260752,
+          "p2_action_now": 0,
+          "p2_attack_pre": 4294887867,
+          "p2_attack_now": 4294887867,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2618,
+          "p2_lk_now": 2619
+        },
+        {
+          "frame": 845,
+          "p1_hp_before": 43910,
+          "p1_hp_after": 33425,
+          "p2_action_pre": 260752,
+          "p2_action_now": 0,
+          "p2_attack_pre": 4294887867,
+          "p2_attack_now": 4294826919,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2879,
+          "p2_lk_now": 2879
+        }
+      ],
+      "unique_counts": {
+        "p2_action": 3,
+        "p2_attack_type": 3,
+        "p2_hitstun": 1,
+        "p2_lk": 601
+      },
+      "unique_samples": {
+        "p2_action": [
+          0,
+          260752,
+          260785
+        ],
+        "p2_attack_type": [
+          0,
+          4294826919,
+          4294887867
+        ],
+        "p2_hitstun": [
+          2
+        ],
+        "p2_lk": [
+          2457,
+          2458,
+          2459,
+          2460,
+          2461,
+          2462,
+          2463,
+          2464
+        ]
+      }
+    },
+    "stand_block": {
+      "p1_hp_final": 51775,
+      "p2_hp_final": 65536,
+      "p1_damage_events": 2,
+      "first_events": [
+        {
+          "frame": 114,
+          "p1_hp_before": 65536,
+          "p1_hp_after": 53740,
+          "p2_action_pre": 0,
+          "p2_action_now": 0,
+          "p2_attack_pre": 0,
+          "p2_attack_now": 0,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2513,
+          "p2_lk_now": 2513
+        },
+        {
+          "frame": 322,
+          "p1_hp_before": 53740,
+          "p1_hp_after": 51775,
+          "p2_action_pre": 260752,
+          "p2_action_now": 0,
+          "p2_attack_pre": 4294887867,
+          "p2_attack_now": 4294887867,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2617,
+          "p2_lk_now": 2617
+        }
+      ],
+      "unique_counts": {
+        "p2_action": 3,
+        "p2_attack_type": 2,
+        "p2_hitstun": 1,
+        "p2_lk": 600
+      },
+      "unique_samples": {
+        "p2_action": [
+          0,
+          260752,
+          260785
+        ],
+        "p2_attack_type": [
+          0,
+          4294887867
+        ],
+        "p2_hitstun": [
+          2
+        ],
+        "p2_lk": [
+          2457,
+          2458,
+          2459,
+          2460,
+          2461,
+          2462,
+          2463,
+          2464
+        ]
+      }
+    },
+    "crouch_block": {
+      "p1_hp_final": 39979,
+      "p2_hp_final": 65536,
+      "p1_damage_events": 3,
+      "first_events": [
+        {
+          "frame": 113,
+          "p1_hp_before": 65536,
+          "p1_hp_after": 53740,
+          "p2_action_pre": 0,
+          "p2_action_now": 0,
+          "p2_attack_pre": 0,
+          "p2_attack_now": 0,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2513,
+          "p2_lk_now": 2513
+        },
+        {
+          "frame": 330,
+          "p1_hp_before": 53740,
+          "p1_hp_after": 51775,
+          "p2_action_pre": 260752,
+          "p2_action_now": 0,
+          "p2_attack_pre": 4294887867,
+          "p2_attack_now": 4294887867,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2623,
+          "p2_lk_now": 2624
+        },
+        {
+          "frame": 719,
+          "p1_hp_before": 51775,
+          "p1_hp_after": 39979,
+          "p2_action_pre": 0,
+          "p2_action_now": 0,
+          "p2_attack_pre": 4294887867,
+          "p2_attack_now": 4294887867,
+          "p2_hitstun_pre": 2,
+          "p2_hitstun_now": 2,
+          "p2_lk_pre": 2818,
+          "p2_lk_now": 2818
+        }
+      ],
+      "unique_counts": {
+        "p2_action": 3,
+        "p2_attack_type": 2,
+        "p2_hitstun": 1,
+        "p2_lk": 604
+      },
+      "unique_samples": {
+        "p2_action": [
+          0,
+          260752,
+          260785
+        ],
+        "p2_attack_type": [
+          0,
+          4294887867
+        ],
+        "p2_hitstun": [
+          2
+        ],
+        "p2_lk": [
+          2457,
+          2458,
+          2459,
+          2460,
+          2461,
+          2462,
+          2463,
+          2464
+        ]
+      }
+    }
+  }
+}

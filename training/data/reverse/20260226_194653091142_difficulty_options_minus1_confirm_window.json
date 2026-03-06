@@ -1,0 +1,68 @@
+{
+  "addr_range": {
+    "end": 1070080,
+    "end_hex": "0x105400",
+    "size": 29696,
+    "start": 1040384,
+    "start_hex": "0xfe000"
+  },
+  "bridge_hello": {
+    "payload": {
+      "backend": "LocalBridgeBackend",
+      "capabilities": {
+        "debugger_command": true,
+        "deterministic_counter_only": false,
+        "event_extraction": true,
+        "frame_capture": true,
+        "frame_capture_mode": "screenshot_poll",
+        "frame_step": true,
+        "frame_step_mode": "debugger_cli_frame",
+        "ram_export": true,
+        "ram_export_mode": "DebuggerDumpMemoryReader",
+        "reward_extraction": true,
+        "set_inputs": true,
+        "speed_mode": true,
+        "transport": "unix_socket_json"
+      },
+      "emulator_launched": false,
+      "instance_id": "reverse-visible-bridge"
+    },
+    "status": {
+      "episode_id": "episode-0",
+      "error_code": null,
+      "frame_id": 0,
+      "status": "OK"
+    }
+  },
+  "bridge_status": {
+    "memory_reader": "DebuggerDumpMemoryReader",
+    "placeholder_ram_export": false,
+    "traced_state": {
+      "extras": {},
+      "frame_id": 0,
+      "p1_facing": null,
+      "p1_health": null,
+      "p1_x": null,
+      "p1_y": null,
+      "p2_facing": null,
+      "p2_health": null,
+      "p2_x": null,
+      "p2_y": null,
+      "timer": null
+    }
+  },
+  "byte_len": 29696,
+  "captured_at_utc": "2026-02-26T19:46:53.091142Z",
+  "chunk_size": 4096,
+  "label": "difficulty_options_minus1_confirm_window",
+  "metadata": {
+    "capture_mode": "bridge_get_ram_features",
+    "notes": "Paused after -1 from Ultimate with accidental up/down noise; targeted candidate window",
+    "probe_count": 8,
+    "socket_path": "/Users/ichiropractic/code/n64/training/data/bridge/mk4-visible.sock",
+    "task_id": "options_difficulty"
+  },
+  "payload_file": "20260226_194653091142_difficulty_options_minus1_confirm_window.bin",
+  "schema_version": "reverse-snapshot-v1",
+  "sha256": "c4cafbfccb504159a1f8a49b34b325534a2c458e4499280996e98f953fbf3494"
+}
