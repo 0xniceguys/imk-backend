@@ -42,15 +42,16 @@ class ApiService {
   }
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-      };
+    'Content-Type': 'application/json',
+    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+  };
 
   // ── Matches ──
 
   Future<List<Match>> fetchMatches({String? status}) async {
-    final uri = Uri.parse('$kApiBaseUrl/matches/').replace(
-        queryParameters: status != null ? {'status': status} : null);
+    final uri = Uri.parse(
+      '$kApiBaseUrl/matches/',
+    ).replace(queryParameters: status != null ? {'status': status} : null);
     _log('GET $uri');
     try {
       final resp = await _client.get(uri, headers: _headers);
@@ -115,9 +116,12 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> fetchFighterMatches(
-      String fighterId, {int limit = 10}) async {
-    final uri = Uri.parse('$kApiBaseUrl/fighters/$fighterId/matches')
-        .replace(queryParameters: {'limit': '$limit'});
+    String fighterId, {
+    int limit = 10,
+  }) async {
+    final uri = Uri.parse(
+      '$kApiBaseUrl/fighters/$fighterId/matches',
+    ).replace(queryParameters: {'limit': '$limit'});
     _log('GET $uri');
     try {
       final resp = await _client.get(uri, headers: _headers);
@@ -131,9 +135,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> fetchFighterVs(
-      String fighterId, String opponentId) async {
-    final uri =
-        Uri.parse('$kApiBaseUrl/fighters/$fighterId/vs/$opponentId');
+    String fighterId,
+    String opponentId,
+  ) async {
+    final uri = Uri.parse('$kApiBaseUrl/fighters/$fighterId/vs/$opponentId');
     _log('GET $uri');
     try {
       final resp = await _client.get(uri, headers: _headers);
@@ -144,8 +149,6 @@ class ApiService {
       return null;
     }
   }
-
-
 
   Future<List<Bet>> fetchMyBets() async {
     final uri = Uri.parse('$kApiBaseUrl/bets/mine');
@@ -168,23 +171,25 @@ class ApiService {
     required String matchId,
     required String fighterId,
     required double amount,
-    required String side,       // "A" or "B"
-    required String privyJwt,   // Privy access token for server-side signing
+    required String side, // "A" or "B"
+    required String privyJwt, // Privy access token for server-side signing
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/bets/');
     _log('POST $uri matchId=$matchId side=$side');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({
-          'match_id': matchId,
-          'fighter_id': fighterId,
-          'amount': amount,
-          'side': side,
-          'privy_jwt': privyJwt,
-        }),
-      ).timeout(const Duration(seconds: 45));  // longer for on-chain tx
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'match_id': matchId,
+              'fighter_id': fighterId,
+              'amount': amount,
+              'side': side,
+              'privy_jwt': privyJwt,
+            }),
+          )
+          .timeout(const Duration(seconds: 45)); // longer for on-chain tx
 
       if (resp.statusCode != 200 && resp.statusCode != 201) {
         _handleError(resp, 'placeBet');
@@ -211,11 +216,13 @@ class ApiService {
     final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim');
     _log('POST $uri betId=$betId');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'privy_jwt': privyJwt}),
-      ).timeout(const Duration(seconds: 45));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({'privy_jwt': privyJwt}),
+          )
+          .timeout(const Duration(seconds: 45));
 
       if (resp.statusCode != 200 && resp.statusCode != 201) {
         _handleError(resp, 'claimBet');
@@ -223,7 +230,11 @@ class ApiService {
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final sig = data['tx_signature'] as String?;
       if (sig == null) {
-        throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing tx_signature',
+          statusCode: resp.statusCode,
+        );
       }
       return sig;
     } on SocketException {
@@ -238,11 +249,13 @@ class ApiService {
     }
   }
 
-
   // ── Auth ──
 
-  Future<Map<String, dynamic>?> login(String privyToken,
-      {String? walletAddress, String? email}) async {
+  Future<Map<String, dynamic>?> login(
+    String privyToken, {
+    String? walletAddress,
+    String? email,
+  }) async {
     final uri = Uri.parse('$kApiBaseUrl/auth/login');
     _log('POST $uri walletAddress=$walletAddress email=$email');
     try {
@@ -251,7 +264,9 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'token': privyToken,
+          // ignore: use_null_aware_elements
           if (walletAddress != null) 'walletAddress': walletAddress,
+          // ignore: use_null_aware_elements
           if (email != null) 'email': email,
         }),
       );
@@ -297,6 +312,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchClientConfig() async {
+    final uri = Uri.parse('$kApiBaseUrl/client-config');
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return null;
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return null;
+    } catch (e) {
+      _log('fetchClientConfig error: $e');
+      return null;
+    }
+  }
+
   // ── Stream (HTTP polling fallback) ──
 
   Future<List<Map<String, dynamic>>> fetchLiveStreams() async {
@@ -316,18 +346,24 @@ class ApiService {
 
   /// Step 1: Get unsigned transaction from backend
   Future<String> prepareWithdraw({
-    required String token,    // "sol" or "seeker"
+    required String token, // "sol" or "seeker"
     required String toAddress,
     required double amount,
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw/prepare');
     _log('POST $uri token=$token amount=$amount');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
-      ).timeout(const Duration(seconds: 30));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'token': token,
+              'to_address': toAddress,
+              'amount': amount,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       _log('POST $uri → ${resp.statusCode}');
 
@@ -335,7 +371,11 @@ class ApiService {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final tx = data['transaction_base64'] as String?;
         if (tx == null) {
-          throw ApiException(code: 'MissingField', message: 'Server response missing transaction_base64', statusCode: resp.statusCode);
+          throw ApiException(
+            code: 'MissingField',
+            message: 'Server response missing transaction_base64',
+            statusCode: resp.statusCode,
+          );
         }
         return tx;
       }
@@ -360,11 +400,15 @@ class ApiService {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw/broadcast');
     _log('POST $uri (broadcasting signed tx)');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'signed_transaction_base64': signedTransactionBase64}),
-      ).timeout(const Duration(seconds: 30));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'signed_transaction_base64': signedTransactionBase64,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       _log('POST $uri → ${resp.statusCode}');
 
@@ -372,7 +416,11 @@ class ApiService {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final sig = data['tx_signature'] as String?;
         if (sig == null) {
-          throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+          throw ApiException(
+            code: 'MissingField',
+            message: 'Server response missing tx_signature',
+            statusCode: resp.statusCode,
+          );
         }
         return sig;
       }
@@ -394,18 +442,24 @@ class ApiService {
   /// DEPRECATED: Use prepareWithdraw + sign + broadcastWithdraw instead
   @Deprecated('Use prepareWithdraw, sign with Privy, then broadcastWithdraw')
   Future<String> withdrawFunds({
-    required String token,    // "sol" or "seeker"
+    required String token, // "sol" or "seeker"
     required String toAddress,
     required double amount,
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw');
     _log('POST $uri token=$token amount=$amount');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
-      ).timeout(const Duration(seconds: 30));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'token': token,
+              'to_address': toAddress,
+              'amount': amount,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       _log('POST $uri → ${resp.statusCode} ${resp.body}');
 
@@ -413,7 +467,11 @@ class ApiService {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final sig = data['tx_signature'] as String?;
         if (sig == null) {
-          throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+          throw ApiException(
+            code: 'MissingField',
+            message: 'Server response missing tx_signature',
+            statusCode: resp.statusCode,
+          );
         }
         return sig;
       }

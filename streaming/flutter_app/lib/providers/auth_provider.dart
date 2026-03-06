@@ -20,8 +20,8 @@ class AuthState {
   final AuthStatus status;
   final String? email;
   final String? walletAddress;
-  final String? displayName;  // persisted to backend + SharedPreferences
-  final String? avatarPath;   // local file path, SharedPreferences only
+  final String? displayName; // persisted to backend + SharedPreferences
+  final String? avatarPath; // local file path, SharedPreferences only
   final String? error;
   final String? pendingEmail;
   final bool hasSeenIntro;
@@ -48,17 +48,16 @@ class AuthState {
     bool? hasSeenIntro,
     bool clearDisplayName = false,
     bool clearAvatarPath = false,
-  }) =>
-      AuthState(
-        status: status ?? this.status,
-        email: email ?? this.email,
-        walletAddress: walletAddress ?? this.walletAddress,
-        displayName: clearDisplayName ? null : (displayName ?? this.displayName),
-        avatarPath: clearAvatarPath ? null : (avatarPath ?? this.avatarPath),
-        error: error,
-        pendingEmail: pendingEmail ?? this.pendingEmail,
-        hasSeenIntro: hasSeenIntro ?? this.hasSeenIntro,
-      );
+  }) => AuthState(
+    status: status ?? this.status,
+    email: email ?? this.email,
+    walletAddress: walletAddress ?? this.walletAddress,
+    displayName: clearDisplayName ? null : (displayName ?? this.displayName),
+    avatarPath: clearAvatarPath ? null : (avatarPath ?? this.avatarPath),
+    error: error,
+    pendingEmail: pendingEmail ?? this.pendingEmail,
+    hasSeenIntro: hasSeenIntro ?? this.hasSeenIntro,
+  );
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -67,62 +66,64 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _api;
 
   AuthNotifier(this._privy, this._walletDeepLink, this._api)
-      : super(const AuthState()) {
+    : super(const AuthState()) {
     _init();
   }
 
   Future<void> _init() async {
     try {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
 
-    // Persist hasSeenIntro=true IMMEDIATELY on first app open.
-    // This guarantees that if Android recreates the activity while the user
-    // is in Phantom (deep link callback), the new start uses
-    // initialRoute='/sign-in-modal', never '/get-started'.
-    if (!hasSeenIntro) {
-      await prefs.setBool('hasSeenIntro', true);
-    }
+      // Persist hasSeenIntro=true IMMEDIATELY on first app open.
+      // This guarantees that if Android recreates the activity while the user
+      // is in Phantom (deep link callback), the new start uses
+      // initialRoute='/sign-in-modal', never '/get-started'.
+      if (!hasSeenIntro) {
+        await prefs.setBool('hasSeenIntro', true);
+      }
 
-    // ── Dev bypass ──────────────────────────────────────────────────────────
-    // flutter run --dart-define=BYPASS_AUTH=true
-    // Skips Privy entirely and goes straight to arena. Debug builds only.
-    const bypassAuth =
-        bool.fromEnvironment('BYPASS_AUTH', defaultValue: false);
-    if (bypassAuth && kDebugMode) {
-      _log('BYPASS_AUTH=true — skipping Privy, going straight to arena');
-      state = const AuthState(
-        status: AuthStatus.authenticated,
-        email: 'dev@bypass.local',
-        walletAddress: 'DevBypassWallet',
-        hasSeenIntro: true,
+      // ── Dev bypass ──────────────────────────────────────────────────────────
+      // flutter run --dart-define=BYPASS_AUTH=true
+      // Skips Privy entirely and goes straight to arena. Debug builds only.
+      const bypassAuth = bool.fromEnvironment(
+        'BYPASS_AUTH',
+        defaultValue: false,
       );
-      return;
-    }
-    // ───────────────────────────────────────────────────────────────────────
+      if (bypassAuth && kDebugMode) {
+        _log('BYPASS_AUTH=true — skipping Privy, going straight to arena');
+        state = const AuthState(
+          status: AuthStatus.authenticated,
+          email: 'dev@bypass.local',
+          walletAddress: 'DevBypassWallet',
+          hasSeenIntro: true,
+        );
+        return;
+      }
+      // ───────────────────────────────────────────────────────────────────────
 
-    // Load persisted displayName and avatarPath
-    final displayName = prefs.getString('displayName');
-    final avatarPath = prefs.getString('avatarPath');
+      // Load persisted displayName and avatarPath
+      final displayName = prefs.getString('displayName');
+      final avatarPath = prefs.getString('avatarPath');
 
-    await _privy.initialize();
-    if (_privy.isLoggedIn) {
-      await _privy.createSolanaWallet(); // no-op if wallet already exists
-      await _syncBackendAuth();
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        email: _privy.email,
-        walletAddress: _privy.walletAddress,
-        displayName: displayName,
-        avatarPath: avatarPath,
-        hasSeenIntro: true,
-      );
-    } else {
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        hasSeenIntro: true,
-      );
-    }
+      await _privy.initialize();
+      if (_privy.isLoggedIn) {
+        await _privy.createSolanaWallet(); // no-op if wallet already exists
+        await _syncBackendAuth();
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          email: _privy.email,
+          walletAddress: _privy.walletAddress,
+          displayName: displayName,
+          avatarPath: avatarPath,
+          hasSeenIntro: true,
+        );
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          hasSeenIntro: true,
+        );
+      }
     } catch (e) {
       _log('_init failed: $e');
       state = state.copyWith(status: AuthStatus.unauthenticated);
@@ -183,11 +184,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> sendEmailCode(String email) async {
     state = state.copyWith(
-        status: AuthStatus.authenticating, pendingEmail: email);
+      status: AuthStatus.authenticating,
+      pendingEmail: email,
+    );
     final ok = await _privy.sendEmailCode(email);
     if (!ok) {
       state = state.copyWith(
-          status: AuthStatus.unauthenticated, error: 'Failed to send code');
+        status: AuthStatus.unauthenticated,
+        error: 'Failed to send code',
+      );
     }
   }
 
@@ -206,7 +211,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     }
     state = state.copyWith(
-        status: AuthStatus.unauthenticated, error: 'Invalid code');
+      status: AuthStatus.unauthenticated,
+      error: 'Invalid code',
+    );
     return false;
   }
 
@@ -224,8 +231,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     }
     state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        error: _privy.lastError ?? 'Google login failed');
+      status: AuthStatus.unauthenticated,
+      error: _privy.lastError ?? 'Google login failed',
+    );
     return false;
   }
 
@@ -243,8 +251,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     }
     state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        error: _privy.lastError ?? 'Apple login failed');
+      status: AuthStatus.unauthenticated,
+      error: _privy.lastError ?? 'Apple login failed',
+    );
     return false;
   }
 
@@ -261,8 +270,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     }
     state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        error: _privy.lastError ?? 'Passkey login failed');
+      status: AuthStatus.unauthenticated,
+      error: _privy.lastError ?? 'Passkey login failed',
+    );
     return false;
   }
 
@@ -273,8 +283,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   ///  2. Generate SIWS message from Privy
   ///  3. Deep-link to wallet app → sign the message
   ///  4. Send signature to Privy → authenticated
-  Future<bool> loginWithWallet(
-      {SolanaWallet wallet = SolanaWallet.phantom}) async {
+  Future<bool> loginWithWallet({
+    SolanaWallet wallet = SolanaWallet.phantom,
+  }) async {
     _log('=== loginWithWallet START (${wallet.name}) ===');
     final totalSw = Stopwatch()..start();
     state = state.copyWith(status: AuthStatus.authenticating);
@@ -282,7 +293,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Step 1: Connect to wallet → get address
       _log('Step 1: connecting to ${wallet.name}...');
       final stepSw = Stopwatch()..start();
-      final address = await _walletDeepLink.connect(wallet: wallet);
+      final cfg = await _api.fetchClientConfig();
+      final cluster =
+          ((cfg?['network'] as Map<String, dynamic>?)?['cluster'] as String?) ??
+          'mainnet-beta';
+      _log('Step 1 cluster: $cluster');
+      final address = await _walletDeepLink.connect(
+        wallet: wallet,
+        cluster: cluster,
+      );
       _log('Step 1 DONE in ${stepSw.elapsedMilliseconds}ms: address=$address');
 
       // Step 2: Generate SIWS message from Privy
@@ -293,12 +312,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (message == null) {
         _log('Step 2 FAILED: message is null, lastError=${_privy.lastError}');
         state = state.copyWith(
-            status: AuthStatus.unauthenticated,
-            error: _privy.lastError ?? 'Failed to generate SIWS message');
+          status: AuthStatus.unauthenticated,
+          error: _privy.lastError ?? 'Failed to generate SIWS message',
+        );
         return false;
       }
       _log('Step 2 DONE: SIWS message (${message.length} chars)');
-      _log('Step 2 message preview: ${message.substring(0, message.length.clamp(0, 200))}...');
+      _log(
+        'Step 2 message preview: ${message.substring(0, message.length.clamp(0, 200))}...',
+      );
 
       // Step 3: Sign message with wallet
       _log('Step 3: requesting signMessage from ${wallet.name}...');
@@ -316,12 +338,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // NO delay before Step 4 — it's just an HTTP call, not a deep link.
       _log('Step 4: sending SIWS to Privy IMMEDIATELY (no delay)...');
-      _log('Total elapsed since SIWS generated: ${totalSw.elapsedMilliseconds}ms');
+      _log(
+        'Total elapsed since SIWS generated: ${totalSw.elapsedMilliseconds}ms',
+      );
       stepSw.reset();
       final ok = await _privy.loginWithSiws(message, signatureB64, address);
       _log('Step 4 API call took ${stepSw.elapsedMilliseconds}ms, result=$ok');
       if (ok) {
-        _log('=== loginWithWallet SUCCESS in ${totalSw.elapsedMilliseconds}ms ===');
+        _log(
+          '=== loginWithWallet SUCCESS in ${totalSw.elapsedMilliseconds}ms ===',
+        );
         // Create Privy embedded wallet — same as email/social login.
         // The external wallet (Phantom/Solflare) was for auth only;
         // the embedded wallet is what the app uses for transactions.
@@ -336,16 +362,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       _log('=== loginWithWallet FAILED: ${_privy.lastError} ===');
       state = state.copyWith(
-          status: AuthStatus.unauthenticated,
-          error: _privy.lastError ?? 'Wallet login failed');
+        status: AuthStatus.unauthenticated,
+        error: _privy.lastError ?? 'Wallet login failed',
+      );
       return false;
     } catch (e, st) {
-      _log('=== loginWithWallet EXCEPTION in ${totalSw.elapsedMilliseconds}ms ===');
+      _log(
+        '=== loginWithWallet EXCEPTION in ${totalSw.elapsedMilliseconds}ms ===',
+      );
       _log('Error: $e');
       _log('Stack: $st');
       _walletDeepLink.disconnect();
       state = state.copyWith(
-          status: AuthStatus.unauthenticated, error: e.toString());
+        status: AuthStatus.unauthenticated,
+        error: e.toString(),
+      );
       return false;
     }
   }
@@ -375,8 +406,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 final privyServiceProvider = Provider<PrivyService>((ref) => PrivyService());
 
-final walletDeepLinkProvider =
-    Provider<WalletDeepLinkService>((ref) => WalletDeepLinkService());
+final walletDeepLinkProvider = Provider<WalletDeepLinkService>(
+  (ref) => WalletDeepLinkService(),
+);
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
   (ref) => AuthNotifier(
