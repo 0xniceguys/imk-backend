@@ -10,47 +10,49 @@
 
 <div class="card">
   <form method="POST" action="/admin/matches/new">
-    <div class="form-group">
-      <label for="savestate_path">Savestate (characters + stage)</label>
-      <select name="savestate_path" id="savestate_path" required>
-        <option value="">Select savestate...</option>
-        {% for s in savestates %}
-        <option value="{{ s.path }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
     <div class="grid grid-2">
       <div class="form-group">
-        <label for="p1_agent">P1 Agent</label>
-        <select name="p1_agent" id="p1_agent" required>
-          {% for a in agents %}
-          <option value="{{ a.id }}" {% if a.id == 'random' %}selected{% endif %}>{{ a.name }} — {{ a.description }}</option>
+        <label for="fighter1_id">P1 Fighter</label>
+        <select name="fighter1_id" id="fighter1_id" required>
+          <option value="">Select fighter...</option>
+          {% for f in fighters %}
+          <option value="{{ f.id }}" {% if selected_fighter1_id and selected_fighter1_id == (f.id|string) %}selected{% endif %}>
+            {{ f.name }}{% if f.llm_model %} — {{ f.llm_model }}{% endif %}
+          </option>
           {% endfor %}
         </select>
       </div>
       <div class="form-group">
-        <label for="p2_agent">P2 Agent</label>
-        <select name="p2_agent" id="p2_agent" required>
-          {% for a in agents %}
-          <option value="{{ a.id }}" {% if a.id == 'random' %}selected{% endif %}>{{ a.name }} — {{ a.description }}</option>
+        <label for="fighter2_id">P2 Fighter</label>
+        <select name="fighter2_id" id="fighter2_id" required>
+          <option value="">Select fighter...</option>
+          {% for f in fighters %}
+          <option value="{{ f.id }}" {% if selected_fighter2_id and selected_fighter2_id == (f.id|string) %}selected{% endif %}>
+            {{ f.name }}{% if f.llm_model %} — {{ f.llm_model }}{% endif %}
+          </option>
           {% endfor %}
         </select>
       </div>
+    </div>
+
+    <div class="form-group">
+      <small class="text-dim">
+        Agent and savestate are auto-resolved from fighter configuration and matchup mapping.
+      </small>
     </div>
 
     <div class="grid grid-2">
       <div class="form-group">
         <label for="best_of">Best Of</label>
         <select name="best_of" id="best_of" required>
-          <option value="1">1 Round</option>
-          <option value="3" selected>Best of 3</option>
-          <option value="5">Best of 5</option>
+          <option value="1" {% if best_of == 1 %}selected{% endif %}>1 Round</option>
+          <option value="3" {% if best_of == 3 %}selected{% endif %}>Best of 3</option>
+          <option value="5" {% if best_of == 5 %}selected{% endif %}>Best of 5</option>
         </select>
       </div>
       <div class="form-group">
         <label for="label">Match Label</label>
-        <input type="text" name="label" id="label" value="MK4-Classic" placeholder="e.g. MK4-Classic, Tournament Round 1">
+        <input type="text" name="label" id="label" value="{{ label or 'MK4-Classic' }}" placeholder="e.g. MK4-Classic, Tournament Round 1">
       </div>
     </div>
 

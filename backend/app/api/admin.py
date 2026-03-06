@@ -30,6 +30,11 @@ from app.exceptions import (
 )
 from app.schemas.fighter import FighterCreate, FighterOut
 from app.schemas.match import MatchCreate, MatchOut
+from app.services.match_config import (
+    get_fighter_with_agent,
+    resolve_agent_runtime,
+    resolve_matchup_savestate_path,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -40,23 +45,47 @@ async def create_match(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify both fighters exist
-    for fid in (body.fighter1_id, body.fighter2_id):
-        result = await db.execute(select(Fighter).where(Fighter.id == fid))
-        if result.scalar_one_or_none() is None:
-            raise FighterNotFoundError(str(fid))
+    fighter1 = await get_fighter_with_agent(db, body.fighter1_id)
+    if fighter1 is None:
+        raise FighterNotFoundError(str(body.fighter1_id))
+
+    fighter2 = await get_fighter_with_agent(db, body.fighter2_id)
+    if fighter2 is None:
+        raise FighterNotFoundError(str(body.fighter2_id))
 
     if body.fighter1_id == body.fighter2_id:
         raise ValidationError("Fighter 1 and Fighter 2 must be different")
 
+    # Resolve defaults from fighter config.
+    p1_agent_id, _, _ = resolve_agent_runtime(
+        fighter1, fallback_agent_id=body.p1_agent
+    )
+    p2_agent_id, _, _ = resolve_agent_runtime(
+        fighter2, fallback_agent_id=body.p2_agent
+    )
+
+    # Prefer configured matchup savestate; fall back to explicit API payload for compatibility.
+    savestate_path = await resolve_matchup_savestate_path(
+        db,
+        fighter1_id=fighter1.id,
+        fighter2_id=fighter2.id,
+    )
+    if not savestate_path:
+        savestate_path = body.savestate_path
+    if not savestate_path:
+        raise InvalidSavestateError(
+            "",
+            f"No active savestate mapping for matchup {fighter1.slug} (P1) vs {fighter2.slug} (P2)",
+        )
+
     match = Match(
-        fighter1_id=body.fighter1_id,
-        fighter2_id=body.fighter2_id,
+        fighter1_id=fighter1.id,
+        fighter2_id=fighter2.id,
         scheduled_at=body.scheduled_at,
         label=body.label,
-        savestate_path=body.savestate_path,
-        p1_agent=body.p1_agent,
-        p2_agent=body.p2_agent,
+        savestate_path=savestate_path,
+        p1_agent=p1_agent_id,
+        p2_agent=p2_agent_id,
         best_of=body.best_of,
     )
     db.add(match)
@@ -199,46 +228,13 @@ async def start_match(
     best_of = match.best_of
     match_id_str = str(match_id)
 
-    # ✅ FIX: Wire uploaded agents into match execution
-    # Determine agent ID, checkpoint path, AND architecture for both fighters
-    p1_agent_id = match.p1_agent  # default from match
-    p2_agent_id = match.p2_agent  # default from match
-    p1_checkpoint_path: str | None = None
-    p2_checkpoint_path: str | None = None
-    p1_architecture: str | None = None
-    p2_architecture: str | None = None
-
-    # P1 agent resolution: custom uploaded agent takes priority over built-in
-    if match.fighter1:
-        if match.fighter1.agent_id and match.fighter1.agent:
-            # Custom uploaded agent
-            p1_agent_id = f"custom_{match.fighter1.agent.slug}"
-            p1_checkpoint_path = match.fighter1.agent.checkpoint_path
-            p1_architecture = match.fighter1.agent.architecture
-            logger.info(f"P1 using custom agent: {p1_agent_id} ({p1_architecture}) from {p1_checkpoint_path}")
-        elif match.fighter1.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
-            # Built-in agent with valid ID
-            p1_agent_id = match.fighter1.agent_architecture
-            logger.info(f"P1 using built-in agent: {p1_agent_id}")
-        else:
-            # Invalid or architecture-only value (like "mlp") - default to random
-            logger.info(f"P1 using built-in agent: {p1_agent_id}")
-
-    # P2 agent resolution: custom uploaded agent takes priority over built-in
-    if match.fighter2:
-        if match.fighter2.agent_id and match.fighter2.agent:
-            # Custom uploaded agent
-            p2_agent_id = f"custom_{match.fighter2.agent.slug}"
-            p2_checkpoint_path = match.fighter2.agent.checkpoint_path
-            p2_architecture = match.fighter2.agent.architecture
-            logger.info(f"P2 using custom agent: {p2_agent_id} ({p2_architecture}) from {p2_checkpoint_path}")
-        elif match.fighter2.agent_architecture in ("random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"):
-            # Built-in agent with valid ID
-            p2_agent_id = match.fighter2.agent_architecture
-            logger.info(f"P2 using built-in agent: {p2_agent_id}")
-        else:
-            # Invalid or architecture-only value (like "mlp") - default to random
-            logger.info(f"P2 using built-in agent: {p2_agent_id}")
+    # Resolve runtime agents from fighter configuration.
+    p1_agent_id, p1_checkpoint_path, p1_architecture = resolve_agent_runtime(
+        match.fighter1, fallback_agent_id=match.p1_agent
+    )
+    p2_agent_id, p2_checkpoint_path, p2_architecture = resolve_agent_runtime(
+        match.fighter2, fallback_agent_id=match.p2_agent
+    )
 
     # Mark as LIVE and commit — THEN release DB connection before launching emulator.
     # If we hold the session open during the 3-10s emulator launch, the connection
