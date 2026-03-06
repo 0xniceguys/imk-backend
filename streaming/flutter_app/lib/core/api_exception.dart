@@ -25,6 +25,20 @@ class ApiException implements Exception {
 
   /// Parse ApiException from backend error response
   factory ApiException.fromJson(Map<String, dynamic> json, int statusCode) {
+    // Standard FastAPI error format: {"detail": "Error message"}
+    if (json.containsKey('detail')) {
+      final detail = json['detail'];
+      final message = detail is List
+          ? (detail.first['msg'] ?? 'Validation Error')
+          : detail.toString();
+      return ApiException(
+        code: 'FastAPIError',
+        message: message,
+        statusCode: statusCode,
+      );
+    }
+
+    // Custom IMKException format: {"error": {"code": "...", "message": "...", "details": {...}}}
     final error = json['error'] as Map<String, dynamic>? ?? {};
     return ApiException(
       code: error['code'] as String? ?? 'UnknownError',

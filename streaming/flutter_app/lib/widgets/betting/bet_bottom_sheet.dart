@@ -62,8 +62,8 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
   String get _selectedSide => _selectedFighter == 0 ? 'A' : 'B';
 
   Future<void> _placeBet() async {
-    // Fetch a fresh Privy access token for server-side signing
-    final privyJwt = await ref.read(privyServiceProvider).getAccessToken();
+    // Fetch a fresh Privy ID token for server-side signing
+    final privyJwt = await ref.read(privyServiceProvider).getIdToken();
     if (privyJwt == null || privyJwt.isEmpty) {
       setState(() => _error = 'Not authenticated — please log in again.');
       return;
