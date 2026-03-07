@@ -12,6 +12,11 @@ void _log(String msg) {
   if (kDebugMode) print('[WS] $msg');
 }
 
+/// How long to delay video frames so they stay in sync with the HLS audio
+/// pipeline (2s init wait + ~500ms ExoPlayer startup buffer).
+/// Tune this if audio and video drift on device.
+const _kVideoDelayMs = 2500;
+
 /// Manages a WebSocket connection to a live match.
 ///
 /// Receives two types of messages from the backend:
@@ -94,17 +99,29 @@ class MatchStreamService {
     } else if (message is List<int>) {
       final bytes = Uint8List.fromList(message);
       if (bytes.isEmpty) return;
-      // Audio messages are prefixed with 0x01.
-      // Video frames are raw JPEG bytes — JPEG always starts with 0xFF (0xD8),
-      // so these are unambiguous without any prefix byte.
-      if (bytes[0] == 0x01) {
-        // Strip the 0x01 prefix and emit the Opus/OGG payload
+
+      final first = bytes[0];
+
+      if (first == 0x01) {
+        // Audio: 0x01 prefix + Opus/OGG payload
         _audioChunkCtrl.add(bytes.sublist(1));
+      } else if (first == 0x00) {
+        // Video with legacy 0x00 prefix — strip it (backward compat with old backend)
+        final payload = bytes.sublist(1);
+        if (payload.isNotEmpty) _addDelayedFrame(payload);
       } else {
-        // Raw JPEG — pass through as-is to frameStream
-        _frameCtrl.add(bytes);
+        // Raw JPEG — no prefix (current backend). JPEG always starts with 0xFF 0xD8.
+        _addDelayedFrame(bytes);
       }
     }
+  }
+
+  /// Schedules a frame to be emitted after [_kVideoDelayMs], keeping video
+  /// in sync with the HLS audio pipeline which has a similar fixed latency.
+  void _addDelayedFrame(Uint8List frame) {
+    Future.delayed(const Duration(milliseconds: _kVideoDelayMs), () {
+      if (!_frameCtrl.isClosed) _frameCtrl.add(frame);
+    });
   }
 
   void _handleText(String text) {

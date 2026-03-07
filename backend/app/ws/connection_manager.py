@@ -41,10 +41,27 @@ class ConnectionManager:
         self._rooms: dict[str, set[WebSocket]] = defaultdict(set)
         # Connections queued for removal (pruned on next broadcast)
         self._dead: set[WebSocket] = set()
+        # Background task: periodically prune dead connections even if no
+        # broadcasts happen (e.g., between rounds when no frames are sent)
+        self._prune_task: asyncio.Task | None = None
+
+    def _start_prune_task(self) -> None:
+        if self._prune_task is None or self._prune_task.done():
+            self._prune_task = asyncio.create_task(
+                self._periodic_prune(), name="ws-prune"
+            )
+
+    async def _periodic_prune(self) -> None:
+        """Every 60s, sweep all rooms and drop any closed connections."""
+        while True:
+            await asyncio.sleep(60)
+            for match_id in list(self._rooms.keys()):
+                self._prune_dead(match_id)
 
     async def connect(self, ws: WebSocket, match_id: str) -> None:
         await ws.accept()
         self._rooms[match_id].add(ws)
+        self._start_prune_task()  # ensure periodic pruner is running
         logger.info(
             "WS connected to match %s (%d viewers)",
             match_id, len(self._rooms[match_id]),
@@ -110,13 +127,20 @@ class ConnectionManager:
     # ── Public broadcast API ────────────────────────────────────────────────
 
     async def broadcast_json(self, match_id: str, data: dict) -> None:
-        """Send JSON payload to all local viewers + publish to Redis."""
+        """Send JSON payload to all local viewers + publish to Redis (fire-and-forget)."""
         message = json.dumps(data)
 
         # 1. In-process (fire-and-forget)
         self._schedule_text(match_id, message)
 
-        # 2. Redis fan-out (non-blocking, non-fatal)
+        # 2. Redis fan-out — fully fire-and-forget: Redis slowness must never
+        #    delay game state delivery to local clients.
+        asyncio.create_task(
+            self._redis_publish_json(match_id, data),
+            name=f"redis-pub-json-{match_id}",
+        )
+
+    async def _redis_publish_json(self, match_id: str, data: dict) -> None:
         try:
             from app.services.redis_client import publish_json
             await publish_json(match_id, data)
@@ -124,21 +148,15 @@ class ConnectionManager:
             pass
 
     async def broadcast_bytes(self, match_id: str, jpeg_bytes: bytes) -> None:
-        """Send a raw video JPEG frame to all local viewers + Redis.
-
-        Video is sent without a prefix byte — JPEG always starts with 0xFF 0xD8
-        which is unambiguous, allowing the client to distinguish video from audio
-        by checking the first byte (0x01 = audio, anything else = video JPEG).
-        """
+        """Send a raw video JPEG frame to all local viewers + Redis (fire-and-forget)."""
         # 1. In-process (fire-and-forget)
         self._schedule_bytes(match_id, jpeg_bytes)
 
-        # 2. Redis fan-out
-        try:
-            from app.services.redis_client import publish_bytes
-            await publish_bytes(match_id, jpeg_bytes)
-        except Exception:
-            pass
+        # 2. Redis fan-out — fire-and-forget
+        asyncio.create_task(
+            self._redis_publish_bytes(match_id, jpeg_bytes),
+            name=f"redis-pub-bytes-{match_id}",
+        )
 
     async def broadcast_audio(self, match_id: str, opus_bytes: bytes) -> None:
         """Send an audio Opus/OGG chunk (prefixed with 0x01) to all local viewers + Redis."""
@@ -147,7 +165,13 @@ class ConnectionManager:
         # 1. In-process (fire-and-forget)
         self._schedule_bytes(match_id, data)
 
-        # 2. Redis fan-out
+        # 2. Redis fan-out — fire-and-forget
+        asyncio.create_task(
+            self._redis_publish_bytes(match_id, data),
+            name=f"redis-pub-audio-{match_id}",
+        )
+
+    async def _redis_publish_bytes(self, match_id: str, data: bytes) -> None:
         try:
             from app.services.redis_client import publish_bytes
             await publish_bytes(match_id, data)

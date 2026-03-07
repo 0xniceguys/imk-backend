@@ -38,6 +38,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   // Audio player — plays the HLS audio-only stream for the current match
   VideoPlayerController? _audioController;
+  String? _audioMatchId; // guard against double-init for the same match
 
   // FPS counter — track timestamps of the last N frames in a 1s window
   final List<int> _frameTimes = []; // milliseconds since epoch
@@ -131,26 +132,53 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   // ── Audio helpers ──
   void _startAudio(String matchId) {
-    _stopAudio();
-    // Delay 2s to allow the first HLS segment to be written
+    // Guard: don't reinitialise the same match (matchProvider listener can fire
+    // multiple times on the same matchId).
+    if (_audioMatchId == matchId) return;
+    _audioMatchId = matchId;
+    _stopAudio(); // dispose any previous controller for a different match
+    _initAudio(matchId, attempt: 1);
+  }
+
+  Future<void> _initAudio(String matchId, {required int attempt}) async {
+    if (!mounted || _audioMatchId != matchId) return;
+
+    // Wait for FFmpeg to write the first HLS segment (~1s after capture starts)
+    // The first request returning 404 would cause ExoPlayer to error-loop.
+    if (attempt == 1) await Future.delayed(const Duration(seconds: 2));
+    if (!mounted || _audioMatchId != matchId) return;
+
     final url = '$kStreamBaseUrl/stream/audio/$matchId/stream.m3u8';
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(url),
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
     _audioController = controller;
-    controller.initialize().then((_) {
-      if (_audioController == controller && mounted) {
-        controller.setVolume(1.0);
-        controller.play();
-        debugPrint('[Audio] Playing HLS stream: $url');
+    try {
+      await controller.initialize();
+      if (!mounted || _audioMatchId != matchId) {
+        controller.dispose();
+        return;
       }
-    }).catchError((e) {
-      debugPrint('[Audio] Failed to initialize: $e');
-    });
+      controller.setVolume(1.0);
+      controller.play();
+      debugPrint('[Audio] Playing HLS stream (attempt $attempt): $url');
+    } catch (e) {
+      debugPrint('[Audio] Init failed (attempt $attempt): $e');
+      controller.dispose();
+      if (_audioMatchId != matchId) return; // navigated away
+      // Retry up to 3 times with growing delay
+      if (attempt < 3) {
+        await Future.delayed(Duration(seconds: attempt * 2));
+        _initAudio(matchId, attempt: attempt + 1);
+      } else {
+        debugPrint('[Audio] Giving up after $attempt attempts for match $matchId');
+      }
+    }
   }
 
   void _stopAudio() {
+    _audioMatchId = null;
     final ctrl = _audioController;
     _audioController = null;
     ctrl?.dispose();
