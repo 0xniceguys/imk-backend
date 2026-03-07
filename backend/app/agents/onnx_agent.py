@@ -9,6 +9,7 @@ output action logits (from which we sample).
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,52 @@ from app.services.game_state import FightState
 logger = logging.getLogger(__name__)
 
 ACTIONS = list(MacroAction)
+
+
+def _shape_dim_to_int(dim: object) -> int | None:
+    if isinstance(dim, int) and dim > 0:
+        return dim
+    return None
+
+
+def _infer_obs_dim(shape: Sequence[object] | None) -> int | None:
+    if not shape:
+        return None
+    # Observation dim is usually the last tensor axis.
+    for dim in reversed(shape):
+        parsed = _shape_dim_to_int(dim)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _infer_stack_frames(obs_dim: int | None, default_frames: int) -> int:
+    if obs_dim is None or obs_dim <= 0:
+        return default_frames
+    if obs_dim % RAW_OBS_DIM == 0:
+        frames = obs_dim // RAW_OBS_DIM
+        if frames >= 1:
+            return frames
+    return default_frames
+
+
+def _fit_obs_dim(obs: list[float], expected_dim: int | None) -> list[float]:
+    if expected_dim is None or expected_dim <= 0:
+        return obs
+    if len(obs) == expected_dim:
+        return obs
+    if len(obs) < expected_dim:
+        return obs + [0.0] * (expected_dim - len(obs))
+    return obs[:expected_dim]
+
+
+def _infer_transformer_seq_len(shape: Sequence[object] | None, fallback: int) -> int:
+    if shape and len(shape) >= 2:
+        # For [seq, obs] or [batch, seq, obs], seq is second-last axis.
+        seq_dim = _shape_dim_to_int(shape[-2])
+        if seq_dim is not None:
+            return seq_dim
+    return fallback
 
 
 class OnnxAgent(FighterAgent):
@@ -57,20 +104,28 @@ class OnnxAgent(FighterAgent):
         self.session = ort.InferenceSession(self.model_path, opts, providers=["CPUExecutionProvider"])
 
         # Inspect model inputs/outputs
-        self._input_name = self.session.get_inputs()[0].name
-        self._input_shape = self.session.get_inputs()[0].shape
+        input_meta = self.session.get_inputs()[0]
+        self._input_name = input_meta.name
+        self._input_shape = input_meta.shape
+        self._obs_dim = _infer_obs_dim(self._input_shape)
         self._output_name = self.session.get_outputs()[0].name
 
-        # Frame stacking for MLP-style models
+        # Frame stack automatically follows model obs dim when possible.
         if use_frame_stack:
-            self.frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=n_stack_frames)
+            inferred_frames = _infer_stack_frames(self._obs_dim, n_stack_frames)
+            self.frame_stack = (
+                FrameStack(obs_dim=RAW_OBS_DIM, n_frames=inferred_frames)
+                if inferred_frames > 1
+                else None
+            )
         else:
             self.frame_stack = None
 
         logger.info(
-            "ONNX agent loaded: %s (input=%s shape=%s, output=%s, frame_stack=%s)",
+            "ONNX agent loaded: %s (input=%s shape=%s obs_dim=%s output=%s frame_stack=%s)",
             model_path, self._input_name, self._input_shape,
-            self._output_name, use_frame_stack,
+            self._obs_dim, self._output_name,
+            getattr(self.frame_stack, "n_frames", 1),
         )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
@@ -80,6 +135,7 @@ class OnnxAgent(FighterAgent):
             obs = self.frame_stack.push(raw_obs)
         else:
             obs = raw_obs
+        obs = _fit_obs_dim(obs, self._obs_dim)
 
         # Run inference
         obs_array = np.array([obs], dtype=np.float32)
@@ -88,7 +144,7 @@ class OnnxAgent(FighterAgent):
 
         # Sample from the policy distribution (softmax → multinomial)
         probs = _softmax(logits)
-        action_idx = np.random.choice(len(probs), p=probs)
+        action_idx = int(np.random.choice(len(probs), p=probs))
 
         return ActionPacket(
             macro_action=ACTIONS[action_idx],
@@ -130,7 +186,7 @@ class OnnxLstmAgent(FighterAgent):
         self._obs_name = inputs[0].name
         self._h_name = inputs[1].name
         self._c_name = inputs[2].name
-        self._obs_dim = inputs[0].shape[1]
+        self._obs_dim = _infer_obs_dim(inputs[0].shape) or RAW_OBS_DIM
 
         self._h: np.ndarray | None = None
         self._c: np.ndarray | None = None
@@ -145,10 +201,7 @@ class OnnxLstmAgent(FighterAgent):
             self._h = np.zeros((1, 1, self.hidden_size), dtype=np.float32)
             self._c = np.zeros((1, 1, self.hidden_size), dtype=np.float32)
 
-        raw_obs = build_obs(state, player=player)
-        # Pad to match expected obs_dim
-        if len(raw_obs) < self._obs_dim:
-            raw_obs = raw_obs + [0.0] * (self._obs_dim - len(raw_obs))
+        raw_obs = _fit_obs_dim(build_obs(state, player=player), self._obs_dim)
 
         obs_array = np.array([raw_obs], dtype=np.float32)
         outputs = self.session.run(None, {
@@ -162,7 +215,7 @@ class OnnxLstmAgent(FighterAgent):
         self._c = outputs[2]
 
         probs = _softmax(logits)
-        action_idx = np.random.choice(len(probs), p=probs)
+        action_idx = int(np.random.choice(len(probs), p=probs))
 
         return ActionPacket(
             macro_action=ACTIONS[action_idx],
@@ -201,18 +254,35 @@ class OnnxDiscRssmAgent(FighterAgent):
         self._obs_name = inputs[0].name
         self._h_name = inputs[1].name
         self._act_name = inputs[2].name
+        self._obs_dim = _infer_obs_dim(inputs[0].shape)
 
         self._h: np.ndarray | None = None
         self._prev_act: int = 0
-        self.frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
+        inferred_frames = _infer_stack_frames(self._obs_dim, 4)
+        self.frame_stack = (
+            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=inferred_frames)
+            if inferred_frames > 1
+            else None
+        )
 
-        logger.info("ONNX DiscRSSM agent loaded: %s (det=%d)", model_path, det_size)
+        logger.info(
+            "ONNX DiscRSSM agent loaded: %s (det=%d obs_dim=%s frame_stack=%s)",
+            model_path,
+            det_size,
+            self._obs_dim,
+            getattr(self.frame_stack, "n_frames", 1),
+        )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
         if self._h is None:
             self._h = np.zeros((1, self.det_size), dtype=np.float32)
 
-        obs = self.frame_stack.push(build_obs(state, player=player))
+        raw_obs = build_obs(state, player=player)
+        if self.frame_stack is not None:
+            obs = self.frame_stack.push(raw_obs)
+        else:
+            obs = raw_obs
+        obs = _fit_obs_dim(obs, self._obs_dim)
         obs_array = np.array([obs], dtype=np.float32)
         h_array = self._h
         act_array = np.array([self._prev_act], dtype=np.int64)
@@ -239,7 +309,8 @@ class OnnxDiscRssmAgent(FighterAgent):
     def reset(self) -> None:
         self._h = None
         self._prev_act = 0
-        self.frame_stack.reset()
+        if self.frame_stack is not None:
+            self.frame_stack.reset()
 
 
 class OnnxTransformerAgent(FighterAgent):
@@ -266,14 +337,36 @@ class OnnxTransformerAgent(FighterAgent):
         opts.intra_op_num_threads = 1
         self.session = ort.InferenceSession(self.model_path, opts, providers=["CPUExecutionProvider"])
 
-        self._input_name = self.session.get_inputs()[0].name
+        input_meta = self.session.get_inputs()[0]
+        self._input_name = input_meta.name
+        self._input_shape = input_meta.shape
+        self._input_rank = len(self._input_shape)
+        self._obs_dim = _infer_obs_dim(self._input_shape)
+        self.seq_len = _infer_transformer_seq_len(self._input_shape, seq_len)
         self._buf: list[list[float]] = []
-        self.frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)
+        inferred_frames = _infer_stack_frames(self._obs_dim, 4)
+        self.frame_stack = (
+            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=inferred_frames)
+            if inferred_frames > 1
+            else None
+        )
 
-        logger.info("ONNX Transformer agent loaded: %s (seq=%d)", model_path, seq_len)
+        logger.info(
+            "ONNX Transformer agent loaded: %s (shape=%s seq=%d obs_dim=%s frame_stack=%s)",
+            model_path,
+            self._input_shape,
+            self.seq_len,
+            self._obs_dim,
+            getattr(self.frame_stack, "n_frames", 1),
+        )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
-        obs = self.frame_stack.push(build_obs(state, player=player))
+        raw_obs = build_obs(state, player=player)
+        if self.frame_stack is not None:
+            obs = self.frame_stack.push(raw_obs)
+        else:
+            obs = raw_obs
+        obs = _fit_obs_dim(obs, self._obs_dim)
         self._buf.append(obs)
         if len(self._buf) > self.seq_len:
             self._buf.pop(0)
@@ -282,9 +375,17 @@ class OnnxTransformerAgent(FighterAgent):
         pad_count = self.seq_len - len(self._buf)
         padded = [[0.0] * len(obs)] * pad_count + self._buf
         obs_seq = np.array(padded, dtype=np.float32)
+        if self._input_rank >= 3:
+            obs_input = np.expand_dims(obs_seq, axis=0)
+        else:
+            obs_input = obs_seq
 
-        outputs = self.session.run(None, {self._input_name: obs_seq})
-        logits = outputs[0][0]
+        outputs = self.session.run(None, {self._input_name: obs_input})
+        logits_arr = np.asarray(outputs[0], dtype=np.float32)
+        if logits_arr.ndim == 1:
+            logits = logits_arr
+        else:
+            logits = logits_arr.reshape(-1, logits_arr.shape[-1])[-1]
 
         probs = _softmax(logits)
         action_idx = int(np.random.choice(len(probs), p=probs))
@@ -297,7 +398,8 @@ class OnnxTransformerAgent(FighterAgent):
 
     def reset(self) -> None:
         self._buf = []
-        self.frame_stack.reset()
+        if self.frame_stack is not None:
+            self.frame_stack.reset()
 
 
 def _softmax(x: np.ndarray) -> np.ndarray:

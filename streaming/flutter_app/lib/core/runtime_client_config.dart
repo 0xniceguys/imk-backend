@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -32,28 +33,34 @@ class RuntimeClientConfig {
   String get rpcHttp => _config?.network.rpcHttp.isNotEmpty == true
       ? _config!.network.rpcHttp
       : (kFallbackUseDevnet
-          ? 'https://api.devnet.solana.com'
-          : 'https://api.mainnet-beta.solana.com');
+            ? 'https://api.devnet.solana.com'
+            : 'https://api.mainnet-beta.solana.com');
 
-  String get privyAppId =>
-      _config?.privy.appId.isNotEmpty == true ? _config!.privy.appId : kFallbackPrivyAppId;
+  String get privyAppId => _config?.privy.appId.isNotEmpty == true
+      ? _config!.privy.appId
+      : kFallbackPrivyAppId;
 
   String get privyClientId => _config?.privy.clientId.isNotEmpty == true
       ? _config!.privy.clientId
       : kFallbackPrivyClientId;
 
-  String get programId =>
-      _config?.contract.programId.isNotEmpty == true ? _config!.contract.programId : kFallbackProgramId;
+  String get programId => _config?.contract.programId.isNotEmpty == true
+      ? _config!.contract.programId
+      : kFallbackProgramId;
 
-  String get skrMint =>
-      _config?.contract.skrMint.isNotEmpty == true ? _config!.contract.skrMint : kFallbackSkrMint;
+  String get skrMint => _config?.contract.skrMint.isNotEmpty == true
+      ? _config!.contract.skrMint
+      : kFallbackSkrMint;
 
   int get minBetBaseUnits => _config?.contract.minBetBaseUnits ?? 100;
   int get maxBetBaseUnits => _config?.contract.maxBetBaseUnits ?? 400;
   int get feeBps => _config?.contract.feeBps ?? 500;
+  double get minBetUi => _baseUnitsToUi(minBetBaseUnits, tokenDecimals);
+  double get maxBetUi => _baseUnitsToUi(maxBetBaseUnits, tokenDecimals);
 
-  String get tokenSymbol =>
-      _config?.token.symbol.isNotEmpty == true ? _config!.token.symbol : kFallbackTokenSymbol;
+  String get tokenSymbol => _config?.token.symbol.isNotEmpty == true
+      ? _config!.token.symbol
+      : kFallbackTokenSymbol;
   int get tokenDecimals => _config?.token.decimals ?? kFallbackTokenDecimals;
 
   String get explorerBaseUrl => _config?.explorer.baseUrl.isNotEmpty == true
@@ -65,6 +72,11 @@ class RuntimeClientConfig {
 
   ClientConfig? get rawConfig => _config;
 
+  double _baseUnitsToUi(int baseUnits, int decimals) {
+    if (decimals <= 0) return baseUnits.toDouble();
+    return baseUnits / math.pow(10, decimals);
+  }
+
   Future<void> bootstrap({http.Client? client}) async {
     if (_attemptedBootstrap) return;
     _attemptedBootstrap = true;
@@ -73,7 +85,9 @@ class RuntimeClientConfig {
     _log('Bootstrapping from $uri');
 
     try {
-      final resp = await httpClient.get(uri).timeout(const Duration(seconds: 8));
+      final resp = await httpClient
+          .get(uri)
+          .timeout(const Duration(seconds: 8));
       if (resp.statusCode != 200) {
         _log('client-config fetch failed: ${resp.statusCode}');
         return;

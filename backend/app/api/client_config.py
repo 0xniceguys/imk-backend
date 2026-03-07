@@ -10,6 +10,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter
@@ -47,6 +48,16 @@ def _fallback_contract_config() -> dict[str, Any]:
         "paused": False,
         "source": "fallback",
     }
+
+
+def _base_units_to_ui_string(base_units: int, decimals: int) -> str:
+    if decimals <= 0:
+        return str(base_units)
+    ui = Decimal(base_units) / (Decimal(10) ** decimals)
+    ui_str = format(ui.normalize(), "f")
+    if "." in ui_str:
+        ui_str = ui_str.rstrip("0").rstrip(".")
+    return ui_str or "0"
 
 
 async def _load_contract_config() -> dict[str, Any]:
@@ -108,6 +119,12 @@ async def get_client_config() -> dict[str, Any]:
             "fee_bps": contract_cfg["fee_bps"],
             "min_bet_base_units": contract_cfg["min_bet_base_units"],
             "max_bet_base_units": contract_cfg["max_bet_base_units"],
+            "min_bet_ui": _base_units_to_ui_string(
+                int(contract_cfg["min_bet_base_units"]), int(settings.token_decimals)
+            ),
+            "max_bet_ui": _base_units_to_ui_string(
+                int(contract_cfg["max_bet_base_units"]), int(settings.token_decimals)
+            ),
             "paused": contract_cfg["paused"],
             "source": contract_cfg["source"],
         },
@@ -119,7 +136,9 @@ async def get_client_config() -> dict[str, Any]:
             "base_url": settings.explorer_base_url,
         },
         "features": {
-            "server_side_signing": True,
+            "server_side_signing": False,
+            "client_signed_bets": True,
+            "client_signed_claims": True,
             "dev_local_signer_bypass": bool(settings.dev_local_signer_bypass),
         },
     }

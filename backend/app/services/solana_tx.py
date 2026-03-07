@@ -13,7 +13,7 @@ PDA derivation uses SHA256 with canonical bump (find_program_address).
 import hashlib
 import struct
 import base64
-from typing import Any
+from typing import Any, Sequence
 
 import httpx
 from solders.hash import Hash
@@ -292,6 +292,42 @@ def _tx_bytes(ix: Instruction, fee_payer: Pubkey, blockhash: str) -> bytes:
     msg = Message.new_with_blockhash([ix], fee_payer, Hash.from_string(blockhash))
     tx = Transaction.new_unsigned(msg)
     return bytes(tx)
+
+
+def _tx_bytes_multi(ixs: Sequence[Instruction], fee_payer: Pubkey, blockhash: str) -> bytes:
+    msg = Message.new_with_blockhash(list(ixs), fee_payer, Hash.from_string(blockhash))
+    tx = Transaction.new_unsigned(msg)
+    return bytes(tx)
+
+
+def _build_create_ata_ix(
+    *,
+    payer: Pubkey,
+    owner: Pubkey,
+    mint: Pubkey,
+    ata: Pubkey,
+    idempotent: bool = True,
+) -> Instruction:
+    """
+    Build Associated Token Account create instruction.
+
+    Uses idempotent create by default so retries are safe when the ATA is
+    created concurrently.
+    """
+    data = bytes([1]) if idempotent else b""
+    return Instruction(
+        program_id=_ASSOC_TOKEN_PROG_ID,
+        accounts=[
+            AccountMeta(pubkey=payer, is_signer=True, is_writable=True),
+            AccountMeta(pubkey=ata, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=owner, is_signer=False, is_writable=False),
+            AccountMeta(pubkey=mint, is_signer=False, is_writable=False),
+            AccountMeta(pubkey=_SYSTEM_PROGRAM_ID, is_signer=False, is_writable=False),
+            AccountMeta(pubkey=_TOKEN_PROGRAM_ID, is_signer=False, is_writable=False),
+            AccountMeta(pubkey=_RENT_SYSVAR_ID, is_signer=False, is_writable=False),
+        ],
+        data=data,
+    )
 
 
 def build_place_bet_ix(
@@ -712,3 +748,52 @@ def build_spl_transfer(
         data=data,
     )
     return _tx_bytes(ix, owner_pk, blockhash)
+
+
+def build_spl_transfer_with_optional_dst_ata(
+    *,
+    owner: str,
+    src_ata: str,
+    dst_owner: str,
+    mint: str,
+    amount: int,
+    blockhash: str,
+    create_dst_ata_if_missing: bool,
+) -> bytes:
+    """
+    Build an unsigned SPL transfer transaction.
+
+    If `create_dst_ata_if_missing` is True, prepends an idempotent ATA create
+    instruction for the destination wallet before the transfer.
+    """
+    owner_pk = Pubkey.from_string(owner)
+    src_pk = Pubkey.from_string(src_ata)
+    dst_owner_pk = Pubkey.from_string(dst_owner)
+    mint_pk = Pubkey.from_string(mint)
+    dst_ata_pk = derive_associated_token_address(dst_owner_pk, mint_pk)
+
+    ixs: list[Instruction] = []
+    if create_dst_ata_if_missing:
+        ixs.append(
+            _build_create_ata_ix(
+                payer=owner_pk,
+                owner=dst_owner_pk,
+                mint=mint_pk,
+                ata=dst_ata_pk,
+                idempotent=True,
+            )
+        )
+
+    data = bytes([3]) + amount.to_bytes(8, "little")
+    ixs.append(
+        Instruction(
+            program_id=_TOKEN_PROGRAM_ID,
+            accounts=[
+                AccountMeta(pubkey=src_pk, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=dst_ata_pk, is_signer=False, is_writable=True),
+                AccountMeta(pubkey=owner_pk, is_signer=True, is_writable=False),
+            ],
+            data=data,
+        )
+    )
+    return _tx_bytes_multi(ixs, owner_pk, blockhash)

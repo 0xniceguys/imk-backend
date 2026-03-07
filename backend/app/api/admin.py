@@ -239,7 +239,6 @@ async def start_match(
     # this HTTP response can return immediately.
     async def _launch_in_background() -> None:
         from app.services.match_runner import start_match as runner_start
-        from app.db.engine import async_session
 
         try:
             await runner_start(
@@ -255,18 +254,20 @@ async def start_match(
             )
         except Exception as e:
             logger.error("Failed to start emulator for match %s: %s", match_id_str, e)
-            # Roll back DB status on launch failure using a fresh session
-            async with async_session() as fresh_db:
-                res = await fresh_db.execute(
-                    select(Match).where(Match.id == match_id).options(selectinload(Match.stream))
+            # Contract-first rollback: cancel on-chain so users can refund.
+            from app.services.match_cancel import cancel_match_by_id_contract_first
+
+            try:
+                await cancel_match_by_id_contract_first(
+                    match_id,
+                    stream_status=StreamStatus.ERROR,
+                    reason="runner_start_failed",
                 )
-                m = res.scalar_one_or_none()
-                if m:
-                    m.status = MatchStatus.UPCOMING
-                    m.started_at = None
-                    if m.stream:
-                        m.stream.status = StreamStatus.IDLE
-                    await fresh_db.commit()
+            except Exception:
+                logger.exception(
+                    "Failed to auto-cancel match %s after runner startup failure",
+                    match_id_str,
+                )
             return
 
         # Update emulator instance ID in a fresh session
@@ -334,26 +335,24 @@ async def cancel_match(
     from app.services.match_runner import stop_match as runner_stop
     await runner_stop(str(match_id))
 
-    # Cancel on-chain if match has a PDA
-    if match.on_chain_match_pda:
-        try:
-            from app.services.on_chain_match import cancel_match_on_chain
-            await cancel_match_on_chain(match.on_chain_match_pda)
-        except Exception as exc:
-            logger.error("On-chain cancel_match failed for %s: %s", match_id, exc, exc_info=True)
-            raise HTTPException(502, f"On-chain cancel failed: {exc}")
+    from app.services.match_cancel import cancel_match_contract_first
 
-    match.status = MatchStatus.CANCELLED
-    if match.stream:
-        match.stream.status = StreamStatus.STOPPED
+    try:
+        result = await cancel_match_contract_first(
+            db,
+            match,
+            stream_status=StreamStatus.STOPPED,
+            reason="admin_api_cancel",
+        )
+    except Exception as exc:
+        logger.error("On-chain cancel_match failed for %s: %s", match_id, exc, exc_info=True)
+        raise HTTPException(502, f"On-chain cancel failed: {exc}")
 
-    # Mark all active bets as cancelled in DB
-    for bet in match.bets:
-        if bet.status == BetStatus.ACTIVE:
-            bet.status = BetStatus.CANCELLED
-
-    await db.commit()
-    return {"status": "cancelled", "match_id": str(match_id)}
+    return {
+        "status": "cancelled",
+        "match_id": str(match_id),
+        "on_chain_tx": result.on_chain_tx,
+    }
 
 
 @router.post("/matches/{match_id}/settle")

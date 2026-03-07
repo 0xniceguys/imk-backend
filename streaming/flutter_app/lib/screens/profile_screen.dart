@@ -7,6 +7,8 @@ import '../router.dart';
 import '../providers/auth_provider.dart';
 import '../models/bet.dart';
 import '../providers/bet_provider.dart';
+import '../providers/wallet_provider.dart';
+import '../utils/skr_pricing.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/wallet/wallet_action.dart';
 import '../widgets/shared/profile_stats.dart';
@@ -22,6 +24,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final Set<String> _claimingBetIds = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +33,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await ref.read(betProvider.notifier).refresh();
       ref.invalidate(betSummaryProvider);
     });
+  }
+
+  Future<void> _claimBet(Bet bet) async {
+    if (_claimingBetIds.contains(bet.id)) return;
+    setState(() => _claimingBetIds.add(bet.id));
+    try {
+      final sig = await ref.read(betProvider.notifier).claimBet(betId: bet.id);
+      ref.invalidate(betSummaryProvider);
+      if (!mounted) return;
+      final shortSig = (sig != null && sig.length > 14)
+          ? '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}'
+          : (sig ?? 'n/a');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Claim submitted: $shortSig'),
+          backgroundColor: Palette.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Claim failed: $e'),
+          backgroundColor: Palette.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _claimingBetIds.remove(bet.id));
+      }
+    }
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -56,8 +91,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (confirmed == true && context.mounted) {
       await ref.read(authProvider.notifier).logout();
       if (context.mounted) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/sign-in-modal', (_) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/sign-in-modal', (_) => false);
       }
     }
   }
@@ -66,15 +102,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final bets = ref.watch(betProvider);
     final summaryAsync = ref.watch(betSummaryProvider);
+    final wallet = ref.watch(walletProvider);
     final auth = ref.watch(authProvider);
     final displayName = auth.email?.split('@').first.toUpperCase() ?? 'PLAYER';
     final avatarSeed = auth.email ?? auth.walletAddress ?? displayName;
-    final wonBets = bets.where((b) => b.status == BetStatus.won || b.status == BetStatus.claimed).length;
+    final wonBets = bets
+        .where(
+          (b) => b.status == BetStatus.won || b.status == BetStatus.claimed,
+        )
+        .length;
     final fallbackTotalBets = bets.length;
     final fallbackWinRate = fallbackTotalBets > 0
         ? '${(wonBets / fallbackTotalBets * 100).toStringAsFixed(0)}%'
         : '0%';
-    final sortedBets = [...bets]..sort((a, b) => a.placedAt.compareTo(b.placedAt));
+    final sortedBets = [...bets]
+      ..sort((a, b) => a.placedAt.compareTo(b.placedAt));
     final firstBetAt = sortedBets.isNotEmpty ? sortedBets.first.placedAt : null;
     final daysActive = firstBetAt == null
         ? 0
@@ -86,7 +128,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final winRate = summary != null
         ? '${(summary.winRate * 100).toStringAsFixed(0)}%'
         : fallbackWinRate;
-    final pnlValue = summary?.netPnl ?? 0;
+    final skrUsdPrice = resolveSkrUsdPrice(wallet);
+    final pnlValue = (summary?.netPnl ?? 0) * skrUsdPrice;
     final pnlText =
         '${pnlValue >= 0 ? '+' : ''}\$${pnlValue.toStringAsFixed(2)}';
     final pnlColor = pnlValue >= 0 ? Palette.green : Palette.red;
@@ -154,21 +197,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             final tier = totalBets < 5
                 ? 'ROOKIE'
                 : totalBets < 20
-                    ? 'GAMBLER'
-                    : totalBets < 50
-                        ? 'HIGH ROLLER'
-                        : 'WHALE';
+                ? 'GAMBLER'
+                : totalBets < 50
+                ? 'HIGH ROLLER'
+                : 'WHALE';
             final level = (totalBets ~/ 5) + 1;
             return Text.rich(
-              TextSpan(children: [
-                TextSpan(
+              TextSpan(
+                children: [
+                  TextSpan(
                     text: 'LVL $level',
-                    style: bodyStyle(size: 18, color: Palette.white)),
-                TextSpan(
+                    style: bodyStyle(size: 18, color: Palette.white),
+                  ),
+                  TextSpan(
                     text: ' - $tier',
-                    style:
-                        bodyStyle(size: 18, color: Palette.secondary)),
-              ]),
+                    style: bodyStyle(size: 18, color: Palette.secondary),
+                  ),
+                ],
+              ),
             );
           }(),
           const SizedBox(height: 24),
@@ -189,14 +235,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (bets.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text('No bets yet',
-                  style: bodyStyle(size: 16, color: Palette.muted)),
+              child: Text(
+                'No bets yet',
+                style: bodyStyle(size: 16, color: Palette.muted),
+              ),
             )
           else
             for (final bet in bets) ...[
               HistoryCardWidget(
                 bet: bet,
                 onTap: () => widget.onNavigate('/battle-detail'),
+                onClaim: bet.isClaimable ? () => _claimBet(bet) : null,
+                claimLoading: _claimingBetIds.contains(bet.id),
               ),
               const SizedBox(height: 14),
             ],

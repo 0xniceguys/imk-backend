@@ -20,6 +20,7 @@ No script here auto-runs deployment. Deployment script requires explicit confirm
 - `scripts/30_init_config.sh` + `30_init_config.py` - call `init_config` (raw RPC, no IDL needed)
 - `scripts/31_read_config.sh` + `31_read_config.py` - fetch and decode config account
 - `scripts/32_create_treasury_ata.sh` - create treasury ATA for SKR mint
+- `scripts/33_update_config.sh` + `33_update_config.py` - update config fields (`min/max`, fee, admin, treasury)
 - `scripts/40_verify_deploy.sh` - readonly RPC checks
 
 ## Quick Start

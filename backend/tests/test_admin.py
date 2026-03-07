@@ -247,6 +247,70 @@ async def test_cancel_match_cancels_bets(
 
 
 @pytest.mark.asyncio
+async def test_cancel_match_calls_on_chain_when_pda_present(
+    admin_client: AsyncClient,
+    match_with_stream: Match,
+    db: AsyncSession,
+    cleanup,
+    monkeypatch,
+):
+    """Cancelling a match with on-chain PDA must call cancel_match_on_chain first."""
+    tx_sig = "test-cancel-tx-sig"
+
+    async def _fake_cancel_match_on_chain(match_pda: str) -> str:
+        assert match_pda == "FakeMatchPda11111111111111111111111111111111111"
+        return tx_sig
+
+    monkeypatch.setattr(
+        "app.services.on_chain_match.cancel_match_on_chain",
+        _fake_cancel_match_on_chain,
+    )
+
+    result = await db.execute(select(Match).where(Match.id == match_with_stream.id))
+    match = result.scalar_one()
+    match.on_chain_match_pda = "FakeMatchPda11111111111111111111111111111111111"
+    await db.commit()
+
+    resp = await admin_client.post(f"/api/admin/matches/{match_with_stream.id}/cancel")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["status"] == "cancelled"
+    assert data["on_chain_tx"] == tx_sig
+
+
+@pytest.mark.asyncio
+async def test_cancel_match_fails_when_on_chain_cancel_fails(
+    admin_client: AsyncClient,
+    match_with_stream: Match,
+    db: AsyncSession,
+    cleanup,
+    monkeypatch,
+):
+    """If on-chain cancel fails, endpoint must fail and not mark DB as cancelled."""
+
+    async def _fake_cancel_match_on_chain(_match_pda: str) -> str:
+        raise RuntimeError("simulated on-chain cancel failure")
+
+    monkeypatch.setattr(
+        "app.services.on_chain_match.cancel_match_on_chain",
+        _fake_cancel_match_on_chain,
+    )
+
+    result = await db.execute(select(Match).where(Match.id == match_with_stream.id))
+    match = result.scalar_one()
+    match.on_chain_match_pda = "FakeMatchPda11111111111111111111111111111111111"
+    await db.commit()
+
+    resp = await admin_client.post(f"/api/admin/matches/{match_with_stream.id}/cancel")
+    assert resp.status_code == 502, resp.text
+
+    db.expire_all()
+    result = await db.execute(select(Match).where(Match.id == match_with_stream.id))
+    refreshed = result.scalar_one()
+    assert refreshed.status == MatchStatus.UPCOMING
+
+
+@pytest.mark.asyncio
 async def test_settle_match(
     admin_client: AsyncClient,
     live_match: Match,

@@ -172,7 +172,7 @@ class ApiService {
     required String fighterId,
     required double amount,
     required String side, // "A" or "B"
-    required String privyJwt, // Privy access token for server-side signing
+    required String privyJwt, // legacy server-signing flow
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/bets/');
     _log('POST $uri matchId=$matchId side=$side');
@@ -204,6 +204,90 @@ class ApiService {
     } catch (e) {
       _log('placeBet error: $e');
       throw ApiException.unexpected('Failed to place bet: $e');
+    }
+  }
+
+  /// Step 1: Prepare an unsigned bet transaction for client-side signing.
+  Future<String> prepareBet({
+    required String matchId,
+    required String fighterId,
+    required double amount,
+    required String side, // "A" or "B"
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/prepare');
+    _log('POST $uri matchId=$matchId side=$side');
+    try {
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'match_id': matchId,
+              'fighter_id': fighterId,
+              'amount': amount,
+              'side': side,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'prepareBet');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final tx = data['transaction_base64'] as String?;
+      if (tx == null || tx.isEmpty) {
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing transaction_base64',
+          statusCode: resp.statusCode,
+        );
+      }
+      return tx;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('prepareBet error: $e');
+      throw ApiException.unexpected('Failed to prepare bet transaction: $e');
+    }
+  }
+
+  /// Step 3: Broadcast a signed bet transaction and persist DB state.
+  Future<Bet> broadcastBet({
+    required String matchId,
+    required String signedTransactionBase64,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/broadcast');
+    _log('POST $uri matchId=$matchId');
+    try {
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'match_id': matchId,
+              'signed_transaction_base64': signedTransactionBase64,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'broadcastBet');
+      }
+      return Bet.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('broadcastBet error: $e');
+      throw ApiException.unexpected('Failed to broadcast bet transaction: $e');
     }
   }
 
@@ -246,6 +330,86 @@ class ApiService {
     } catch (e) {
       _log('claimBet error: $e');
       throw ApiException.unexpected('Failed to claim bet: $e');
+    }
+  }
+
+  /// Step 1: Prepare an unsigned claim transaction for client-side signing.
+  Future<String> prepareClaim({required String betId}) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim/prepare');
+    _log('POST $uri');
+    try {
+      final resp = await _client
+          .post(uri, headers: _headers)
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'prepareClaim');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final tx = data['transaction_base64'] as String?;
+      if (tx == null || tx.isEmpty) {
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing transaction_base64',
+          statusCode: resp.statusCode,
+        );
+      }
+      return tx;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('prepareClaim error: $e');
+      throw ApiException.unexpected('Failed to prepare claim transaction: $e');
+    }
+  }
+
+  /// Step 3: Broadcast a signed claim transaction.
+  Future<String> broadcastClaim({
+    required String betId,
+    required String signedTransactionBase64,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim/broadcast');
+    _log('POST $uri');
+    try {
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'signed_transaction_base64': signedTransactionBase64,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'broadcastClaim');
+      }
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final sig = data['tx_signature'] as String?;
+      if (sig == null || sig.isEmpty) {
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing tx_signature',
+          statusCode: resp.statusCode,
+        );
+      }
+      return sig;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('broadcastClaim error: $e');
+      throw ApiException.unexpected(
+        'Failed to broadcast claim transaction: $e',
+      );
     }
   }
 

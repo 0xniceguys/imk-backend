@@ -5,6 +5,8 @@ import '../core/typography.dart';
 import '../models/fighter.dart';
 import '../providers/fighter_provider.dart';
 import '../providers/fighter_stats_provider.dart';
+import '../providers/wallet_provider.dart';
+import '../utils/skr_pricing.dart';
 import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_loader.dart';
 import '../widgets/fighter/fighter_image.dart';
@@ -40,6 +42,8 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
     final currentIndex = initialIndex >= 0 ? initialIndex : 0;
     final fighter = fighters[currentIndex];
     final bottom = MediaQuery.of(context).padding.bottom;
+    final wallet = ref.watch(walletProvider);
+    final skrUsdPrice = resolveSkrUsdPrice(wallet);
 
     final statsAsync = ref.watch(fighterStatsProvider(fighter.id));
     final matchesAsync = ref.watch(fighterMatchesProvider(fighter.id));
@@ -173,8 +177,8 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                     _InfoItem(
                       'Bet Volume',
                       stats != null
-                          ? '${(stats['total_bet_volume'] as num? ?? 0).toStringAsFixed(2)} SOL'
-                          : '0.00 SOL',
+                          ? '\$${(((stats['total_bet_volume'] as num?)?.toDouble() ?? 0) * skrUsdPrice).toStringAsFixed(2)}'
+                          : '\$0.00',
                     ),
                   ],
                 ),

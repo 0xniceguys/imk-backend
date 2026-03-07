@@ -86,8 +86,7 @@ async def get_wallet_id_and_sign(
             # Check if it's the "Invalid JWT" error
             if "Invalid JWT" in error_str or "invalid_data" in error_str:
                 raise ValueError(
-                    f"Privy rejected the access token. "
-                    f"The Flutter app may need to provide an ID token instead of an access token. "
+                    f"Privy rejected the provided JWT for user signer authentication. "
                     f"Original error: {error_str}"
                 )
             raise ValueError(f"Failed to authenticate with Privy: {error_str}")
