@@ -13,7 +13,8 @@ import torch.nn.functional as F
 from torch.distributions import Categorical, Normal
 from n64train.runtime.actions import MacroAction
 from n64train.training.ppo_learner import LR, ortho_init, anneal_lr
-from n64train.experiments.mk4_agent import RAW_OBS_DIM
+from n64train.experiments.mk4_agent import RAW_OBS_DIM, _RunningNorm
+from n64train.device import auto_device
 
 N64_ROOT   = Path(__file__).resolve().parents[4]   # …/n64train/experiments → src → n64train → training → n64
 CKPT_DIR   = N64_ROOT / 'training/data/checkpoints'
@@ -100,8 +101,8 @@ class Mk4GruAgent:
     CKPT = CKPT_DIR / 'mk4_gru.pt'
     ARCH = 'cnn_rnn_reactive_baseline'
 
-    def __init__(self, device='cpu'):
-        self.device = torch.device(device)
+    def __init__(self, device=None):
+        self.device = torch.device(device or auto_device())
         self.net = _GruNet().to(self.device)
         self.opt_pol = torch.optim.Adam(
             list(self.net.enc.parameters()) + list(self.net.gru.parameters()) + list(self.net.pol.parameters()), LR_POLICY)
@@ -218,8 +219,8 @@ class Mk4ContRssmAgent:
     CKPT = CKPT_DIR / 'mk4_cont_rssm.pt'
     ARCH = 'continuous_rssm_hier_ac'
 
-    def __init__(self, device='cpu'):
-        self.device = torch.device(device)
+    def __init__(self, device=None):
+        self.device = torch.device(device or auto_device())
         self.net = _ContRssmNet().to(self.device)
         params_pol = list(self.net.enc.parameters()) + list(self.net.det_gru.parameters()) + \
                      list(self.net.prior.parameters()) + list(self.net.post.parameters()) + \
@@ -334,13 +335,15 @@ class Mk4ContRssmAgent:
 # ARCH 5: DISCRETE RSSM + HIERARCHICAL AC (UPGRADED)
 # ─────────────────────────────────────────────────────────
 
-N_CATS     = 8    # number of categorical classes
-CAT_SZ     = 8    # classes per category
-DISC_Z     = N_CATS * CAT_SZ   # 64-d discrete latent
-_DR_DET    = 256   # upgraded det GRU hidden
-_DR_ACT_EMB = 32   # upgraded action embedding
-_DR_GOAL   = 64    # upgraded goal dim
-DISC_KL_COEF = 0.5
+N_CATS     = 8    # categorical classes (DreamerV3 uses 32, but 8 is sufficient for 22-dim RAM obs)
+CAT_SZ     = 8    # classes per category → 64-d discrete latent
+DISC_Z     = N_CATS * CAT_SZ
+_DR_DET    = 256  # deterministic GRU hidden
+_DR_ACT_EMB = 32
+_DR_GOAL   = 64
+DISC_KL_COEF  = 1.0   # DreamerV3: KL weight = 1.0
+DISC_KL_ALPHA = 0.8   # DreamerV3 KL balancing: 0.8 * sg(post) + 0.2 * sg(prior)
+DISC_FREE_BITS = 1.0  # minimum KL nats per category — prevents posterior collapse
 DISC_TAU_START = 1.0
 DISC_TAU_END = 0.1
 DISC_TAU_DECAY = 25000
@@ -349,6 +352,17 @@ DISC_TAU_DECAY = 25000
 def _disc_tau(episode: int) -> float:
     frac = min(1.0, max(0.0, float(episode) / float(DISC_TAU_DECAY)))
     return DISC_TAU_START + (DISC_TAU_END - DISC_TAU_START) * frac
+
+
+def _symlog(x: torch.Tensor) -> torch.Tensor:
+    """DreamerV3 symlog: sign(x)*log(|x|+1). Compresses large reward/obs magnitudes."""
+    return torch.sign(x) * torch.log1p(x.abs())
+
+
+def _symlog_r(r: float) -> float:
+    """Scalar symlog for reward preprocessing."""
+    import math
+    return math.copysign(math.log1p(abs(r)), r)
 
 
 class _DiscRssmNet(nn.Module):
@@ -380,7 +394,14 @@ class _DiscRssmNet(nn.Module):
         po_logits = self.post(torch.cat([h, e], -1)).view(-1, N_CATS, CAT_SZ)
         pr_logits = self.prior(h).view(-1, N_CATS, CAT_SZ)
         z_st = F.gumbel_softmax(po_logits, tau=tau, hard=True).view(-1, DISC_Z)
-        kl = (F.softmax(po_logits, -1) * (F.log_softmax(po_logits,-1) - F.log_softmax(pr_logits,-1))).sum(-1).mean()
+        # DreamerV3 KL balancing: 0.8 * grad→prior + 0.2 * grad→posterior
+        # Prevents posterior collapse while keeping prior learning signal
+        kl_prior_grad = (F.softmax(po_logits.detach(), -1) *
+                         (F.log_softmax(po_logits.detach(), -1) - F.log_softmax(pr_logits, -1))).sum(-1)
+        kl_post_grad  = (F.softmax(po_logits, -1) *
+                         (F.log_softmax(po_logits, -1) - F.log_softmax(pr_logits.detach(), -1))).sum(-1)
+        kl_per_cat = DISC_KL_ALPHA * kl_prior_grad + (1 - DISC_KL_ALPHA) * kl_post_grad
+        kl = kl_per_cat.clamp(min=DISC_FREE_BITS).mean()  # free bits: floor at 1.0 nat
         return h, z_st, kl
 
     def init_h(self, dev):
@@ -391,10 +412,10 @@ class Mk4DiscRssmAgent:
     CKPT = CKPT_DIR / 'mk4_disc_rssm.pt'
     ARCH = 'discrete_rssm_hier_ac'
 
-    def __init__(self, device='cpu'):
-        self.device = torch.device(device)
+    def __init__(self, device=None):
+        self.device = torch.device(device or auto_device())
         self.net = _DiscRssmNet().to(self.device)
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=LR, eps=1e-5)
+        self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=LR, eps=1e-5, weight_decay=1e-4)
         self._h = None; self._goal = None; self._prev_act = 0; self._step = 0
         self._obs_buf, self._act_buf, self._rewards = [], [], []
         self.episode = self.total_updates = 0
@@ -445,12 +466,14 @@ class Mk4DiscRssmAgent:
         anneal_lr(self.optimizer, self.episode)
         ent_coef = entropy_schedule(self.episode)
         tau = _disc_tau(self.episode)
+        # DreamerV3: symlog rewards compress outlier returns without clipping signal
+        sym_rewards = [_symlog_r(r) for r in self._rewards[:n]]
         obs_t    = torch.tensor(self._obs_buf[:n],    dtype=torch.float32, device=self.device)
         act_t    = torch.tensor(self._act_buf[:n],    dtype=torch.long,    device=self.device)
         old_lp_t = torch.tensor(self._old_lp_buf[:n], dtype=torch.float32, device=self.device)
         val_t    = torch.tensor(self._val_buf[:n],    dtype=torch.float32, device=self.device)
-        adv_t, ret_t = gae_advantages(self._rewards[:n], val_t,
-                                       bootstrap_val=self._bootstrap_val)
+        adv_t, ret_t = gae_advantages(sym_rewards, val_t,
+                                       bootstrap_val=_symlog_r(self._bootstrap_val))
         adv_t = adv_t.to(self.device); ret_t = ret_t.to(self.device)
         metrics_last = {}; kl_last = torch.tensor(0.0)
         for _ in range(PPO_EPOCHS):
@@ -569,8 +592,8 @@ class Mk4TransformerAgent:
     CKPT = CKPT_DIR / 'mk4_transformer.pt'
     ARCH = 'transformer_wm_hier_ac'
 
-    def __init__(self, device='cpu'):
-        self.device = torch.device(device)
+    def __init__(self, device=None):
+        self.device = torch.device(device or auto_device())
         self.net = _TransformerWMNet().to(self.device)
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=LR, eps=1e-5)
         self._buf: list[list[float]] = []
@@ -690,7 +713,7 @@ class Mk4TransformerAgent:
 # Belief head: predicts opponent attacked (auxiliary BCE loss)
 
 _OB_SLOT_D = 32
-_OB_GRU_H  = 256
+_OB_GRU_H  = 512  # wider than 256 — justified because input is N_SLOTS*SLOT_D = 704-dim
 N_SLOTS = RAW_OBS_DIM
 
 
@@ -736,10 +759,10 @@ class Mk4ObjBeliefAgent:
     CKPT = CKPT_DIR / 'mk4_obj_belief.pt'
     ARCH = 'mk4_object_belief_hier_wm'
 
-    def __init__(self, device='cpu'):
-        self.device = torch.device(device)
+    def __init__(self, device=None):
+        self.device = torch.device(device or auto_device())
         self.net = _ObjBeliefNet().to(self.device)
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=LR, eps=1e-5)
+        self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=LR, eps=1e-5, weight_decay=1e-4)
         self._h = None
         self._obs_buf, self._act_buf, self._rewards = [], [], []
         self._cpu_attacked: list[float] = []
@@ -804,7 +827,7 @@ class Mk4ObjBeliefAgent:
             bel_last = F.binary_cross_entropy_with_logits(bel_ep, cpu_t)
             loss, metrics_last = ppo_loss(
                 logits_ep, vals_ep, act_t, old_lp_t, adv_t, ret_t, ent_coef=ent_coef)
-            loss = loss + 0.1 * bel_last
+            loss = loss + 0.3 * bel_last  # 0.3: stronger signal for opponent attack prediction
             self.optimizer.zero_grad()
             loss.backward(); nn.utils.clip_grad_norm_(self.net.parameters(), PGRAD)
             self.optimizer.step()
@@ -862,8 +885,8 @@ class Mk4LatentPlannerAgent:
     CKPT = CKPT_DIR / 'mk4_latent_planner.pt'
     ARCH = 'latent_planner_mpc_prior'
 
-    def __init__(self, device='cpu'):
-        self.device = torch.device(device)
+    def __init__(self, device=None):
+        self.device = torch.device(device or auto_device())
         self.net = _WorldModel().to(self.device)
         # ── Optimizer param groups — NO OVERLAP ───────────────────────────────
         # opt_pol: ONLY the policy head (pol linear layers)
@@ -1033,7 +1056,7 @@ ARCH_REGISTRY = {
 }
 
 
-def build_arch_agent(agent_type: str, device: str = 'cpu'):
+def build_arch_agent(agent_type: str, device: str | None = None):
     cls = ARCH_REGISTRY.get(agent_type)
     if cls is None:
         raise ValueError(f'Unknown arch: {agent_type}. Options: {list(ARCH_REGISTRY)}')

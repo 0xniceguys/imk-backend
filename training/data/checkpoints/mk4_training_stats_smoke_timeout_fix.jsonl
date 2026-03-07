@@ -1,6 +1,0 @@
-{"episode": 1, "agent": "lstm", "n_steps": 3417, "mean_return": -4.5514, "ent_coef": 0.0499, "ppo_policy_loss": -0.0018, "ppo_value_loss": 4.4158, "ppo_entropy": 3.0443, "ppo_ratio_mean": 1.0002, "ppo_clip_frac": 0.0}
-{"update": 1, "agent": "lstm", "episode": 1, "batch_eps": 1}
-{"episode": 2, "agent": "lstm", "n_steps": 2712, "mean_return": -2.5749, "ent_coef": 0.0498, "ppo_policy_loss": -0.0014, "ppo_value_loss": 2.7237, "ppo_entropy": 3.0431, "ppo_ratio_mean": 0.9998, "ppo_clip_frac": 0.0}
-{"update": 2, "agent": "lstm", "episode": 2, "batch_eps": 1}
-{"episode": 3, "agent": "lstm", "n_steps": 3820, "mean_return": -6.0109, "ent_coef": 0.0498, "ppo_policy_loss": -0.0013, "ppo_value_loss": 3.0795, "ppo_entropy": 3.0394, "ppo_ratio_mean": 0.9988, "ppo_clip_frac": 0.0}
-{"update": 3, "agent": "lstm", "episode": 3, "batch_eps": 1}

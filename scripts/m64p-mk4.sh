@@ -9,8 +9,31 @@ if [[ ! -f "$ROM_PATH" ]]; then
   exit 1
 fi
 
-BREW_PREFIX="${BREW_PREFIX:-$(brew --prefix mupen64plus)}"
+# ── Platform: detect Linux vs macOS plugin/data paths ─────────────────────────
+if [[ "$(uname)" == "Darwin" ]]; then
+  BREW_PREFIX="${BREW_PREFIX:-$(brew --prefix mupen64plus)}"
+  M64P_DATA_SYSTEM="${M64P_DATA_SYSTEM:-"$BREW_PREFIX/share/mupen64plus"}"
+  M64P_PLUGIN_SYSTEM="${M64P_PLUGIN_SYSTEM:-"$BREW_PREFIX/lib/mupen64plus"}"
+else
+  # Linux: apt install mupen64plus-ui-console mupen64plus-video-rice
+  #        mupen64plus-audio-sdl mupen64plus-rsp-hle libmupen64plus-dev
+  M64P_DATA_SYSTEM="${M64P_DATA_SYSTEM:-"/usr/share/games/mupen64plus"}"
+  M64P_PLUGIN_SYSTEM="${M64P_PLUGIN_SYSTEM:-"/usr/lib/x86_64-linux-gnu/mupen64plus"}"
+fi
 
+# ── Custom n64train input plugin (auto-select .so/.dylib) ─────────────────────
+if [[ -z "${M64P_INPUT_PLUGIN:-}" ]]; then
+  if [[ "$(uname)" == "Darwin" ]]; then
+    _INPUT_DEFAULT="$ROOT_DIR/vendor/n64train-input/n64train-input.dylib"
+  else
+    _INPUT_DEFAULT="$ROOT_DIR/vendor/n64train-input/n64train-input.so"
+  fi
+  if [[ -f "$_INPUT_DEFAULT" ]]; then
+    export M64P_INPUT_PLUGIN="$_INPUT_DEFAULT"
+  fi
+fi
+
+# ── Instance-scoped directories ────────────────────────────────────────────────
 BASE_DIR="${M64P_BASE_DIR:-"$ROOT_DIR/.m64p"}"
 if [[ -n "${M64P_INSTANCE_ID:-}" ]]; then
   BASE_DIR="$BASE_DIR/instances/$M64P_INSTANCE_ID"
@@ -24,6 +47,7 @@ SHOT_DIR="${M64P_SHOT_DIR:-"$DATA_DIR/screenshots"}"
 
 mkdir -p "$CFG_DIR" "$STATE_DIR" "$SRAM_DIR" "$SHOT_DIR"
 
+# ── Config file ────────────────────────────────────────────────────────────────
 CFG_FILE="$CFG_DIR/mupen64plus.cfg"
 BASE_CFG_SOURCE="${M64P_PROFILE_BASE_CFG:-"$ROOT_DIR/.m64p/config/mupen64plus.cfg"}"
 
@@ -41,11 +65,12 @@ elif [[ ! -f "$CFG_FILE" && -f "$BASE_CFG_SOURCE" ]]; then
   cp "$BASE_CFG_SOURCE" "$CFG_FILE"
 fi
 
+# ── Build argument list ────────────────────────────────────────────────────────
 ARGS=(
   --configdir "$CFG_DIR"
-  --datadir "$BREW_PREFIX/share/mupen64plus"
-  --plugindir "$BREW_PREFIX/lib/mupen64plus"
-  --sshotdir "$SHOT_DIR"
+  --datadir   "$M64P_DATA_SYSTEM"
+  --plugindir "$M64P_PLUGIN_SYSTEM"
+  --sshotdir  "$SHOT_DIR"
   --set "Core[SaveStatePath]=$STATE_DIR"
   --set "Core[SaveSRAMPath]=$SRAM_DIR"
 )

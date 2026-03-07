@@ -1,0 +1,449 @@
+{
+  "p2_victim": {
+    "scores": {
+      "P2+074": {
+        "score": 42.0,
+        "consistency": 0.4,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": [
+          "0x0000033C",
+          "0x00000351",
+          "0x00000356",
+          "0x00000372",
+          "0x00000390"
+        ]
+      },
+      "P2+080": {
+        "score": 34.0,
+        "consistency": 0.4,
+        "arc_rate": 0.4,
+        "is_binary": false,
+        "arc_count": 2,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": [
+          "0x00000001",
+          "0x00000002",
+          "0x00000003",
+          "0x00000004",
+          "0x00000005"
+        ]
+      },
+      "P2+094": {
+        "score": 28.0,
+        "consistency": 0.6,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000",
+          "0xFFFDFAA1",
+          "0xFFFE9405"
+        ],
+        "active_sample": [
+          "0xFFFF60CB"
+        ]
+      },
+      "P2+04C": {
+        "score": 80.0,
+        "consistency": 1.0,
+        "arc_rate": 1.0,
+        "is_binary": true,
+        "arc_count": 5,
+        "idle_values": [
+          "0x0008075E"
+        ],
+        "active_sample": [
+          "0x00082258"
+        ]
+      },
+      "P2+0C0": {
+        "score": 50.0,
+        "consistency": 1.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x0003FA90",
+          "0x0003FAB1"
+        ],
+        "active_sample": [
+          "0x00000000",
+          "0x0003FA90",
+          "0x0003FAB1"
+        ]
+      },
+      "P2+0CC": {
+        "score": 80.0,
+        "consistency": 1.0,
+        "arc_rate": 1.0,
+        "is_binary": true,
+        "arc_count": 5,
+        "idle_values": [
+          "0x00000002"
+        ],
+        "active_sample": [
+          "0x00000000",
+          "0x00000001"
+        ]
+      },
+      "P2+19C": {
+        "score": 20.0,
+        "consistency": 0.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000002"
+        ],
+        "active_sample": []
+      },
+      "P2+0B0": {
+        "score": 20.0,
+        "consistency": 0.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": []
+      },
+      "P2+08C": {
+        "score": 20.0,
+        "consistency": 0.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000001",
+          "0x0000000A"
+        ],
+        "active_sample": []
+      },
+      "P2+178": {
+        "score": 20.0,
+        "consistency": 0.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000",
+          "0x00000C19"
+        ],
+        "active_sample": []
+      }
+    },
+    "hits": [
+      {
+        "attack": "P1_LP",
+        "hit": true,
+        "damage": 9830
+      },
+      {
+        "attack": "P1_LP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P1_LP",
+        "hit": true,
+        "damage": 9830
+      },
+      {
+        "attack": "P1_HP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P1_HP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P1_HP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P1_LK",
+        "hit": true,
+        "damage": 1834
+      },
+      {
+        "attack": "P1_LK",
+        "hit": true,
+        "damage": 1834
+      },
+      {
+        "attack": "P1_LK",
+        "hit": true,
+        "damage": 1834
+      },
+      {
+        "attack": "P1_HK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P1_HK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P1_HK",
+        "hit": false,
+        "damage": 0
+      }
+    ]
+  },
+  "p1_victim": {
+    "scores": {
+      "P1+04C": {
+        "score": 45.0,
+        "consistency": 0.5,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": [
+          "0xFFFFD630",
+          "0xFFFFD690",
+          "0xFFFFD6F0",
+          "0xFFFFD7C0",
+          "0xFFFFD880"
+        ]
+      },
+      "P1+08C": {
+        "score": 50.0,
+        "consistency": 1.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000004",
+          "0x00000006"
+        ],
+        "active_sample": [
+          "0x00000002",
+          "0x00000007"
+        ]
+      },
+      "P1+0B0": {
+        "score": 50.0,
+        "consistency": 1.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000",
+          "0x00001999"
+        ],
+        "active_sample": [
+          "0x0000108E",
+          "0x00001B24"
+        ]
+      },
+      "P1+310": {
+        "score": 55.0,
+        "consistency": 1.0,
+        "arc_rate": 0.5,
+        "is_binary": false,
+        "arc_count": 1,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": [
+          "0x00000002",
+          "0x00000013",
+          "0x0000003C",
+          "0x00000084",
+          "0x000000A5"
+        ]
+      },
+      "P1+4FC": {
+        "score": 35.0,
+        "consistency": 0.5,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000",
+          "0x00000001"
+        ],
+        "active_sample": [
+          "0x00000001"
+        ]
+      },
+      "P1+894": {
+        "score": 25.0,
+        "consistency": 0.5,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000",
+          "0x00000006"
+        ],
+        "active_sample": [
+          "0x00061E52",
+          "0x00061E93",
+          "0x00061F07",
+          "0x00061FBC",
+          "0x000620B2"
+        ]
+      },
+      "P1+2A8": {
+        "score": 25.0,
+        "consistency": 0.5,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000",
+          "0x000009AA"
+        ],
+        "active_sample": [
+          "0x00000FB1",
+          "0x00000FB9",
+          "0x00000FBD",
+          "0x00000FC0",
+          "0x00000FC4"
+        ]
+      },
+      "P1+7E0": {
+        "score": 45.0,
+        "consistency": 0.5,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": [
+          "0x000000D0",
+          "0x00000130",
+          "0x00000260",
+          "0x00000390",
+          "0x000004B0"
+        ]
+      },
+      "P1+7F0": {
+        "score": 45.0,
+        "consistency": 0.5,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": [
+          "0xFFFFD630",
+          "0xFFFFD690",
+          "0xFFFFD6F0",
+          "0xFFFFD7C0",
+          "0xFFFFD880"
+        ]
+      },
+      "P1+0F8": {
+        "score": 20.0,
+        "consistency": 0.0,
+        "arc_rate": 0.0,
+        "is_binary": true,
+        "arc_count": 0,
+        "idle_values": [
+          "0x00000000"
+        ],
+        "active_sample": []
+      },
+      "P1+90C": {
+        "score": 40.0,
+        "consistency": 1.0,
+        "arc_rate": 0.0,
+        "is_binary": false,
+        "arc_count": 0,
+        "idle_values": [
+          "0xFFFCB5BE",
+          "0xFFFE38BC"
+        ],
+        "active_sample": [
+          "0xFFFCC5BA",
+          "0xFFFCDACD",
+          "0xFFFCEFE0",
+          "0xFFFD0A16",
+          "0xFFFD21A2"
+        ]
+      }
+    },
+    "hits": [
+      {
+        "attack": "P2_LP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_LP",
+        "hit": true,
+        "damage": 2621
+      },
+      {
+        "attack": "P2_LP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_HP",
+        "hit": true,
+        "damage": 2621
+      },
+      {
+        "attack": "P2_HP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_HP",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_LK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_LK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_LK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_HK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_HK",
+        "hit": false,
+        "damage": 0
+      },
+      {
+        "attack": "P2_HK",
+        "hit": false,
+        "damage": 0
+      }
+    ]
+  }
+}

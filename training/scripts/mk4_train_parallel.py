@@ -40,10 +40,10 @@ def resolve_learner_device(device_arg: str) -> str:
         return device_arg
     try:
         import torch
-        if bool(torch.backends.mps.is_available()):
-            return 'mps'
         if bool(torch.cuda.is_available()):
             return 'cuda'
+        if hasattr(torch.backends, 'mps') and bool(torch.backends.mps.is_available()):
+            return 'mps'
     except Exception:
         pass
     return 'cpu'
@@ -119,11 +119,25 @@ def resolve_self_play_mode(mode_arg: str, savestate_path: str) -> bool:
 
 
 ROM_PATH    = str(N64_ROOT / 'Mortal Kombat 4 (USA).z64')
-M64P_BIN    = str(N64_ROOT / 'vendor/mupen64plus-ui-console/projects/unix/mupen64plus')
-CORELIB     = str(N64_ROOT / 'vendor/mupen64plus-core/projects/unix/libmupen64plus.dylib')
-PLUGIN      = str(N64_ROOT / 'vendor/n64train-input/n64train-input.dylib')
-PLUG_DIR    = '/opt/homebrew/lib/mupen64plus'
-DATA_DIR    = '/opt/homebrew/share/mupen64plus'
+
+_IS_LINUX = sys.platform.startswith('linux')
+if _IS_LINUX:
+    M64P_BIN = '/usr/games/mupen64plus'
+    CORELIB  = '/usr/lib/x86_64-linux-gnu/libmupen64plus.so.2'
+    PLUGIN   = str(N64_ROOT / 'vendor/n64train-input/n64train-input.so')
+    PLUG_DIR = '/usr/lib/x86_64-linux-gnu/mupen64plus'
+    DATA_DIR = '/usr/share/games/mupen64plus'
+    _DEFAULT_GFX_PLUGIN = 'mupen64plus-video-rice.so'
+    _DEFAULT_RSP_PLUGIN = 'mupen64plus-rsp-hle.so'
+else:
+    # macOS
+    M64P_BIN = str(N64_ROOT / 'vendor/mupen64plus-ui-console/projects/unix/mupen64plus')
+    CORELIB  = str(N64_ROOT / 'vendor/mupen64plus-core/projects/unix/libmupen64plus.dylib')
+    PLUGIN   = str(N64_ROOT / 'vendor/n64train-input/n64train-input.dylib')
+    PLUG_DIR = '/opt/homebrew/lib/mupen64plus'
+    DATA_DIR = '/opt/homebrew/share/mupen64plus'
+    _DEFAULT_GFX_PLUGIN = 'mupen64plus-video-rice.dylib'
+    _DEFAULT_RSP_PLUGIN = 'mupen64plus-rsp-hle.dylib'
 
 
 def socket_path(run_id: str, worker_id: int) -> str:
@@ -179,12 +193,12 @@ def launch_bridge(
         '--debugger-corelib',    CORELIB,
         '--debugger-plugindir',  PLUG_DIR,
         '--debugger-configdir',  cfg_dir(run_id, worker_id),
-        '--debugger-datadir',    '/opt/homebrew/share/mupen64plus',  # must match working debug tool
+        '--debugger-datadir',    DATA_DIR,
         '--debugger-dump-dir',   str(N64_ROOT / 'training/data/bridge/debugger_dumps' / f'{run_id}_{worker_id}'),
         '--debugger-gfx-plugin',   debugger_gfx_plugin,
         '--debugger-audio-plugin', 'dummy',
         '--debugger-input-plugin', PLUGIN,
-        '--debugger-rsp-plugin',   'mupen64plus-rsp-hle.dylib',
+        '--debugger-rsp-plugin',   _DEFAULT_RSP_PLUGIN,
         '--debugger-emumode',    str(debugger_emumode),
         '--speed-mode',          speed_mode,
         '--log-path',            str(log_path),
@@ -338,7 +352,7 @@ def main() -> int:
                     help='Bridge speed mode')
     ap.add_argument('--debugger-emumode', type=int, default=2, choices=[0, 1, 2],
                     help='Mupen mode: 0=Pure Interpreter, 1=Interpreter, 2=DynaRec')
-    ap.add_argument('--debugger-gfx-plugin', default='mupen64plus-video-rice.dylib',
+    ap.add_argument('--debugger-gfx-plugin', default=_DEFAULT_GFX_PLUGIN,
                     help='Debugger gfx plugin')
     ap.add_argument('--learner-device', default='auto', choices=['auto', 'cpu', 'mps', 'cuda'],
                     help='Learner update device; workers remain CPU')
@@ -540,4 +554,6 @@ def main() -> int:
 
 
 if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.set_start_method('spawn', force=True)
     raise SystemExit(main())

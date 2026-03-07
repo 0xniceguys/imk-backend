@@ -1,2 +1,0 @@
-{"controller_state": {"analog_x": 0.5, "analog_y": -0.25, "enabled": true, "pressed": ["A", "D_RIGHT"], "updated_at": 1772620913.556059}, "enabled": true, "event": "manual_controller_updated", "instance_id": "match-fbe55188", "kind": "event", "match_id": "viewer-test", "player": 1, "ts": 1772620913.565067}
-{"disable": false, "event": "manual_controls_released", "instance_id": "match-fbe55188", "kind": "event", "match_id": "viewer-test", "player": 1, "ts": 1772620913.570123}

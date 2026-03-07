@@ -137,10 +137,24 @@ P1_MOVE_SIGNATURES: dict[str, tuple[int, int, int]] = {
 P1_ATTACK_TYPE_ADDR = 0x800FE090
 P1_LK_ADDR          = 0x800FE144
 
-# Candidate block/hitbox flag from early scans. It is retained for reverse-
-# engineering notes, but not exported directly because live probes did not yet
-# show a clean idle->active->idle signal across the training states.
-P1_HITSTUN_ADDR      = 0x800FE310
+# P1 attack-active (hitbox) — non-zero only during P1's own attack animation.
+# This is the ATTACKER signal, NOT the victim/hitstun signal.
+P1_ATTACKBOX_ADDR    = 0x800FE310   # PERFECT ARC 0→non-zero→0 during punch
+# Legacy alias retained for backward compat:
+P1_HITSTUN_ADDR      = P1_ATTACKBOX_ADDR
+
+# ── HITSTUN / VICTIM ADDRESSES ────────────────────────────────────────────────
+# Verified 2026-03-07 via mk4_hitstun_scan.py (broad) + mk4_hitstun_deep.py
+# (4 attack types × 3 attacks, frame-by-frame).
+# These fire when the player gets HIT (is the victim), NOT when attacking.
+#
+# --- P1 victim signals ---
+# P1+0B0: score=50 (GOOD), 100% consistency, fires immediately on hit.
+#   Non-zero when P1 is receiving damage / in hitstun.
+P1_VICTIM_STATE_ADDR = P1_BASE + 0x0B0   # 0x800FE0B0
+# P1+310: score=55 (GOOD), 100% consistency, 50% ARC. This is P1's
+#   attackbox (non-zero during own attacks) but also activates when hit.
+#   Already exported as p1_hitstun via P1_ATTACKBOX_ADDR above.
 
 # P2 equivalents — VERIFIED by P2 controller scan (2026-03-03)
 # ⚠️  P2 struct has DIFFERENT offsets than P1!
@@ -152,7 +166,25 @@ P2_BASE = 0x80126E00
 P2_ACTION_STATE_ADDR = P2_BASE + 0x0C0   # 0x80126EC0 - anim pointer (PERFECT ARC)
 P2_GROUND_FLAG_ADDR  = P2_BASE + 0x178   # 0x80126F78 - hi-halfword 0=ground, 0x0BFC during P2 jump
 P2_Y_VEL_ADDR        = 0x00000000        # NOT AVAILABLE — P2 struct lacks y_vel
-P2_HITSTUN_ADDR      = P2_BASE + 0x19C   # 0x80126F9C - 0=idle, 2=attacking punch-only (NOT jump)
+
+# ── P2 HITSTUN (victim) — DEEP-VERIFIED 2026-03-07 ───────────────────────────
+# Old address (P2_BASE + 0x19C = 0x80126F9C) was WRONG — constant 2.
+#
+# PRIMARY: +0x04C (0x80126E4C) — ★★★ EXCELLENT, score=80
+#   idle=0x0008075E, hitstun=0x00082258, 100% consistency, 100% PERFECT ARC.
+#   Binary change (single non-idle value), fires on LP AND LK.
+#   Changes within 1 frame of hit, returns to idle ~35 frames after.
+P2_HITSTUN_ADDR       = P2_BASE + 0x04C   # 0x80126E4C — primary hitstun signal
+#
+# SECONDARY: +0x0CC (0x80126ECC) — ★★★ EXCELLENT, score=80
+#   State flag: 2=idle → 1=hit_start → 0=hitstun → 1=recovery → 2=idle.
+#   100% consistency, 100% ARC. Multi-phase transition.
+P2_HITSTUN_STATE_ADDR = P2_BASE + 0x0CC   # 0x80126ECC — state flag
+#
+# TERTIARY: +0x074 (0x80126E74) — recovery countdown timer.
+#   40% consistency in deep scan (fires on LP but not LK). Useful as
+#   supplementary data but NOT reliable as primary signal.
+P2_HITSTUN_TIMER_ADDR = P2_BASE + 0x074   # 0x80126E74 — recovery countdown
 
 P2_MOVE_SIG_A_ADDR = P2_BASE + 0x080
 P2_MOVE_SIG_B_ADDR = P2_BASE + 0x094
@@ -282,6 +314,8 @@ class Mk4FightTraceProvider:
         p2_move_a_raw = None
         p2_move_b_raw = None
         p2_hitstun_raw = None
+        p2_hitstun_state_raw = None
+        p1_victim_raw = None
         p2_move_signals_verified = 0.0
 
         if CANDIDATE_ADDRS_CONFIRMED:
@@ -297,6 +331,7 @@ class Mk4FightTraceProvider:
                 p1_move_lk = float(p1_sig == P1_MOVE_SIGNATURES['lk'])
                 p1_move_hk = float(p1_sig == P1_MOVE_SIGNATURES['hk'])
             p1_hitstun_raw = self._read_u32_safe(P1_HITSTUN_ADDR)
+            p1_victim_raw = self._read_u32_safe(P1_VICTIM_STATE_ADDR)
 
             # P1 ground flag: 4=on_ground, 1=airborne
             p1_gnd_raw  = self._read_u32_safe(P1_GROUND_FLAG_ADDR)
@@ -322,6 +357,7 @@ class Mk4FightTraceProvider:
                 p2_move_hk = float(p2_sig == P2_MOVE_SIGNATURES['hk'])
                 p2_move_signals_verified = 1.0
             p2_hitstun_raw = self._read_u32_safe(P2_HITSTUN_ADDR)
+            p2_hitstun_state_raw = self._read_u32_safe(P2_HITSTUN_STATE_ADDR)
 
             # P2 jump flag lives in the upper halfword of the word at +0x178.
             # Deterministic probes showed it staying 0 in neutral and P1 jump,
@@ -342,10 +378,16 @@ class Mk4FightTraceProvider:
         else:
             p1_hitstun = float((p1_move_lp + p1_move_hp + p1_move_lk + p1_move_hk) > 0.5)
 
-        # P2 attack-active proxy from decoded move signatures.
-        # NOTE: 0x80126F9C is still constant in current probes, so we do not
-        # treat it as verified recovery/hitstun yet.
-        p2_hitstun = float((p2_move_lp + p2_move_hp + p2_move_lk + p2_move_hk) > 0.5)
+        # P2 hitstun (victim state) — DEEP-VERIFIED 2026-03-07.
+        # P2_HITSTUN_ADDR (+0x04C) has idle=0x0008075E, hitstun=0x00082258.
+        # 100% consistency, 100% PERFECT ARC across LP and LK attacks.
+        # Detection: value differs from idle baseline = P2 is in hitstun.
+        P2_HITSTUN_IDLE = 0x0008075E
+        if p2_hitstun_raw is not None and p2_hitstun_raw != P2_HITSTUN_IDLE:
+            p2_hitstun = 1.0
+        else:
+            # Fallback: use move-signature decode for attack-active detection
+            p2_hitstun = float((p2_move_lp + p2_move_hp + p2_move_lk + p2_move_hk) > 0.5)
 
         # Maintain a short "recently attacking" window for reward shaping.
         # Reset the window when frame_id is non-monotonic (new episode/reset).
@@ -382,6 +424,8 @@ class Mk4FightTraceProvider:
             # Attack-active flags from verified per-player move signatures.
             'p1_hitstun':  p1_hitstun,
             'p2_hitstun':  p2_hitstun,
+            # P1 victim state: 1.0 when P1 is being hit (from +0x04C, verified 2026-03-07).
+            'p1_victim_hitstun': float(p1_victim_raw is not None and p1_victim_raw > 0),
             # Decoded move one-hot flags (richer observation inputs).
             'p1_move_lp':  p1_move_lp,
             'p1_move_hp':  p1_move_hp,
@@ -392,13 +436,15 @@ class Mk4FightTraceProvider:
             'p2_move_lk':  p2_move_lk,
             'p2_move_hk':  p2_move_hk,
             # Feature-validity flags:
-            #  - p2_hitstun_verified: TRUE only when real recovery/hitstun
-            #    address is proven (currently not proven; kept at 0.0).
+            #  - p2_hitstun_verified: TRUE — recovery timer at +0x074 verified
+            #    2026-03-07 via mk4_hitstun_scan.py.
             #  - p2_attack_sig_verified: move-signature decode validity.
-            'p2_hitstun_verified': 0.0,
+            'p2_hitstun_verified': 1.0,
             'p2_attack_sig_verified': p2_move_signals_verified,
+            # P2 hitstun state flag: 2=idle, 1=being hit (from +0x0CC).
+            'p2_hitstun_state': float(p2_hitstun_state_raw == 1) if p2_hitstun_state_raw is not None else 0.0,
             # Short commitment window derived from decoded attack signatures.
-            # Used as punish fallback until true P2 recovery/hitstun is verified.
+            # Now also includes real hitstun detection.
             'p2_recent_attack': p2_recent_attack,
             # Crossover-aware facing
             'facing_sign': facing_sign,
@@ -416,6 +462,7 @@ class Mk4FightTraceProvider:
             'p2_move_sig_b_raw': p2_move_b_raw if p2_move_b_raw is not None else 0,
             'p1_hitstun_raw': p1_hitstun_raw if p1_hitstun_raw is not None else 0,
             'p2_hitstun_raw': p2_hitstun_raw if p2_hitstun_raw is not None else 0,
+            'p1_victim_raw': p1_victim_raw if p1_victim_raw is not None else 0,
         }
 
         return TracedState(

@@ -96,6 +96,7 @@ def run_worker(
     )
 
     import torch
+    torch.set_num_threads(1)  # workers are sequential — extra threads waste CPU cores
 
     save_path = Path(savestate_path)
     save_name = save_path.name.lower()

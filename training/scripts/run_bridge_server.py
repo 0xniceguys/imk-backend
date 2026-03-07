@@ -44,23 +44,29 @@ def main() -> int:
         choices=["zero", "debugger-dump"],
         help="RAM export backend for GET_RAM_FEATURES",
     )
+    import sys as _sys
+    _is_linux = _sys.platform.startswith('linux')
+    _default_bin     = '/usr/games/mupen64plus' if _is_linux else str(PATHS.repo_root / "vendor" / "mupen64plus-ui-console" / "projects" / "unix" / "mupen64plus")
+    _default_corelib = '/usr/lib/x86_64-linux-gnu/libmupen64plus.so.2' if _is_linux else str(PATHS.repo_root / "vendor" / "mupen64plus-core" / "projects" / "unix" / "libmupen64plus.dylib")
+    _default_plugdir = '/usr/lib/x86_64-linux-gnu/mupen64plus' if _is_linux else '/opt/homebrew/lib/mupen64plus'
+    _default_datadir = '/usr/share/games/mupen64plus' if _is_linux else str(PATHS.local_m64p_root / "data")
     parser.add_argument(
         "--debugger-ui-binary",
-        default=str(PATHS.repo_root / "vendor" / "mupen64plus-ui-console" / "projects" / "unix" / "mupen64plus"),
+        default=_default_bin,
     )
     parser.add_argument(
         "--debugger-corelib",
-        default=str(PATHS.repo_root / "vendor" / "mupen64plus-core" / "projects" / "unix" / "libmupen64plus.dylib"),
+        default=_default_corelib,
     )
     parser.add_argument("--rom-path", default=default_rom, help="ROM path for debugger-backed RAM reader")
-    parser.add_argument("--debugger-plugindir", default="/opt/homebrew/lib/mupen64plus")
+    parser.add_argument("--debugger-plugindir", default=_default_plugdir)
     parser.add_argument("--debugger-configdir", default=str(PATHS.local_m64p_root / "config"))
-    parser.add_argument("--debugger-datadir", default=str(PATHS.local_m64p_root / "data"))
+    parser.add_argument("--debugger-datadir", default=_default_datadir)
     parser.add_argument("--debugger-dump-dir", default=str(PATHS.training_data_root / "bridge" / "debugger_dumps"))
     parser.add_argument("--debugger-gfx-plugin", default="dummy")
     parser.add_argument("--debugger-audio-plugin", default="dummy")
     parser.add_argument("--debugger-input-plugin", default="dummy")
-    parser.add_argument("--debugger-rsp-plugin", default="dummy")
+    parser.add_argument("--debugger-rsp-plugin", default="mupen64plus-rsp-hle")
     parser.add_argument(
         "--debugger-emumode",
         type=int,

@@ -1,3 +1,0 @@
-{"episode": 1, "steps": 1707, "reward": -149.514, "won": true, "win_rate": 100.0, "avg50": -149.514, "r_dealt": 160.0, "r_taken": -186.0, "r_spam": -54.06, "r_approach": 5.49, "r_survival": 1.706, "agent": "lstm"}
-{"episode": 2, "steps": 1330, "reward": -278.365, "won": false, "win_rate": 50.0, "avg50": -213.9395, "r_dealt": 210.7, "r_taken": -128.0, "r_spam": -42.08, "r_approach": 5.67, "r_survival": 6.645, "agent": "lstm"}
-{"episode": 3, "steps": 1908, "reward": -129.375, "won": true, "win_rate": 66.67, "avg50": -185.7513, "r_dealt": 288.0, "r_taken": -91.2, "r_spam": -55.34, "r_approach": 20.48, "r_survival": 9.535, "agent": "lstm"}

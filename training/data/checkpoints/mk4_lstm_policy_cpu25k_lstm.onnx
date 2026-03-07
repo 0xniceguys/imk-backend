@@ -1,836 +1,0 @@
-
-pytorch2.10.0:‘Ï
-Œ
-obs
-val_0	unsqueezenode_unsqueeze"	UnsqueezeJy
-	namespacel: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/unsqueeze: aten.unsqueeze.defaultJÜ
-pkg.torch.onnx.class_hierarchyd['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'aten.unsqueeze.default']Jå
-pkg.torch.onnx.fx_noder%unsqueeze : [num_users=1] = call_function[target=torch.ops.aten.unsqueeze.default](args = (%obs, 1), kwargs = {})J6
-pkg.torch.onnx.name_scopes['', 'net', 'unsqueeze']JŒ
-pkg.torch.onnx.stack_traceØFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 353, in forward
-    x = x.unsqueeze(1)  # (batch, 1, obs_dim)
-¶
-	unsqueeze
-val_1val_2node_MatMul_2"MatMulJ’
-	namespace«: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.0: torch.nn.modules.linear.Linear/linear: aten.linear.defaultJœ
-pkg.torch.onnx.class_hierarchy¨['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.linear.Linear', 'aten.linear.default']J∫
-pkg.torch.onnx.fx_nodeü%linear : [num_users=1] = call_function[target=torch.ops.aten.linear.default](args = (%unsqueeze, %p_net_encoder_0_weight, %p_net_encoder_0_bias), kwargs = {})JS
-pkg.torch.onnx.name_scopes5['', 'net', 'net.encoder', 'net.encoder.0', 'linear']J∑
-pkg.torch.onnx.stack_traceòFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/linear.py", line 134, in forward
-    return F.linear(input, self.weight, self.bias)
-´
-val_2
-net.encoder.0.biaslinearnode_linear"AddJ’
-	namespace«: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.0: torch.nn.modules.linear.Linear/linear: aten.linear.defaultJœ
-pkg.torch.onnx.class_hierarchy¨['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.linear.Linear', 'aten.linear.default']J∫
-pkg.torch.onnx.fx_nodeü%linear : [num_users=1] = call_function[target=torch.ops.aten.linear.default](args = (%unsqueeze, %p_net_encoder_0_weight, %p_net_encoder_0_bias), kwargs = {})JS
-pkg.torch.onnx.name_scopes5['', 'net', 'net.encoder', 'net.encoder.0', 'linear']J∑
-pkg.torch.onnx.stack_traceòFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/linear.py", line 134, in forward
-    return F.linear(input, self.weight, self.bias)
-≤
-linear
-net.encoder.1.weight
-net.encoder.1.bias
-layer_normnode_layer_norm"LayerNormalization*
-
-stash_type†*
-epsilon¨≈'7†*
-axisˇˇˇˇˇˇˇˇˇ†JÁ
-	namespaceŸ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.1: torch.nn.modules.normalization.LayerNorm/layer_norm: aten.layer_norm.defaultJ›
-pkg.torch.onnx.class_hierarchy∫['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.normalization.LayerNorm', 'aten.layer_norm.default']J∆
-pkg.torch.onnx.fx_node´%layer_norm : [num_users=1] = call_function[target=torch.ops.aten.layer_norm.default](args = (%linear, [128], %p_net_encoder_1_weight, %p_net_encoder_1_bias), kwargs = {})JW
-pkg.torch.onnx.name_scopes9['', 'net', 'net.encoder', 'net.encoder.1', 'layer_norm']J§
-pkg.torch.onnx.stack_traceÖFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/normalization.py", line 229, in forward
-    return F.layer_norm(
-‚
-
-
-layer_normrelu	node_relu"ReluJ”
-	namespace≈: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.2: torch.nn.modules.activation.ReLU/relu: aten.relu.defaultJœ
-pkg.torch.onnx.class_hierarchy¨['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.activation.ReLU', 'aten.relu.default']Já
-pkg.torch.onnx.fx_nodem%relu : [num_users=1] = call_function[target=torch.ops.aten.relu.default](args = (%layer_norm,), kwargs = {})JQ
-pkg.torch.onnx.name_scopes3['', 'net', 'net.encoder', 'net.encoder.2', 'relu']J∑
-pkg.torch.onnx.stack_traceòFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/activation.py", line 143, in forward
-    return F.relu(input, inplace=self.inplace)
-¢
-relu
-val_5val_6node_MatMul_4"MatMulJ◊
-	namespace…: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.3: torch.nn.modules.linear.Linear/linear_1: aten.linear.defaultJœ
-pkg.torch.onnx.class_hierarchy¨['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.linear.Linear', 'aten.linear.default']J∑
-pkg.torch.onnx.fx_nodeú%linear_1 : [num_users=1] = call_function[target=torch.ops.aten.linear.default](args = (%relu, %p_net_encoder_3_weight, %p_net_encoder_3_bias), kwargs = {})JU
-pkg.torch.onnx.name_scopes7['', 'net', 'net.encoder', 'net.encoder.3', 'linear_1']J∑
-pkg.torch.onnx.stack_traceòFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/linear.py", line 134, in forward
-    return F.linear(input, self.weight, self.bias)
-∞
-val_6
-net.encoder.3.biaslinear_1node_linear_1"AddJ◊
-	namespace…: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.3: torch.nn.modules.linear.Linear/linear_1: aten.linear.defaultJœ
-pkg.torch.onnx.class_hierarchy¨['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.linear.Linear', 'aten.linear.default']J∑
-pkg.torch.onnx.fx_nodeú%linear_1 : [num_users=1] = call_function[target=torch.ops.aten.linear.default](args = (%relu, %p_net_encoder_3_weight, %p_net_encoder_3_bias), kwargs = {})JU
-pkg.torch.onnx.name_scopes7['', 'net', 'net.encoder', 'net.encoder.3', 'linear_1']J∑
-pkg.torch.onnx.stack_traceòFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/linear.py", line 134, in forward
-    return F.linear(input, self.weight, self.bias)
-¿
-linear_1
-net.encoder.4.weight
-net.encoder.4.biaslayer_norm_1node_layer_norm_1"LayerNormalization*
-
-stash_type†*
-epsilon¨≈'7†*
-axisˇˇˇˇˇˇˇˇˇ†JÈ
-	namespace€: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.4: torch.nn.modules.normalization.LayerNorm/layer_norm_1: aten.layer_norm.defaultJ›
-pkg.torch.onnx.class_hierarchy∫['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.normalization.LayerNorm', 'aten.layer_norm.default']J 
-pkg.torch.onnx.fx_nodeØ%layer_norm_1 : [num_users=1] = call_function[target=torch.ops.aten.layer_norm.default](args = (%linear_1, [256], %p_net_encoder_4_weight, %p_net_encoder_4_bias), kwargs = {})JY
-pkg.torch.onnx.name_scopes;['', 'net', 'net.encoder', 'net.encoder.4', 'layer_norm_1']J§
-pkg.torch.onnx.stack_traceÖFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/normalization.py", line 229, in forward
-    return F.layer_norm(
-
-
-layer_norm_1relu_1node_relu_1"ReluJ’
-	namespace«: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.encoder: torch.nn.modules.container.Sequential/net.encoder.5: torch.nn.modules.activation.ReLU/relu_1: aten.relu.defaultJœ
-pkg.torch.onnx.class_hierarchy¨['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.container.Sequential', 'torch.nn.modules.activation.ReLU', 'aten.relu.default']Jã
-pkg.torch.onnx.fx_nodeq%relu_1 : [num_users=1] = call_function[target=torch.ops.aten.relu.default](args = (%layer_norm_1,), kwargs = {})JS
-pkg.torch.onnx.name_scopes5['', 'net', 'net.encoder', 'net.encoder.5', 'relu_1']J∑
-pkg.torch.onnx.stack_traceòFile "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 355, in forward
-    enc = self.encoder(x)                    # (batch, seq, 256)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/container.py", line 253, in forward
-    input = module(input)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/activation.py", line 143, in forward
-    return F.relu(input, inplace=self.inplace)
-À	
-relu_1val_9node_Transpose_5"	Transpose*
-perm@@ @†Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-»	
-h_in
-val_11
-val_0
-val_11val_12node_Slice_8"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-»	
-c_in
-val_11
-val_0
-val_11val_13node_Slice_9"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_ih_l0
-val_11
-val_10
-val_11val_14node_Slice_10"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_ih_l0
-val_10
-val_16
-val_11val_17node_Slice_13"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_ih_l0
-val_16
-val_20
-val_11val_21node_Slice_17"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_ih_l0
-val_20
-val_24
-val_11val_25node_Slice_21"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_hh_l0
-val_11
-val_10
-val_11val_26node_Slice_22"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_hh_l0
-val_10
-val_16
-val_11val_28node_Slice_24"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_hh_l0
-val_16
-val_20
-val_11val_31node_Slice_27"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-net.lstm.weight_hh_l0
-val_20
-val_24
-val_11val_34node_Slice_30"SliceJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-val_14
-val_25
-val_17
-val_21val_35node_Concat_31"Concat*
-axis †Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-€	
-val_26
-val_34
-val_28
-val_31val_36node_Concat_32"Concat*
-axis †Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-ƒ	
-val_35
-val_11val_37node_Unsqueeze_33"	UnsqueezeJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-ƒ	
-val_36
-val_11val_38node_Unsqueeze_34"	UnsqueezeJí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-ª
-
-val_9
-val_37
-val_38
-val_60
- 
-val_12
-val_13val_61h_outc_outnode_lstm__2"LSTM*
-hidden_sizeÄ†*
-layout †*
-	direction"forward†*
-input_forget †Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-œ	
-val_61val_62node_Transpose_57"	Transpose*
-perm@ @@@†Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-“	
-val_62
-val_74val_75node_Reshape_70"Reshape*
-	allowzero †Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-…	
-val_75getitemnode_lstm__0"	Transpose*
-perm@@ @†Jí
-	namespaceÑ: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.lstm: torch.nn.modules.rnn.LSTM/lstm: aten.lstm.inputJú
-pkg.torch.onnx.class_hierarchyz['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.rnn.LSTM', 'aten.lstm.input']Jô
-pkg.torch.onnx.fx_node˛%lstm : [num_users=3] = call_function[target=torch.ops.aten.lstm.input](args = (%relu_1, [%h_in, %c_in], [%p_net_lstm_weight_ih_l0, %p_net_lstm_weight_hh_l0, %p_net_lstm_bias_ih_l0, %p_net_lstm_bias_hh_l0], True, 1, 0.0, False, False, True), kwargs = {})J=
-pkg.torch.onnx.name_scopes['', 'net', 'net.lstm', 'lstm']J¸
-pkg.torch.onnx.stack_trace›File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 356, in forward
-    out, hc_new = self.lstm(enc, hc)         # (batch, seq, hidden)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/rnn.py", line 1141, in forward
-    result = _VF.lstm(
-—
-getitem
-val_76selectnode_select"Gather*
-axis†Jo
-	namespaceb: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/select: aten.select.intJ
-pkg.torch.onnx.class_hierarchy]['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'aten.select.int']Jä
-pkg.torch.onnx.fx_nodep%select : [num_users=1] = call_function[target=torch.ops.aten.select.int](args = (%getitem, 1, -1), kwargs = {})J3
-pkg.torch.onnx.name_scopes['', 'net', 'select']Jﬂ
-pkg.torch.onnx.stack_trace¿File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 357, in forward
-    last = out[:, -1, :]                     # (batch, hidden)
-â
-
-select
-net.policy_head.weight
-net.policy_head.biaslogitsnode_linear_2"Gemm*
-beta  Ä?†*
-transB†*
-alpha  Ä?†*
-transA †J¶
-	namespaceò: __main__._LstmOnnxWrapper/net: n64train.experiments.mk4_agent.Mk4LstmNet/net.policy_head: torch.nn.modules.linear.Linear/linear_2: aten.linear.defaultJ¶
-pkg.torch.onnx.class_hierarchyÉ['__main__._LstmOnnxWrapper', 'n64train.experiments.mk4_agent.Mk4LstmNet', 'torch.nn.modules.linear.Linear', 'aten.linear.default']JΩ
-pkg.torch.onnx.fx_node¢%linear_2 : [num_users=1] = call_function[target=torch.ops.aten.linear.default](args = (%select, %p_net_policy_head_weight, %p_net_policy_head_bias), kwargs = {})JH
-pkg.torch.onnx.name_scopes*['', 'net', 'net.policy_head', 'linear_2']Jò
-pkg.torch.onnx.stack_trace˘File "/Users/ichiropractic/code/n64/training/scripts/export_onnx.py", line 74, in forward
-    logits, _, (h_out, c_out) = self.net(obs, (h_in, c_in))
-  File "/Users/ichiropractic/code/n64/training/src/n64train/experiments/mk4_agent.py", line 359, in forward
-    logits = self.policy_head(last)          # (batch, n_actions)
-  File "/Users/ichiropractic/code/n64/backend/.venv/lib/python3.14/site-packages/torch/nn/modules/linear.py", line 134, in forward
-    return F.linear(input, self.weight, self.bias)
-main_graph*jÄBnet.encoder.0.biasj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset0j
-length512p*nÄBnet.encoder.1.weightj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset512j
-length512p*mÄBnet.encoder.1.biasj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset1024j
-length512p*nÄBnet.encoder.3.biasj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset1536j
-length1024p*pÄBnet.encoder.4.weightj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset2560j
-length1024p*nÄBnet.encoder.4.biasj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset3584j
-length1024p*yÄÄBnet.lstm.weight_ih_l0j1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset194048j
-length1048576p*zÄÄBnet.lstm.weight_hh_l0j1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset1242624j
-length1048576p*vÄBnet.policy_head.weightj1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset12800j
-length21504p*pBnet.policy_head.biasJTår$Ω≠6)<)wLºˇ´⁄<8ûÿ<'∂–;±∂“∫œ9⁄<Q…î<iuÜ<≠Ho<Ã«=Ë=Åºr2:ƒDÇºç˛$ºK.º>(ﬂºß7qπVÈùº`˜ª*e8ÄBval_1j1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset34304j
-length28672p*gÄÄBval_5j1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset62976j
-length131072p*Bval_16J       *Bval_20J       *Bval_24J       *dÄBval_60j1
-location%mk4_lstm_policy_cpu25k_lstm.onnx.dataj
-offset4608j
-length8192p*&Bval_74J                     *Bval_0J       *Bval_10J       *Bval_11J        *Bval_76JˇˇˇˇˇˇˇˇZΩ
-obs
-
-
-8"=
-/pkg.torch.export.graph_signature.InputSpec.kind
-USER_INPUT"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"(
-!pkg.torch.onnx.original_node_nameobsZƒ
-h_in
-
-
-
-Ä"=
-/pkg.torch.export.graph_signature.InputSpec.kind
-USER_INPUT"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone")
-!pkg.torch.onnx.original_node_nameh_inZƒ
-c_in
-
-
-
-Ä"=
-/pkg.torch.export.graph_signature.InputSpec.kind
-USER_INPUT"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone")
-!pkg.torch.onnx.original_node_namec_inbà
-logits
-
-
-"?
-0pkg.torch.export.graph_signature.OutputSpec.kindUSER_OUTPUT"-
-!pkg.torch.onnx.original_node_namelinear_2bç
-h_out
-
-
-
-Ä"?
-0pkg.torch.export.graph_signature.OutputSpec.kindUSER_OUTPUT".
-!pkg.torch.onnx.original_node_name	getitem_1bç
-c_out
-
-
-
-Ä"?
-0pkg.torch.export.graph_signature.OutputSpec.kindUSER_OUTPUT".
-!pkg.torch.onnx.original_node_name	getitem_2jŸ
-net.encoder.0.bias
-	
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
-!pkg.torch.onnx.original_node_namep_net_encoder_0_biasj›
-net.encoder.1.weight
-	
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone";
-!pkg.torch.onnx.original_node_namep_net_encoder_1_weightjŸ
-net.encoder.1.bias
-	
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
-!pkg.torch.onnx.original_node_namep_net_encoder_1_biasjŸ
-net.encoder.3.bias
-	
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
-!pkg.torch.onnx.original_node_namep_net_encoder_3_biasj›
-net.encoder.4.weight
-	
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone";
-!pkg.torch.onnx.original_node_namep_net_encoder_4_weightjŸ
-net.encoder.4.bias
-	
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
-!pkg.torch.onnx.original_node_namep_net_encoder_4_biasj‰
-net.lstm.weight_ih_l0
-
-
-Ä
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"<
-!pkg.torch.onnx.original_node_namep_net_lstm_weight_ih_l0j‰
-net.lstm.weight_hh_l0
-
-
-Ä
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"<
-!pkg.torch.onnx.original_node_namep_net_lstm_weight_hh_l0jÂ
-net.policy_head.weight
-	
-
-Ä"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone"=
-!pkg.torch.onnx.original_node_namep_net_policy_head_weightj‹
-net.policy_head.bias
-
-
-"<
-/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
-5pkg.torch.export.graph_signature.InputSpec.persistentNone";
-!pkg.torch.onnx.original_node_namep_net_policy_head_biasjZ
-val_1
-	
-8
-Ä"@
-$pkg.onnxscript.optimizer.folded_from['net.encoder.0.weight']j[
-val_5
-
-
-Ä
-Ä"@
-$pkg.onnxscript.optimizer.folded_from['net.encoder.3.weight']jZ
-val_16
-
-
-"D
-$pkg.onnxscript.optimizer.folded_from['h_in', 'val_10', 'val_15']jZ
-val_20
-
-
-"D
-$pkg.onnxscript.optimizer.folded_from['h_in', 'val_10', 'val_19']jZ
-val_24
-
-
-"D
-$pkg.onnxscript.optimizer.folded_from['h_in', 'val_10', 'val_23']jˇ
-val_60
-	
-
-Ä"„
-$pkg.onnxscript.optimizer.folded_from∫['h_in', 'net.lstm.bias_hh_l0', 'net.lstm.bias_ih_l0', 'val_10', 'val_11', 'val_15', 'val_19', 'val_23', 'val_39', 'val_40', 'val_41', 'val_42', 'val_43', 'val_44', 'val_45', 'val_46', 'val_47', 'val_48', 'val_49', 'val_50', 'val_51', 'val_52', 'val_53', 'val_54', 'val_55', 'val_56', 'val_57', 'val_58', 'val_59']jÀ
-val_74
-
-
-"¥
-$pkg.onnxscript.optimizer.folded_fromã['val_0', 'val_11', 'val_62', 'val_63', 'val_64', 'val_65', 'val_66', 'val_67', 'val_68', 'val_69', 'val_70', 'val_71', 'val_72', 'val_73']j
-val_0
-
-
-jF
-val_10
-
-
-"0
-$pkg.onnxscript.optimizer.folded_from['h_in']j
-val_11
-
-
-j
-val_76
- j
-	unsqueeze
-
-
-
-8j
-val_2
-
-
-
-Äj
-linear
-
-
-
-Äj!
-
-layer_norm
-
-
-
-Äj
-relu
-
-
-
-Äj
-val_6
-
-
-
-Äj
-linear_1
-
-
-
-Äj#
-layer_norm_1
-
-
-
-Äj
-relu_1
-
-
-
-Äj
-val_9
-
-
-
-Äj
-val_12
-
-
-
-Äj
-val_13
-
-
-
-Äj
-val_14
-
-
-Ä
-Äj
-val_17
-
-
-Ä
-Äj
-val_21
-
-
-Ä
-Äj
-val_25
-
-
-Ä
-Äj
-val_26
-
-
-Ä
-Äj
-val_28
-
-
-Ä
-Äj
-val_31
-
-
-Ä
-Äj
-val_34
-
-
-Ä
-Äj
-val_35
-
-
-Ä
-Äj
-val_36
-
-
-Ä
-Äj
-val_37
-
-
-Ä
-Äj
-val_38
-
-
-Ä
-Äj!
-val_61
-
-
-
-
-Äj!
-val_62
-
-
-
-
-Äj
-val_75
-
-
-
-Äj
-getitem
-
-
-
-Äj
-select
-	
-
-ÄÇ¥	
-0pkg.torch.export.ExportedProgram.graph_signatureˇ
-# inputs
-p_net_encoder_0_weight: PARAMETER target='net.encoder.0.weight'
-p_net_encoder_0_bias: PARAMETER target='net.encoder.0.bias'
-p_net_encoder_1_weight: PARAMETER target='net.encoder.1.weight'
-p_net_encoder_1_bias: PARAMETER target='net.encoder.1.bias'
-p_net_encoder_3_weight: PARAMETER target='net.encoder.3.weight'
-p_net_encoder_3_bias: PARAMETER target='net.encoder.3.bias'
-p_net_encoder_4_weight: PARAMETER target='net.encoder.4.weight'
-p_net_encoder_4_bias: PARAMETER target='net.encoder.4.bias'
-p_net_lstm_weight_ih_l0: PARAMETER target='net.lstm.weight_ih_l0'
-p_net_lstm_weight_hh_l0: PARAMETER target='net.lstm.weight_hh_l0'
-p_net_lstm_bias_ih_l0: PARAMETER target='net.lstm.bias_ih_l0'
-p_net_lstm_bias_hh_l0: PARAMETER target='net.lstm.bias_hh_l0'
-p_net_policy_head_weight: PARAMETER target='net.policy_head.weight'
-p_net_policy_head_bias: PARAMETER target='net.policy_head.bias'
-p_net_value_head_weight: PARAMETER target='net.value_head.weight'
-p_net_value_head_bias: PARAMETER target='net.value_head.bias'
-obs: USER_INPUT
-h_in: USER_INPUT
-c_in: USER_INPUT
-
-# outputs
-linear_2: USER_OUTPUT
-getitem_1: USER_OUTPUT
-getitem_2: USER_OUTPUT
-Ç8
-2pkg.torch.export.ExportedProgram.range_constraints{}B
- 

@@ -430,9 +430,10 @@ class ParallelLearner:
         if not all_obs:
             return {}
 
-        obs_t = torch.tensor(all_obs,  dtype=torch.float32)
-        act_t = torch.tensor(all_acts, dtype=torch.long)
-        ret_t = torch.tensor(all_rets, dtype=torch.float32)
+        dev   = next(self.net.parameters()).device
+        obs_t = torch.tensor(all_obs,  dtype=torch.float32, device=dev)
+        act_t = torch.tensor(all_acts, dtype=torch.long,    device=dev)
+        ret_t = torch.tensor(all_rets, dtype=torch.float32, device=dev)
         if ret_t.std() > 1e-6:
             ret_t = (ret_t - ret_t.mean()) / (ret_t.std() + 1e-8)
 

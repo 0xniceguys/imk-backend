@@ -1,0 +1,46 @@
+title = "MK4 Local Training Config (Linux)"
+
+[emulator]
+launcher_script = "/home/ichiro/Desktop/code/imk-backend/scripts/m64p-mk4.sh"
+rom_path = "/home/ichiro/Desktop/code/imk-backend/Mortal Kombat 4 (USA).z64"
+windowed = true
+dummy_headless = false
+default_resolution = "320x240"
+speed_mode_debug = "DEBUG_VISIBLE"
+speed_mode_train = "TRAIN_TURBO"
+speed_mode_eval = "EVAL_DETERMINISTIC"
+turbo_dummy_audio = true
+
+[paths]
+savestate_dir = "/home/ichiro/Desktop/code/imk-backend/.m64p/data/savestates"
+sram_dir = "/home/ichiro/Desktop/code/imk-backend/.m64p/data/sram"
+screenshots_dir = "/home/ichiro/Desktop/code/imk-backend/.m64p/data/screenshots"
+scenario_manifest_dir = "/home/ichiro/Desktop/code/imk-backend/training/data/scenarios"
+per_instance_root = "/home/ichiro/Desktop/code/imk-backend/.m64p/instances"
+
+[training]
+task = "mk4_lowlevel_research"
+observation_mode = "frame+privileged_state"
+action_mode = "macro_plus_micro_controller"
+training_style = "savestate_centric"
+scenario_mix = "micro_scenarios_plus_full_round_mix"
+frame_budget_counting = "all_emulator_frames_including_eval"
+cpu_role = "benchmark_and_curriculum"
+cpu_target = "MAX_CPU"
+flagship_architecture = "mk4_object_belief_hier_wm"
+semantic_policy_interface = "explicit_semantics_plus_latent"
+device = "cuda"
+
+[experiment_suite]
+concurrent_runs = 6
+all_headed = true
+resolution = "320x240"
+default_frame_budget_per_architecture = 50000
+architectures = [
+  "continuous_rssm_hier_ac",
+  "discrete_rssm_hier_ac",
+  "transformer_wm_hier_ac",
+  "mk4_object_belief_hier_wm",
+  "latent_planner_mpc_prior",
+  "cnn_rnn_reactive_baseline",
+]

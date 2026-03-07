@@ -36,6 +36,7 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 
 from n64train.runtime.actions import MacroAction
+from n64train.device import auto_device
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 N64_ROOT    = Path(__file__).resolve().parents[4]   # mk4_agent.py → experiments → n64train → src → training → n64
@@ -48,7 +49,41 @@ OBS_DIM     = RAW_OBS_DIM * 4
 N_ACTIONS   = len(MacroAction)
 ACTIONS     = list(MacroAction)
 
-GAMMA       = 0.99
+GAMMA        = 0.99
+LR_POLICY    = 3e-4
+LR_VALUE     = 1e-3
+ENTROPY_COEF = 0.02
+GRAD_CLIP    = 1.0
+
+
+class _RunningNorm:
+    """EMA running mean/std for observation normalization.
+    Momentum=1e-3 gives ~1000-step warm-up. Stabilises training across
+    MK4 RAM features that have very different natural scales.
+    """
+    def __init__(self, dim: int, momentum: float = 1e-3) -> None:
+        self._mean = [0.0] * dim
+        self._var  = [1.0] * dim
+        self._mom  = momentum
+
+    def update_and_normalize(self, obs: list[float]) -> list[float]:
+        m, out = self._mom, []
+        for i, x in enumerate(obs):
+            self._mean[i] = (1 - m) * self._mean[i] + m * x
+            self._var[i]  = (1 - m) * self._var[i]  + m * (x - self._mean[i]) ** 2
+            out.append((x - self._mean[i]) / (self._var[i] ** 0.5 + 1e-8))
+        return out
+
+    def normalize(self, obs: list[float]) -> list[float]:
+        return [(x - m) / (v ** 0.5 + 1e-8)
+                for x, m, v in zip(obs, self._mean, self._var)]
+
+    def state_dict(self) -> dict:
+        return {'mean': list(self._mean), 'var': list(self._var)}
+
+    def load_state_dict(self, d: dict) -> None:
+        self._mean = list(d['mean'])
+        self._var  = list(d['var'])
 
 
 # ── Network ────────────────────────────────────────────────────────────────────
@@ -103,8 +138,8 @@ class Mk4MlpAgent:
     CKPT = CKPT_PATH   # class-level path — learner uses this to build run-scoped saves
     ARCH = 'mlp'
 
-    def __init__(self, device: str = 'cpu') -> None:
-        self.device = torch.device(device)
+    def __init__(self, device: str | None = None) -> None:
+        self.device = torch.device(device or auto_device())
         self.net = Mk4PolicyNet().to(self.device)
 
         # Separate optimisers — value net needs to move faster
@@ -294,9 +329,9 @@ class FrameStack:
 
 # ── LSTM Network ───────────────────────────────────────────────────────────────
 
-LSTM_HIDDEN = 256
+LSTM_HIDDEN = 256   # LSTM cell — keep at 256 for 22-dim RAM obs (scaling quadratically not worth it)
 LSTM_LAYERS = 1
-LSTM_ENC_DIM = 256
+LSTM_ENC_DIM = 512  # encoder output — wider encoder extracts richer features before LSTM
 LSTM_CKPT_PATH = CKPT_DIR / 'mk4_lstm_policy.pt'
 
 
@@ -318,10 +353,10 @@ class Mk4LstmNet(nn.Module):
         super().__init__()
         self.hidden = hidden
         self.encoder = nn.Sequential(
-            nn.Linear(obs_dim, 128),
-            nn.LayerNorm(128),
+            nn.Linear(obs_dim, 256),
+            nn.LayerNorm(256),
             nn.ReLU(),
-            nn.Linear(128, LSTM_ENC_DIM),
+            nn.Linear(256, LSTM_ENC_DIM),
             nn.LayerNorm(LSTM_ENC_DIM),
             nn.ReLU(),
         )
@@ -382,13 +417,13 @@ class Mk4LstmAgent:
     CKPT = LSTM_CKPT_PATH   # class-level path — learner uses this for run-scoped saves
     ARCH = 'lstm'
 
-    def __init__(self, device: str = 'cpu') -> None:
+    def __init__(self, device: str | None = None) -> None:
         from n64train.training.ppo_learner import LR
-        self.device = torch.device(device)
+        self.device = torch.device(device or auto_device())
         self.net = Mk4LstmNet().to(self.device)
 
-        # Single optimizer for all params (37 PPO details)
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=LR, eps=1e-5)
+        # AdamW: weight decay prevents overfitting on repeated MK4 game states
+        self.optimizer = torch.optim.AdamW(self.net.parameters(), lr=LR, eps=1e-5, weight_decay=1e-4)
 
         # Episode buffers
         self._obs_buf:    list[list[float]] = []
@@ -403,6 +438,7 @@ class Mk4LstmAgent:
 
         CKPT_DIR.mkdir(parents=True, exist_ok=True)
         self._try_load()
+        self.reset_episode()
 
     def reset_episode(self) -> None:
         """Reset LSTM hidden state and episode buffers for a new episode."""
