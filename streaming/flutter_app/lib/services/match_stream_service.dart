@@ -25,12 +25,14 @@ class MatchStreamService {
   final _matchEndCtrl = StreamController<void>.broadcast();
   final _roundEndCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionCtrl = StreamController<bool>.broadcast();
+  final _streamingStateCtrl = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<GameState> get gameStateStream => _gameStateCtrl.stream;
   Stream<int> get viewerCountStream => _viewerCountCtrl.stream;
   Stream<void> get matchEndStream => _matchEndCtrl.stream;
   Stream<Map<String, dynamic>> get roundEndStream => _roundEndCtrl.stream;
   Stream<bool> get connectionStream => _connectionCtrl.stream;
+  Stream<Map<String, dynamic>> get streamingStateStream => _streamingStateCtrl.stream;
 
   bool get isConnected => _channel != null;
   bool get hasGivenUp => _reconnectAttempts >= _maxReconnects;
@@ -105,12 +107,24 @@ class MatchStreamService {
           _viewerCountCtrl.add(json['viewer_count'] as int? ?? 0);
           final gs = json['game_state'] as Map<String, dynamic>?;
           if (gs != null) _gameStateCtrl.add(GameState.fromJson(gs));
+          // Check if streaming state is included in connected message
+          final streamingState = json['streaming_state'] as String?;
+          if (streamingState != null) {
+            debugPrint('[Stream] Initial streaming state: $streamingState');
+          }
 
         case 'game_state':
           _gameStateCtrl.add(GameState.fromJson(json));
 
         case 'viewer_count':
           _viewerCountCtrl.add(json['count'] as int? ?? 0);
+
+        case 'streaming_state':
+          final state = json['state'] as String?;
+          final hlsUrl = json['hls_url'] as String?;
+          final error = json['error'] as String?;
+          debugPrint('[Stream] 📺 Streaming state: $state ${hlsUrl != null ? "($hlsUrl)" : ""}${error != null ? " ERROR: $error" : ""}');
+          _streamingStateCtrl.add(json);
 
         case 'round_end':
           debugPrint(
@@ -236,5 +250,6 @@ class MatchStreamService {
     _matchEndCtrl.close();
     _roundEndCtrl.close();
     _connectionCtrl.close();
+    _streamingStateCtrl.close();
   }
 }

@@ -82,9 +82,22 @@ async def match_websocket(ws: WebSocket, match_id: str):
             "match_id": match_id,
             "viewer_count": manager.viewer_count(match_id),
             "runner_state": runner.state.value,
+            "streaming_state": runner.streaming_state.value,
             "match_ended": is_ended,
             "game_state": cached_state,
         })
+        # Send current streaming state separately so Flutter's stream listener picks it up
+        if runner.streaming_state.value in ("ready", "playing"):
+            await ws.send_json({
+                "type": "streaming_state",
+                "state": runner.streaming_state.value,
+                "hls_url": f"/stream/{match_id}/stream.m3u8",
+            })
+        elif runner.streaming_state.value != "not_started":
+            await ws.send_json({
+                "type": "streaming_state",
+                "state": runner.streaming_state.value,
+            })
         # Re-emit match_ended so Flutter's listener fires for late joiners
         if is_ended:
             payload = {"type": "match_ended", "match_id": match_id, "runner_state": runner.state.value}

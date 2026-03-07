@@ -40,3 +40,10 @@ final roundEndProvider =
   final service = ref.watch(matchStreamServiceProvider);
   return service.roundEndStream;
 });
+
+/// Streaming state changes (initializing, ready, error, etc.)
+final streamingStateProvider =
+    StreamProvider<Map<String, dynamic>>((ref) {
+  final service = ref.watch(matchStreamServiceProvider);
+  return service.streamingStateStream;
+});

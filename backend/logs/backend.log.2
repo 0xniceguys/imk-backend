@@ -1,0 +1,488 @@
+FFmpeg:   configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+FFmpeg:   libavutil      58. 29.100 / 58. 29.100
+FFmpeg:   libavcodec     60. 31.102 / 60. 31.102
+FFmpeg:   libavformat    60. 16.100 / 60. 16.100
+FFmpeg:   libavdevice    60.  3.100 / 60.  3.100
+FFmpeg:   libavfilter     9. 12.100 /  9. 12.100
+FFmpeg:   libswscale      7.  5.100 /  7.  5.100
+FFmpeg:   libswresample   4. 12.100 /  4. 12.100
+FFmpeg:   libpostproc    57.  3.100 / 57.  3.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libavutil      58. 29.100 / 58. 29.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libavcodec     60. 31.102 / 60. 31.102
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libavformat    60. 16.100 / 60. 16.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libavdevice    60.  3.100 / 60.  3.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libavfilter     9. 12.100 /  9. 12.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libswscale      7.  5.100 /  7.  5.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libswresample   4. 12.100 /  4. 12.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   libpostproc    57.  3.100 / 57.  3.100
+FFmpeg: Input #0, x11grab, from ':99':
+FFmpeg:   Duration: N/A, start: 1772911633.316799, bitrate: 294912 kb/s
+FFmpeg:   Stream #0:0: Video: rawvideo (BGR[0] / 0x524742), bgr0, 640x480, 294912 kb/s, 30 fps, 30 tbr, 1000k tbn
+FFmpeg: Stream mapping:
+FFmpeg:   Stream #0:0 -> #0:0 (rawvideo (native) -> mjpeg (native))
+FFmpeg: Press [q] to stop, [?] for help
+FFmpeg: [swscaler @ 0x56200d6d7980] deprecated pixel format used, make sure you did set range correctly
+FFmpeg: Output #0, image2pipe, to 'pipe:1':
+FFmpeg:   Metadata:
+FFmpeg:     encoder         : Lavf60.16.100
+FFmpeg:   Stream #0:0: Video: mjpeg, yuvj444p(pc, progressive), 640x480, q=2-31, 200 kb/s, 30 fps, 30 tbn
+FFmpeg:     Metadata:
+FFmpeg:       encoder         : Lavc60.31.102 mjpeg
+FFmpeg:     Side data:
+FFmpeg:       cpb: bitrate max/min/avg: 0/0/200000 buffer size: 0 vbv_delay: N/A
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [aist#0:0/pcm_s16le @ 0x5ec395fed8c0] Guessed Channel Layout: stereo
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: Input #0, pulse, from 'auto_null.monitor':
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   Duration: N/A, start: 1772911633.922304, bitrate: 1536 kb/s
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   Stream #0:0: Audio: pcm_s16le, 48000 Hz, 2 channels, s16, 1536 kb/s
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: Stream mapping:
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   Stream #0:0 -> #0:0 (pcm_s16le (native) -> aac (native))
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: Press [q] to stop, [?] for help
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [mpegts @ 0x5ec396045e00] frame size not set
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: Output #0, hls, to '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8':
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   Metadata:
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:     encoder         : Lavf60.16.100
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:   Stream #0:0: Audio: aac (LC), 44100 Hz, stereo, fltp, 128 kb/s
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:     Metadata:
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]:       encoder         : Lavc60.31.102 aac
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=       0kB time=-00:00:00.02 bitrate=  -0.0kbits/s speed=N/A    size=N/A time=00:00:01.05 bitrate=N/A speed=2.01x    size=N/A time=00:00:01.65 bitrate=N/A speed=1.59x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00000.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 30: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.SPECIAL_2 | HP 0-0 T=0
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:02.18 bitrate=N/A speed=1.41x    size=N/A time=00:00:02.69 bitrate=N/A speed= 1.3x    size=N/A time=00:00:03.20 bitrate=N/A speed=1.24x    size=N/A time=00:00:03.74 bitrate=N/A speed= 1.2x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00001.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 146 frames in last 5s (total=146)
+R1 Brain step 60: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.STAND_BLOCK | HP 160-160 T=99
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:04.25 bitrate=N/A speed=1.17x    size=N/A time=00:00:04.76 bitrate=N/A speed=1.15x    size=N/A time=00:00:05.29 bitrate=N/A speed=1.13x    size=N/A time=00:00:05.80 bitrate=N/A speed=1.12x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00002.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:06.31 bitrate=N/A speed=1.11x    size=N/A time=00:00:06.82 bitrate=N/A speed= 1.1x    size=N/A time=00:00:07.36 bitrate=N/A speed=1.09x    size=N/A time=00:00:07.87 bitrate=N/A speed=1.09x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00003.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 90: P1=MacroAction.JUMP_BACK P2=MacroAction.SIDE_STEP_OUT | HP 160-160 T=95
+FFmpeg capture: 296 frames in last 5s (total=296)
+WS connected to match c297dfed-da9d-4e74-aacd-df4b75bcfe93 (1 viewers)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:08.38 bitrate=N/A speed=1.08x    size=N/A time=00:00:08.91 bitrate=N/A speed=1.08x    size=N/A time=00:00:09.42 bitrate=N/A speed=1.07x    size=N/A time=00:00:09.94 bitrate=N/A speed=1.07x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00004.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 120: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.RUN | HP 160-146 T=91
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:10.47 bitrate=N/A speed=1.06x    size=N/A time=00:00:10.98 bitrate=N/A speed=1.06x    size=N/A time=00:00:11.49 bitrate=N/A speed=1.06x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00005.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:12.03 bitrate=N/A speed=1.05x    size=N/A time=00:00:12.54 bitrate=N/A speed=1.05x    size=N/A time=00:00:13.07 bitrate=N/A speed=1.05x    size=N/A time=00:00:13.58 bitrate=N/A speed=1.05x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00006.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 150: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.CROUCH | HP 120-146 T=86
+FFmpeg capture: 446 frames in last 5s (total=446)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:14.09 bitrate=N/A speed=1.05x    size=N/A time=00:00:14.60 bitrate=N/A speed=1.04x    size=N/A time=00:00:15.14 bitrate=N/A speed=1.04x    size=N/A time=00:00:15.65 bitrate=N/A speed=1.04x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00007.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 180: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.PUNISH | HP 120-123 T=82
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:16.16 bitrate=N/A speed=1.04x    size=N/A time=00:00:16.69 bitrate=N/A speed=1.04x    size=N/A time=00:00:17.20 bitrate=N/A speed=1.04x    size=N/A time=00:00:17.71 bitrate=N/A speed=1.04x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00008.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 596 frames in last 5s (total=596)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:18.25 bitrate=N/A speed=1.04x    size=N/A time=00:00:18.76 bitrate=N/A speed=1.03x    size=N/A time=00:00:19.27 bitrate=N/A speed=1.03x    size=N/A time=00:00:19.80 bitrate=N/A speed=1.03x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00009.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 210: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.HIGH_KICK | HP 120-123 T=77
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:20.31 bitrate=N/A speed=1.03x    size=N/A time=00:00:20.85 bitrate=N/A speed=1.03x    size=N/A time=00:00:21.36 bitrate=N/A speed=1.03x    size=N/A time=00:00:21.87 bitrate=N/A speed=1.03x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00010.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 240: P1=MacroAction.CROUCH P2=MacroAction.SIDE_STEP_OUT | HP 120-123 T=73
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:22.40 bitrate=N/A speed=1.03x    size=N/A time=00:00:22.92 bitrate=N/A speed=1.03x    size=N/A time=00:00:23.43 bitrate=N/A speed=1.03x    size=N/A time=00:00:23.96 bitrate=N/A speed=1.03x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00011.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 746 frames in last 5s (total=746)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:24.47 bitrate=N/A speed=1.03x    size=N/A time=00:00:24.98 bitrate=N/A speed=1.03x    size=N/A time=00:00:25.49 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00012.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 270: P1=MacroAction.NEUTRAL P2=MacroAction.CROUCH | HP 120-123 T=68
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:26.00 bitrate=N/A speed=1.02x    size=N/A time=00:00:26.54 bitrate=N/A speed=1.02x    size=N/A time=00:00:27.05 bitrate=N/A speed=1.02x    size=N/A time=00:00:27.58 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00013.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 300: P1=MacroAction.JAB_COMBO P2=MacroAction.SIDE_STEP_OUT | HP 120-109 T=64
+FFmpeg capture: 896 frames in last 5s (total=896)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:28.09 bitrate=N/A speed=1.02x    size=N/A time=00:00:28.60 bitrate=N/A speed=1.02x    size=N/A time=00:00:29.11 bitrate=N/A speed=1.02x    size=N/A time=00:00:29.65 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00014.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:30.16 bitrate=N/A speed=1.02x    size=N/A time=00:00:30.67 bitrate=N/A speed=1.02x    size=N/A time=00:00:31.18 bitrate=N/A speed=1.02x    size=N/A time=00:00:31.71 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00015.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 330: P1=MacroAction.SPECIAL_2 P2=MacroAction.THROW_ATTEMPT | HP 109-109 T=59
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:32.22 bitrate=N/A speed=1.02x    size=N/A time=00:00:32.76 bitrate=N/A speed=1.02x    size=N/A time=00:00:33.27 bitrate=N/A speed=1.02x    size=N/A time=00:00:33.80 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00016.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 1046 frames in last 5s (total=1046)
+R1 Brain step 360: P1=MacroAction.HIGH_KICK P2=MacroAction.STAND_BLOCK | HP 109-109 T=55
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:34.31 bitrate=N/A speed=1.02x    size=N/A time=00:00:34.82 bitrate=N/A speed=1.02x    size=N/A time=00:00:35.36 bitrate=N/A speed=1.02x    size=N/A time=00:00:35.87 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00017.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:36.38 bitrate=N/A speed=1.02x    size=N/A time=00:00:36.89 bitrate=N/A speed=1.02x    size=N/A time=00:00:37.42 bitrate=N/A speed=1.02x    size=N/A time=00:00:37.94 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00018.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 390: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.SPECIAL_1 | HP 109-109 T=50
+FFmpeg capture: 1197 frames in last 5s (total=1197)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:38.45 bitrate=N/A speed=1.02x    size=N/A time=00:00:38.96 bitrate=N/A speed=1.02x    size=N/A time=00:00:39.49 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00019.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 420: P1=MacroAction.HIGH_KICK P2=MacroAction.PUNISH | HP 90-109 T=46
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:40.00 bitrate=N/A speed=1.02x    size=N/A time=00:00:40.51 bitrate=N/A speed=1.02x    size=N/A time=00:00:41.02 bitrate=N/A speed=1.02x    size=N/A time=00:00:41.56 bitrate=N/A speed=1.02x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00020.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:42.07 bitrate=N/A speed=1.01x    size=N/A time=00:00:42.58 bitrate=N/A speed=1.01x    size=N/A time=00:00:43.09 bitrate=N/A speed=1.01x    size=N/A time=00:00:43.63 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00021.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 450: P1=MacroAction.RETREAT P2=MacroAction.JUMP_NEUTRAL | HP 90-101 T=41
+FFmpeg capture: 1347 frames in last 5s (total=1347)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:44.14 bitrate=N/A speed=1.01x    size=N/A time=00:00:44.65 bitrate=N/A speed=1.01x    size=N/A time=00:00:45.18 bitrate=N/A speed=1.01x    size=N/A time=00:00:45.69 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00022.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 480: P1=MacroAction.SPECIAL_1 P2=MacroAction.CROUCH | HP 70-101 T=37
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:46.20 bitrate=N/A speed=1.01x    size=N/A time=00:00:46.71 bitrate=N/A speed=1.01x    size=N/A time=00:00:47.25 bitrate=N/A speed=1.01x    size=N/A time=00:00:47.76 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00023.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 1497 frames in last 5s (total=1497)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:48.27 bitrate=N/A speed=1.01x    size=N/A time=00:00:48.80 bitrate=N/A speed=1.01x    size=N/A time=00:00:49.31 bitrate=N/A speed=1.01x    size=N/A time=00:00:49.82 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00024.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 510: P1=MacroAction.JAB_COMBO P2=MacroAction.JAB_COMBO | HP 70-101 T=32
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:50.36 bitrate=N/A speed=1.01x    size=N/A time=00:00:50.87 bitrate=N/A speed=1.01x    size=N/A time=00:00:51.38 bitrate=N/A speed=1.01x    size=N/A time=00:00:51.91 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00025.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 540: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.SIDE_STEP_OUT | HP 0-101 T=28
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:52.42 bitrate=N/A speed=1.01x    size=N/A time=00:00:52.93 bitrate=N/A speed=1.01x    size=N/A time=00:00:53.45 bitrate=N/A speed=1.01x    size=N/A time=00:00:53.98 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00026.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 1648 frames in last 5s (total=1648)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:54.49 bitrate=N/A speed=1.01x    size=N/A time=00:00:55.00 bitrate=N/A speed=1.01x    size=N/A time=00:00:55.53 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00027.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 570: P1=MacroAction.RUN P2=MacroAction.NEUTRAL | HP 53-101 T=23
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:56.04 bitrate=N/A speed=1.01x    size=N/A time=00:00:56.55 bitrate=N/A speed=1.01x    size=N/A time=00:00:57.07 bitrate=N/A speed=1.01x    size=N/A time=00:00:57.60 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00028.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 600: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.STAND_BLOCK | HP 53-93 T=19
+FFmpeg capture: 1798 frames in last 5s (total=1798)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:00:58.11 bitrate=N/A speed=1.01x    size=N/A time=00:00:58.65 bitrate=N/A speed=1.01x    size=N/A time=00:00:59.16 bitrate=N/A speed=1.01x    size=N/A time=00:00:59.67 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00029.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:01:00.18 bitrate=N/A speed=1.01x    size=N/A time=00:01:00.71 bitrate=N/A speed=1.01x    size=N/A time=00:01:01.22 bitrate=N/A speed=1.01x    size=N/A time=00:01:01.73 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00030.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 630: P1=MacroAction.LOW_PUNCH P2=MacroAction.LOW_PUNCH | HP 38-72 T=14
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:01:02.24 bitrate=N/A speed=1.01x    size=N/A time=00:01:02.78 bitrate=N/A speed=1.01x    size=N/A time=00:01:03.29 bitrate=N/A speed=1.01x    size=N/A time=00:01:03.82 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00031.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpeg capture: 1949 frames in last 5s (total=1949)
+R1 Brain step 660: P1=MacroAction.SIDE_STEP_OUT P2=MacroAction.CROUCH_BLOCK | HP 38-66 T=10
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:01:04.33 bitrate=N/A speed=1.01x    size=N/A time=00:01:04.84 bitrate=N/A speed=1.01x    size=N/A time=00:01:05.35 bitrate=N/A speed=1.01x    size=N/A time=00:01:05.89 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00032.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:01:06.40 bitrate=N/A speed=1.01x    size=N/A time=00:01:06.93 bitrate=N/A speed=1.01x    size=N/A time=00:01:07.45 bitrate=N/A speed=1.01x    size=N/A time=00:01:07.96 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00033.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 690: P1=MacroAction.STAND_BLOCK P2=MacroAction.RETREAT | HP 38-66 T=5
+FFmpeg capture: 2099 frames in last 5s (total=2099)
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:01:08.49 bitrate=N/A speed=1.01x    size=N/A time=00:01:09.00 bitrate=N/A speed=1.01x    size=N/A time=00:01:09.51 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00034.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+R1 Brain step 720: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.JUMP_NEUTRAL | HP 30-66 T=1
+Round 1 over! P1 LOST (hp=30 vs 66)
+Match over! P2 wins (0-1)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+match 5JeyX4Vkr7KYedFdGxWAUKRHFeAJerBNqpBPcQ4bwXpP already LOCKED on-chain
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: size=N/A time=00:01:10.05 bitrate=N/A speed=1.01x    size=N/A time=00:01:10.56 bitrate=N/A speed=1.01x    size=N/A time=00:01:11.07 bitrate=N/A speed=1.01x    size=N/A time=00:01:11.60 bitrate=N/A speed=1.01x    [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/seg00035.ts' for writing
+FFmpegAudio[c297dfed-da9d-4e74-aacd-df4b75bcfe93]: [hls @ 0x5ec395fee340] Opening '/tmp/hls/c297dfed-da9d-4e74-aacd-df4b75bcfe93/stream.m3u8.tmp' for writing
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+resolve_match tx: Sxp2LMQSGwfNQ2hkYBe1cypzYyGtRpSHCb5Zoc36LDN3zih2P85hwX1qvLbUrGubDzphUDqAwDuJTFLb8pwowpY (match_pda=5JeyX4Vkr7KYedFdGxWAUKRHFeAJerBNqpBPcQ4bwXpP, winner=B)
+Match c297dfed-da9d-4e74-aacd-df4b75bcfe93 settled: winner=P2, bets=0, pool=0.000000, fee_bps=500
+FFmpeg: frame=    0 fps=0.0 q=0.0 size=       0kB time=N/A bitrate=N/A speed=N/A    frame=   18 fps=0.0 q=15.0 size=     448kB time=00:00:00.60 bitrate=6116.8kbits/s speed=1.13x    frame=   33 fps= 32 q=15.0 size=     843kB time=00:00:01.10 bitrate=6280.4kbits/s speed=1.07x    frame=   49 fps= 31 q=15.0 size=    1266kB time=00:00:01.63 bitrate=6352.1kbits/s speed=1.04x    frame=   64 fps= 31 q=15.0 size=    1645kB time=00:00:02.13 bitrate=6318.1kbits/s speed=1.03x    frame=   79 fps= 31 q=15.0 size=    1750kB time=00:00:02.63 bitrate=5444.4kbits/s speed=1.03x    frame=   95 fps= 31 q=15.0 size=    1849kB time=00:00:03.16 bitrate=4783.4kbits/s speed=1.02x    frame=  110 fps= 31 q=15.0 size=    1942kB time=00:00:03.66 bitrate=4338.3kbits/s speed=1.02x    frame=  126 fps= 30 q=15.0 size=    2158kB time=00:00:04.20 bitrate=4209.3kbits/s speed=1.02x    frame=  142 fps= 30 q=15.0 size=    2456kB time=00:00:04.73 bitrate=4251.3kbits/s speed=1.01x    frame=  158 fps= 30 q=15.0 size=    2807kB time=00:00:05.26 bitrate=4366.6kbits/s speed=1.01x    frame=  174 fps= 30 q=15.0 size=    3176kB time=00:00:05.80 bitrate=4485.7kbits/s speed=1.01x    frame=  189 fps= 30 q=15.0 size=    3504kB time=00:00:06.30 bitrate=4557.0kbits/s speed=1.01x    frame=  205 fps= 30 q=15.0 size=    3849kB time=00:00:06.83 bitrate=4614.6kbits/s speed=1.01x    frame=  220 fps= 30 q=15.0 size=    4169kB time=00:00:07.33 bitrate=4656.6kbits/s speed=1.01x    frame=  236 fps= 30 q=15.0 size=    4508kB time=00:00:07.86 bitrate=4694.0kbits/s speed=1.01x    frame=  252 fps= 30 q=15.0 size=    4846kB time=00:00:08.40 bitrate=4726.2kbits/s speed=1.01x    frame=  267 fps= 30 q=15.0 size=    5163kB time=00:00:08.90 bitrate=4752.1kbits/s speed=1.01x    frame=  283 fps= 30 q=15.0 size=    5499kB time=00:00:09.43 bitrate=4775.2kbits/s speed=1.01x    frame=  298 fps= 30 q=15.0 size=    5809kB time=00:00:09.93 bitrate=4790.3kbits/s speed=1.01x    frame=  313 fps= 30 q=15.0 size=    6119kB time=00:00:10.43 bitrate=4804.4kbits/s speed=1.01x    frame=  329 fps= 30 q=15.0 size=    6451kB time=00:00:10.96 bitrate=4818.6kbits/s speed=1.01x    frame=  345 fps= 30 q=15.0 size=    6788kB time=00:00:11.50 bitrate=4835.3kbits/s speed=1.01x    frame=  361 fps= 30 q=15.0 size=    7132kB time=00:00:12.03 bitrate=4855.2kbits/s speed=1.01x    frame=  376 fps= 30 q=15.0 size=    7450kB time=00:00:12.53 bitrate=4869.5kbits/s speed=1.01x    frame=  392 fps= 30 q=15.0 size=    7791kB time=00:00:13.06 bitrate=4884.6kbits/s speed=1.01x    frame=  408 fps= 30 q=15.0 size=    8121kB time=00:00:13.60 bitrate=4891.7kbits/s speed=   1x    frame=  424 fps= 30 q=15.0 size=    8447kB time=00:00:14.13 bitrate=4896.3kbits/s speed=   1x    frame=  439 fps= 30 q=15.0 size=    8756kB time=00:00:14.63 bitrate=4901.8kbits/s speed=   1x    frame=  455 fps= 30 q=15.0 size=    9095kB time=00:00:15.16 bitrate=4912.5kbits/s speed=   1x    frame=  471 fps= 30 q=15.0 size=    9438kB time=00:00:15.70 bitrate=4924.8kbits/s speed=   1x    frame=  486 fps= 30 q=15.0 size=    9771kB time=00:00:16.20 bitrate=4940.8kbits/s speed=   1x    frame=  501 fps= 30 q=15.0 size=   10102kB time=00:00:16.70 bitrate=4955.4kbits/s speed=   1x    frame=  517 fps= 30 q=15.0 size=   10440kB time=00:00:17.23 bitrate=4962.6kbits/s speed=   1x    frame=  532 fps= 30 q=15.0 size=   10759kB time=00:00:17.73 bitrate=4970.2kbits/s speed=   1x    frame=  548 fps= 30 q=15.0 size=   11096kB time=00:00:18.26 bitrate=4976.3kbits/s speed=   1x    frame=  564 fps= 30 q=15.0 size=   11429kB time=00:00:18.80 bitrate=4980.0kbits/s speed=   1x    frame=  580 fps= 30 q=15.0 size=   11745kB time=00:00:19.33 bitrate=4976.7kbits/s speed=   1x    frame=  595 fps= 30 q=15.0 size=   12053kB time=00:00:19.83 bitrate=4978.3kbits/s speed=   1x    frame=  610 fps= 30 q=15.0 size=   12353kB time=00:00:20.33 bitrate=4976.7kbits/s speed=   1x    frame=  625 fps= 30 q=15.0 size=   12641kB time=00:00:20.83 bitrate=4970.7kbits/s speed=   1x    frame=  640 fps= 30 q=15.0 size=   12927kB time=00:00:21.33 bitrate=4964.1kbits/s speed=   1x    frame=  656 fps= 30 q=15.0 size=   13226kB time=00:00:21.86 bitrate=4955.1kbits/s speed=   1x    frame=  671 fps= 30 q=15.0 size=   13502kB time=00:00:22.36 bitrate=4945.4kbits/s speed=   1x    frame=  687 fps= 30 q=15.0 size=   13803kB time=00:00:22.90 bitrate=4937.6kbits/s speed=   1x    frame=  702 fps= 30 q=15.0 size=   14089kB time=00:00:23.40 bitrate=4932.5kbits/s speed=   1x    frame=  717 fps= 30 q=15.0 size=   14380kB time=00:00:23.90 bitrate=4928.9kbits/s speed=   1x    frame=  733 fps= 30 q=15.0 size=   14687kB time=00:00:24.43 bitrate=4924.3kbits/s speed=   1x    frame=  748 fps= 30 q=15.0 size=   14972kB time=00:00:24.93 bitrate=4919.1kbits/s speed=   1x    frame=  764 fps= 30 q=15.0 size=   15275kB time=00:00:25.46 bitrate=4913.7kbits/s speed=   1x    frame=  779 fps= 30 q=15.0 size=   15561kB time=00:00:25.96 bitrate=4909.1kbits/s speed=   1x    frame=  795 fps= 30 q=15.0 size=   15859kB time=00:00:26.50 bitrate=4902.5kbits/s speed=   1x    frame=  810 fps= 30 q=15.0 size=   16133kB time=00:00:27.00 bitrate=4895.0kbits/s speed=   1x    frame=  825 fps= 30 q=15.0 size=   16409kB time=00:00:27.50 bitrate=4888.0kbits/s speed=   1x    frame=  841 fps= 30 q=15.0 size=   16714kB time=00:00:28.03 bitrate=4884.1kbits/s speed=   1x    frame=  857 fps= 30 q=15.0 size=   17026kB time=00:00:28.56 bitrate=4882.4kbits/s speed=   1x    frame=  873 fps= 30 q=15.0 size=   17342kB time=00:00:29.10 bitrate=4881.9kbits/s speed=   1x    frame=  888 fps= 30 q=15.0 size=   17649kB time=00:00:29.60 bitrate=4884.4kbits/s speed=   1x    frame=  903 fps= 30 q=15.0 size=   17956kB time=00:00:30.10 bitrate=4887.0kbits/s speed=   1x    frame=  919 fps= 30 q=15.0 size=   18290kB time=00:00:30.63 bitrate=4891.0kbits/s speed=   1x    frame=  934 fps= 30 q=15.0 size=   18604kB time=00:00:31.13 bitrate=4895.2kbits/s speed=   1x    frame=  949 fps= 30 q=15.0 size=   18923kB time=00:00:31.63 bitrate=4900.4kbits/s speed=   1x    frame=  965 fps= 30 q=15.0 size=   19260kB time=00:00:32.16 bitrate=4905.1kbits/s speed=   1x    frame=  981 fps= 30 q=15.0 size=   19570kB time=00:00:32.70 bitrate=4902.7kbits/s speed=   1x    frame=  997 fps= 30 q=15.0 size=   19855kB time=00:00:33.23 bitrate=4894.2kbits/s speed=   1x    frame= 1012 fps= 30 q=15.0 size=   20138kB time=00:00:33.73 bitrate=4890.4kbits/s speed=   1x    frame= 1027 fps= 30 q=15.0 size=   20419kB time=00:00:34.23 bitrate=4886.3kbits/s speed=   1x    frame= 1043 fps= 30 q=15.0 size=   20706kB time=00:00:34.76 bitrate=4878.8kbits/s speed=   1x    frame= 1058 fps= 30 q=15.0 size=   20984kB time=00:00:35.26 bitrate=4874.3kbits/s speed=   1x    frame= 1073 fps= 30 q=15.0 size=   21266kB time=00:00:35.76 bitrate=4870.8kbits/s speed=   1x    frame= 1088 fps= 30 q=15.0 size=   21551kB time=00:00:36.26 bitrate=4867.9kbits/s speed=   1x    frame= 1103 fps= 30 q=15.0 size=   21837kB time=00:00:36.76 bitrate=4865.4kbits/s speed=   1x    frame= 1119 fps= 30 q=15.0 size=   22164kB time=00:00:37.30 bitrate=4867.8kbits/s speed=   1x    frame= 1135 fps= 30 q=15.0 size=   22495kB time=00:00:37.83 bitrate=4870.8kbits/s speed=   1x    frame= 1151 fps= 30 q=15.0 size=   22818kB time=00:00:38.36 bitrate=4872.0kbits/s speed=   1x    frame= 1167 fps= 30 q=15.0 size=   23156kB time=00:00:38.90 bitrate=4876.4kbits/s speed=   1x    frame= 1182 fps= 30 q=15.0 size=   23466kB time=00:00:39.40 bitrate=4879.1kbits/s speed=   1x    frame= 1198 fps= 30 q=15.0 size=   23769kB time=00:00:39.93 bitrate=4876.1kbits/s speed=   1x    frame= 1213 fps= 30 q=15.0 size=   24051kB time=00:00:40.43 bitrate=4872.9kbits/s speed=   1x    frame= 1229 fps= 30 q=15.0 size=   24360kB time=00:00:40.96 bitrate=4871.2kbits/s speed=   1x    frame= 1245 fps= 30 q=15.0 size=   24684kB time=00:00:41.50 bitrate=4872.7kbits/s speed=   1x    frame= 1260 fps= 30 q=15.0 size=   25005kB time=00:00:42.00 bitrate=4877.3kbits/s speed=   1x    frame= 1276 fps= 30 q=15.0 size=   25319kB time=00:00:42.53 bitrate=4876.5kbits/s speed=   1x    frame= 1291 fps= 30 q=15.0 size=   25607kB time=00:00:43.03 bitrate=4874.6kbits/s speed=   1x    frame= 1307 fps= 30 q=15.0 size=   25925kB time=00:00:43.56 bitrate=4874.8kbits/s speed=   1x    frame= 1322 fps= 30 q=15.0 size=   26224kB time=00:00:44.06 bitrate=4875.0kbits/s speed=   1x    frame= 1337 fps= 30 q=15.0 size=   26518kB time=00:00:44.56 bitrate=4874.4kbits/s speed=   1x    frame= 1353 fps= 30 q=15.0 size=   26805kB time=00:00:45.10 bitrate=4868.9kbits/s speed=   1x    frame= 1369 fps= 30 q=15.0 size=   27120kB time=00:00:45.63 bitrate=4868.4kbits/s speed=   1x    frame= 1385 fps= 30 q=15.0 size=   27443kB time=00:00:46.16 bitrate=4869.6kbits/s speed=   1x    frame= 1400 fps= 30 q=15.0 size=   27741kB time=00:00:46.66 bitrate=4869.8kbits/s speed=   1x    frame= 1415 fps= 30 q=15.0 size=   28044kB time=00:00:47.16 bitrate=4870.7kbits/s speed=   1x    frame= 1430 fps= 30 q=15.0 size=   28347kB time=00:00:47.66 bitrate=4871.7kbits/s speed=   1x    frame= 1446 fps= 30 q=15.0 size=   28682kB time=00:00:48.20 bitrate=4874.8kbits/s speed=   1x    frame= 1461 fps= 30 q=15.0 size=   28977kB time=00:00:48.70 bitrate=4874.3kbits/s speed=   1x    frame= 1476 fps= 30 q=15.0 size=   29278kB time=00:00:49.20 bitrate=4874.9kbits/s speed=   1x    frame= 1491 fps= 30 q=15.0 size=   29584kB time=00:00:49.70 bitrate=4876.3kbits/s speed=   1x    frame= 1507 fps= 30 q=15.0 size=   29911kB time=00:00:50.23 bitrate=4877.8kbits/s speed=   1x    frame= 1522 fps= 30 q=15.0 size=   30224kB time=00:00:50.73 bitrate=4880.4kbits/s speed=   1x    frame= 1537 fps= 30 q=15.0 size=   30539kB time=00:00:51.23 bitrate=4883.0kbits/s speed=   1x    frame= 1553 fps= 30 q=15.0 size=   30854kB time=00:00:51.76 bitrate=4882.6kbits/s speed=   1x    frame= 1569 fps= 30 q=15.0 size=   31137kB time=00:00:52.30 bitrate=4877.1kbits/s speed=   1x    frame= 1585 fps= 30 q=15.0 size=   31404kB time=00:00:52.83 bitrate=4869.3kbits/s speed=   1x    frame= 1601 fps= 30 q=15.0 size=   31677kB time=00:00:53.36 bitrate=4862.6kbits/s speed=   1x    frame= 1617 fps= 30 q=15.0 size=   31940kB time=00:00:53.90 bitrate=4854.5kbits/s speed=   1x    frame= 1633 fps= 30 q=15.0 size=   32213kB time=00:00:54.43 bitrate=4847.9kbits/s speed=   1x    frame= 1648 fps= 30 q=15.0 size=   32460kB time=00:00:54.93 bitrate=4840.7kbits/s speed=   1x    frame= 1664 fps= 30 q=15.0 size=   32746kB time=00:00:55.46 bitrate=4836.3kbits/s speed=   1x    frame= 1680 fps= 30 q=15.0 size=   33026kB time=00:00:56.00 bitrate=4831.2kbits/s speed=   1x    frame= 1695 fps= 30 q=15.0 size=   33283kB time=00:00:56.50 bitrate=4825.7kbits/s speed=   1x    frame= 1710 fps= 30 q=15.0 size=   33550kB time=00:00:57.00 bitrate=4821.8kbits/s speed=   1x    frame= 1726 fps= 30 q=15.0 size=   33855kB time=00:00:57.53 bitrate=4820.6kbits/s speed=   1x    frame= 1741 fps= 30 q=15.0 size=   34132kB time=00:00:58.03 bitrate=4818.0kbits/s speed=   1x    frame= 1756 fps= 30 q=15.0 size=   34422kB time=00:00:58.53 bitrate=4817.5kbits/s speed=   1x    frame= 1772 fps= 30 q=15.0 size=   34732kB time=00:00:59.06 bitrate=4817.0kbits/s speed=   1x    frame= 1788 fps= 30 q=15.0 size=   35040kB time=00:00:59.60 bitrate=4816.3kbits/s speed=   1x    frame= 1803 fps= 30 q=15.0 size=   35323kB time=00:01:00.10 bitrate=4814.7kbits/s speed=   1x    frame= 1819 fps= 30 q=15.0 size=   35593kB time=00:01:00.63 bitrate=4808.9kbits/s speed=   1x    frame= 1835 fps= 30 q=15.0 size=   35860kB time=00:01:01.16 bitrate=4802.6kbits/s speed=   1x    frame= 1850 fps= 30 q=15.0 size=   36119kB time=00:01:01.66 bitrate=4798.2kbits/s speed=   1x    frame= 1866 fps= 30 q=15.0 size=   36388kB time=00:01:02.20 bitrate=4792.4kbits/s speed=   1x    frame= 1881 fps= 30 q=15.0 size=   36654kB time=00:01:02.70 bitrate=4789.0kbits/s speed=   1x    frame= 1897 fps= 30 q=15.0 size=   36936kB time=00:01:03.23 bitrate=4785.1kbits/s speed=   1x    frame= 1912 fps= 30 q=15.0 size=   37228kB time=00:01:03.73 bitrate=4785.1kbits/s speed=   1x    frame= 1927 fps= 30 q=15.0 size=   37523kB time=00:01:04.23 bitrate=4785.6kbits/s speed=   1x    frame= 1943 fps= 30 q=15.0 size=   37845kB time=00:01:04.76 bitrate=4786.8kbits/s speed=   1x    frame= 1958 fps= 30 q=15.0 size=   38144kB time=00:01:05.26 bitrate=4787.7kbits/s speed=   1x    frame= 1974 fps= 30 q=15.0 size=   38475kB time=00:01:05.80 bitrate=4790.1kbits/s speed=   1x    frame= 1989 fps= 30 q=15.0 size=   38802kB time=00:01:06.30 bitrate=4794.4kbits/s speed=   1x    frame= 2004 fps= 30 q=15.0 size=   39132kB time=00:01:06.80 bitrate=4798.9kbits/s speed=   1x    frame= 2020 fps= 30 q=15.0 size=   39464kB time=00:01:07.33 bitrate=4801.4kbits/s speed=   1x    frame= 2036 fps= 30 q=15.0 size=   39788kB time=00:01:07.86 bitrate=4802.7kbits/s speed=   1x    frame= 2051 fps= 30 q=15.0 size=   40089kB time=00:01:08.36 bitrate=4803.6kbits/s speed=   1x    frame= 2067 fps= 30 q=15.0 size=   40405kB time=00:01:08.90 bitrate=4804.0kbits/s speed=   1x    frame= 2083 fps= 30 q=15.0 size=   40695kB time=00:01:09.43 bitrate=4801.4kbits/s speed=   1x    frame= 2098 fps= 30 q=15.0 size=   40973kB time=00:01:09.93 bitrate=4799.6kbits/s speed=   1x    frame= 2113 fps= 30 q=15.0 size=   41257kB time=00:01:10.43 bitrate=4798.6kbits/s speed=   1x    frame= 2129 fps= 30 q=15.0 size=   41555kB time=00:01:10.96 bitrate=4796.9kbits/s speed=   1x    frame= 2145 fps= 30 q=15.0 size=   41858kB time=00:01:11.50 bitrate=4795.8kbits/s speed=   1x    frame= 2160 fps= 30 q=15.0 size=   42147kB time=00:01:12.00 bitrate=4795.4kbits/s speed=   1x    frame= 2175 fps= 30 q=15.0 size=   42437kB time=00:01:12.50 bitrate=4795.0kbits/s speed=   1x    frame= 2190 fps= 30 q=15.0 size=   42726kB time=00:01:13.00 bitrate=4794.7kbits/s speed=   1x    frame= 2206 fps= 30 q=15.0 size=   43034kB time=00:01:13.53 bitrate=4794.2kbits/s speed=   1x    frame= 2222 fps= 30 q=15.0 size=   43342kB time=00:01:14.06 bitrate=4793.8kbits/s speed=   1x    [out#0/image2pipe @ 0x56200d6b14c0] video:43592kB audio:0kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000000%
+FFmpeg: frame= 2234 fps= 30 q=15.0 Lsize=   43592kB time=00:01:14.43 bitrate=4797.7kbits/s speed=   1x
+FFmpeg: Exiting normally, received signal 15.
+FFmpeg capture stopped
+Audio capture stopped for match c297dfed-da9d-4e74-aacd-df4b75bcfe93
+Stopping emulator session match-16f4f0e9 (pid=2891527)
+Sent SIGTERM to process 2891527
+Process 2891527 didn't terminate gracefully, force killing
+Stopping Xvfb (display=:99)
+Sent SIGTERM to process 2891524
+Process 2891524 didn't terminate gracefully, force killing
+Emulator session stopped cleanly (instance=match-16f4f0e9)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+lock_match tx confirmed: 4gJuQEEKojQGdQp3HZHcvx2v5t529URakQrECHHFbhc8QGxZgtSG1bkhc2Zaa13C7tFrn9CL2RhvYMMjp6PpQAff (match_pda=8teh7pFvhDhKUK6uXETZw8nVKxCasuvmkX9XNKnLadUW)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match 8teh7pFvhDhKUK6uXETZw8nVKxCasuvmkX9XNKnLadUW already Locked on-chain — skipping
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match 8teh7pFvhDhKUK6uXETZw8nVKxCasuvmkX9XNKnLadUW already Locked on-chain — skipping
+ONNX Transformer agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/transformer.onnx (shape=[16, 28] seq=16 obs_dim=28 frame_stack=2)
+ONNX LSTM agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/lstm.onnx (obs_dim=28, hidden=128, outputs=3)
+Starting match runner b5c6aa0f-cbd5-48e1-83d8-491f1975130b (instance=match-ffadf867)
+RAM debug trace: /home/ubuntu/imk/backend/logs/ram_debug/20260307_192936__b5c6aa0f-cbd5-48e1-83d8-491f1975130b__match-ffadf867.jsonl
+Xvnc started on display :99 (pid=2892079)
+Copied base config from /home/ubuntu/imk/.m64p/instances/match-00acec6a/config/mupen64plus.cfg
+Config: ScreenshotPath=/dev/shm/imk_screenshots/match-ffadf867, format=JPEG, resolution=640x480 → /home/ubuntu/imk/.m64p/instances/match-ffadf867/config/mupen64plus.cfg
+Linux emulator env: DISPLAY=:99 SDL_RENDER_DRIVER=software z64
+Launching bridge server: ctrl_p1=/tmp/imk/match-ffadf867/ctrl_p1, ctrl_p2=/tmp/imk/match-ffadf867/ctrl_p2, display=:99
+Bridge server started (pid=2892088, instance=match-ffadf867, socket=/home/ubuntu/imk/training/data/bridge/match-ffadf867.sock)
+Bridge socket ready: /home/ubuntu/imk/training/data/bridge/match-ffadf867.sock
+Bridge server ready (instance=match-ffadf867)
+Connecting to bridge at /home/ubuntu/imk/training/data/bridge/match-ffadf867.sock
+Bridge connected (set_inputs=True, frame_step=True, debugger=True)
+Emulator warm-up: starting run before stateload (instance=match-ffadf867)
+Found mupen window: 0x200006 "Glide64mk2": ("mupen64plus" "mupen64plus")  640x480+0+0  +0+0
+Resizing mupen64plus window 0x200006 → 640x480 on :99
+Window after resize: Width: 640
+Window after resize: Height: 480
+Window after resize: -geometry 640x480+0+0
+Savestate loaded: /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_subzero_cage.st → BridgeResponse(payload={'loaded': True, 'savestate_path': '/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_subzero_cage.st', 'debugger_command': 'stateload', 'output_tail': 'Audio: Initializing SDL audio subsystem...\r\n\r\nPC at 0x800170A0.\r\nstateload /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_subzero_cage.st\r\nM64P_STATELOAD_OK file=/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_subzero_cage.st\r\n(dbg) '}, frame_id=0)
+Emulator set to free-running mode
+FFmpeg capture: x11grab on display :99
+Starting FFmpeg capture (x11grab): ffmpeg -f x11grab -video_size 640x480 -framerate 30 -i :99 -f image2pipe -vcodec mjpeg -q:v 15 -an pipe:1
+Starting audio capture for match b5c6aa0f-cbd5-48e1-83d8-491f1975130b: ffmpeg -y -f pulse -i auto_null.monitor -c:a aac -b:a 128k -ar 44100 -ac 2 -f hls -hls_time 2 -hls_list_size 5 -hls_flags delete_segments+append_list -hls_segment_filename /tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg%05d.ts /tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8
+Audio capture started (pid=2892139) for match b5c6aa0f-cbd5-48e1-83d8-491f1975130b
+FFmpeg capture started at 30fps
+Match runner b5c6aa0f-cbd5-48e1-83d8-491f1975130b is LIVE (P1=OnnxTransformerAgent, P2=OnnxLstmAgent, best_of=1)
+Round 1/1 starting (P1=0, P2=0)
+FFmpeg: ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+FFmpeg:   built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+FFmpeg:   configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+FFmpeg:   libavutil      58. 29.100 / 58. 29.100
+FFmpeg:   libavcodec     60. 31.102 / 60. 31.102
+FFmpeg:   libavformat    60. 16.100 / 60. 16.100
+FFmpeg:   libavdevice    60.  3.100 / 60.  3.100
+FFmpeg:   libavfilter     9. 12.100 /  9. 12.100
+FFmpeg:   libswscale      7.  5.100 /  7.  5.100
+FFmpeg:   libswresample   4. 12.100 /  4. 12.100
+FFmpeg:   libpostproc    57.  3.100 / 57.  3.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libavutil      58. 29.100 / 58. 29.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libavcodec     60. 31.102 / 60. 31.102
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libavformat    60. 16.100 / 60. 16.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libavdevice    60.  3.100 / 60.  3.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libavfilter     9. 12.100 /  9. 12.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libswscale      7.  5.100 /  7.  5.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libswresample   4. 12.100 /  4. 12.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   libpostproc    57.  3.100 / 57.  3.100
+FFmpeg: Input #0, x11grab, from ':99':
+FFmpeg:   Duration: N/A, start: 1772911782.604323, bitrate: 294912 kb/s
+FFmpeg:   Stream #0:0: Video: rawvideo (BGR[0] / 0x524742), bgr0, 640x480, 294912 kb/s, 30 fps, 30 tbr, 1000k tbn
+FFmpeg: Stream mapping:
+FFmpeg:   Stream #0:0 -> #0:0 (rawvideo (native) -> mjpeg (native))
+FFmpeg: Press [q] to stop, [?] for help
+FFmpeg: [swscaler @ 0x59337a36d980] deprecated pixel format used, make sure you did set range correctly
+FFmpeg: Output #0, image2pipe, to 'pipe:1':
+FFmpeg:   Metadata:
+FFmpeg:     encoder         : Lavf60.16.100
+FFmpeg:   Stream #0:0: Video: mjpeg, yuvj444p(pc, progressive), 640x480, q=2-31, 200 kb/s, 30 fps, 30 tbn
+FFmpeg:     Metadata:
+FFmpeg:       encoder         : Lavc60.31.102 mjpeg
+FFmpeg:     Side data:
+FFmpeg:       cpb: bitrate max/min/avg: 0/0/200000 buffer size: 0 vbv_delay: N/A
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [aist#0:0/pcm_s16le @ 0x5aadabbb78c0] Guessed Channel Layout: stereo
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: Input #0, pulse, from 'auto_null.monitor':
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   Duration: N/A, start: 1772911783.219209, bitrate: 1536 kb/s
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   Stream #0:0: Audio: pcm_s16le, 48000 Hz, 2 channels, s16, 1536 kb/s
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: Stream mapping:
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   Stream #0:0 -> #0:0 (pcm_s16le (native) -> aac (native))
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: Press [q] to stop, [?] for help
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [mpegts @ 0x5aadabc104c0] frame size not set
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: Output #0, hls, to '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8':
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   Metadata:
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:     encoder         : Lavf60.16.100
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:   Stream #0:0: Audio: aac (LC), 44100 Hz, stereo, fltp, 128 kb/s
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:     Metadata:
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]:       encoder         : Lavc60.31.102 aac
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=       0kB time=-00:00:00.02 bitrate=  -0.0kbits/s speed=N/A    size=N/A time=00:00:01.05 bitrate=N/A speed=   2x    size=N/A time=00:00:01.63 bitrate=N/A speed=1.58x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00000.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 30: P1=MacroAction.CROUCH P2=MacroAction.LOW_PUNCH | HP 0-0 T=0
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:02.17 bitrate=N/A speed=1.39x    size=N/A time=00:00:02.68 bitrate=N/A speed=1.29x    size=N/A time=00:00:03.19 bitrate=N/A speed=1.23x    size=N/A time=00:00:03.70 bitrate=N/A speed=1.19x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00001.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 146 frames in last 5s (total=146)
+R1 Brain step 60: P1=MacroAction.JAB_COMBO P2=MacroAction.THROW_ATTEMPT | HP 160-160 T=99
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:04.24 bitrate=N/A speed=1.17x    size=N/A time=00:00:04.75 bitrate=N/A speed=1.15x    size=N/A time=00:00:05.28 bitrate=N/A speed=1.13x    size=N/A time=00:00:05.79 bitrate=N/A speed=1.12x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00002.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:06.30 bitrate=N/A speed=1.11x    size=N/A time=00:00:06.84 bitrate=N/A speed= 1.1x    size=N/A time=00:00:07.35 bitrate=N/A speed=1.09x    size=N/A time=00:00:07.86 bitrate=N/A speed=1.08x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00003.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 90: P1=MacroAction.JAB_COMBO P2=MacroAction.PUNISH | HP 160-141 T=96
+FFmpeg capture: 296 frames in last 5s (total=296)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:08.39 bitrate=N/A speed=1.08x    size=N/A time=00:00:08.90 bitrate=N/A speed=1.07x    size=N/A time=00:00:09.41 bitrate=N/A speed=1.07x    size=N/A time=00:00:09.92 bitrate=N/A speed=1.06x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00004.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 120: P1=MacroAction.SPECIAL_2 P2=MacroAction.STAND_BLOCK | HP 142-141 T=92
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:10.46 bitrate=N/A speed=1.06x    size=N/A time=00:00:10.97 bitrate=N/A speed=1.06x    size=N/A time=00:00:11.50 bitrate=N/A speed=1.06x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00005.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:12.01 bitrate=N/A speed=1.05x    size=N/A time=00:00:12.52 bitrate=N/A speed=1.05x    size=N/A time=00:00:13.06 bitrate=N/A speed=1.05x    size=N/A time=00:00:13.57 bitrate=N/A speed=1.05x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00006.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 150: P1=MacroAction.SPECIAL_2 P2=MacroAction.SIDE_STEP_IN | HP 142-141 T=87
+FFmpeg capture: 447 frames in last 5s (total=447)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:14.08 bitrate=N/A speed=1.04x    size=N/A time=00:00:14.61 bitrate=N/A speed=1.04x    size=N/A time=00:00:15.12 bitrate=N/A speed=1.04x    size=N/A time=00:00:15.64 bitrate=N/A speed=1.04x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00007.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 180: P1=MacroAction.RETREAT P2=MacroAction.HIGH_PUNCH | HP 136-141 T=83
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:16.17 bitrate=N/A speed=1.04x    size=N/A time=00:00:16.68 bitrate=N/A speed=1.04x    size=N/A time=00:00:17.19 bitrate=N/A speed=1.04x    size=N/A time=00:00:17.72 bitrate=N/A speed=1.04x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00008.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 598 frames in last 5s (total=598)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:18.24 bitrate=N/A speed=1.03x    size=N/A time=00:00:18.77 bitrate=N/A speed=1.03x    size=N/A time=00:00:19.28 bitrate=N/A speed=1.03x    size=N/A time=00:00:19.79 bitrate=N/A speed=1.03x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00009.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 210: P1=MacroAction.SPECIAL_2 P2=MacroAction.RUN | HP 136-141 T=78
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:20.30 bitrate=N/A speed=1.03x    size=N/A time=00:00:20.84 bitrate=N/A speed=1.03x    size=N/A time=00:00:21.35 bitrate=N/A speed=1.03x    size=N/A time=00:00:21.86 bitrate=N/A speed=1.03x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00010.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 240: P1=MacroAction.NEUTRAL P2=MacroAction.SIDE_STEP_OUT | HP 136-141 T=74
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:22.39 bitrate=N/A speed=1.03x    size=N/A time=00:00:22.90 bitrate=N/A speed=1.03x    size=N/A time=00:00:23.41 bitrate=N/A speed=1.03x    size=N/A time=00:00:23.95 bitrate=N/A speed=1.03x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00011.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 748 frames in last 5s (total=748)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:24.46 bitrate=N/A speed=1.03x    size=N/A time=00:00:24.99 bitrate=N/A speed=1.03x    size=N/A time=00:00:25.50 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00012.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 270: P1=MacroAction.SPECIAL_2 P2=MacroAction.RETREAT | HP 136-141 T=69
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:26.01 bitrate=N/A speed=1.02x    size=N/A time=00:00:26.52 bitrate=N/A speed=1.02x    size=N/A time=00:00:27.06 bitrate=N/A speed=1.02x    size=N/A time=00:00:27.57 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00013.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 300: P1=MacroAction.NEUTRAL P2=MacroAction.SIDE_STEP_OUT | HP 120-141 T=65
+FFmpeg capture: 899 frames in last 5s (total=899)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:28.08 bitrate=N/A speed=1.02x    size=N/A time=00:00:28.61 bitrate=N/A speed=1.02x    size=N/A time=00:00:29.12 bitrate=N/A speed=1.02x    size=N/A time=00:00:29.64 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00014.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:30.17 bitrate=N/A speed=1.02x    size=N/A time=00:00:30.68 bitrate=N/A speed=1.02x    size=N/A time=00:00:31.19 bitrate=N/A speed=1.02x    size=N/A time=00:00:31.70 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00015.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 330: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.JUMP_FORWARD | HP 120-141 T=60
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:32.21 bitrate=N/A speed=1.02x    size=N/A time=00:00:32.75 bitrate=N/A speed=1.02x    size=N/A time=00:00:33.26 bitrate=N/A speed=1.02x    size=N/A time=00:00:33.79 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00016.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 1049 frames in last 5s (total=1049)
+R1 Brain step 360: P1=MacroAction.JUMP_BACK P2=MacroAction.STAND_BLOCK | HP 120-141 T=56
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:34.30 bitrate=N/A speed=1.02x    size=N/A time=00:00:34.84 bitrate=N/A speed=1.02x    size=N/A time=00:00:35.35 bitrate=N/A speed=1.02x    size=N/A time=00:00:35.86 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00017.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:36.39 bitrate=N/A speed=1.02x    size=N/A time=00:00:36.90 bitrate=N/A speed=1.02x    size=N/A time=00:00:37.41 bitrate=N/A speed=1.02x    size=N/A time=00:00:37.95 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00018.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 390: P1=MacroAction.JUMP_BACK P2=MacroAction.THROW_ATTEMPT | HP 120-114 T=51
+FFmpeg capture: 1199 frames in last 5s (total=1199)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:38.46 bitrate=N/A speed=1.02x    size=N/A time=00:00:38.97 bitrate=N/A speed=1.02x    size=N/A time=00:00:39.48 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00019.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 420: P1=MacroAction.JAB_COMBO P2=MacroAction.JUMP_BACK | HP 104-114 T=47
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:40.01 bitrate=N/A speed=1.02x    size=N/A time=00:00:40.52 bitrate=N/A speed=1.02x    size=N/A time=00:00:41.03 bitrate=N/A speed=1.01x    size=N/A time=00:00:41.57 bitrate=N/A speed=1.02x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00020.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:42.08 bitrate=N/A speed=1.01x    size=N/A time=00:00:42.61 bitrate=N/A speed=1.01x    size=N/A time=00:00:43.12 bitrate=N/A speed=1.01x    size=N/A time=00:00:43.64 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00021.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 450: P1=MacroAction.JUMP_BACK P2=MacroAction.SPECIAL_2 | HP 104-114 T=42
+FFmpeg capture: 1349 frames in last 5s (total=1349)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:44.17 bitrate=N/A speed=1.01x    size=N/A time=00:00:44.68 bitrate=N/A speed=1.01x    size=N/A time=00:00:45.19 bitrate=N/A speed=1.01x    size=N/A time=00:00:45.70 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00022.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 480: P1=MacroAction.LOW_PUNCH P2=MacroAction.SPECIAL_1 | HP 88-114 T=38
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:46.23 bitrate=N/A speed=1.01x    size=N/A time=00:00:46.75 bitrate=N/A speed=1.01x    size=N/A time=00:00:47.26 bitrate=N/A speed=1.01x    size=N/A time=00:00:47.79 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00023.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 1499 frames in last 5s (total=1499)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:48.30 bitrate=N/A speed=1.01x    size=N/A time=00:00:48.81 bitrate=N/A speed=1.01x    size=N/A time=00:00:49.35 bitrate=N/A speed=1.01x    size=N/A time=00:00:49.86 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00024.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 510: P1=MacroAction.PUNISH P2=MacroAction.SIDE_STEP_IN | HP 88-114 T=33
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:50.37 bitrate=N/A speed=1.01x    size=N/A time=00:00:50.90 bitrate=N/A speed=1.01x    size=N/A time=00:00:51.41 bitrate=N/A speed=1.01x    size=N/A time=00:00:51.95 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00025.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 540: P1=MacroAction.NEUTRAL P2=MacroAction.JUMP_BACK | HP 88-114 T=29
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:52.46 bitrate=N/A speed=1.01x    size=N/A time=00:00:52.99 bitrate=N/A speed=1.01x    size=N/A time=00:00:53.50 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00026.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 1649 frames in last 5s (total=1649)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:54.01 bitrate=N/A speed=1.01x    size=N/A time=00:00:54.52 bitrate=N/A speed=1.01x    size=N/A time=00:00:55.06 bitrate=N/A speed=1.01x    size=N/A time=00:00:55.57 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00027.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 570: P1=MacroAction.ADVANCE P2=MacroAction.SIDE_STEP_OUT | HP 160-114 T=24
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:56.10 bitrate=N/A speed=1.01x    size=N/A time=00:00:56.61 bitrate=N/A speed=1.01x    size=N/A time=00:00:57.12 bitrate=N/A speed=1.01x    size=N/A time=00:00:57.63 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00028.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 600: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.CROUCH_BLOCK | HP 58-114 T=19
+FFmpeg capture: 1799 frames in last 5s (total=1799)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:00:58.17 bitrate=N/A speed=1.01x    size=N/A time=00:00:58.68 bitrate=N/A speed=1.01x    size=N/A time=00:00:59.19 bitrate=N/A speed=1.01x    size=N/A time=00:00:59.73 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00029.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:00.24 bitrate=N/A speed=1.01x    size=N/A time=00:01:00.75 bitrate=N/A speed=1.01x    size=N/A time=00:01:01.28 bitrate=N/A speed=1.01x    size=N/A time=00:01:01.79 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00030.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+R1 Brain step 630: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.CROUCH_BLOCK | HP 38-114 T=15
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:02.32 bitrate=N/A speed=1.01x    size=N/A time=00:01:02.84 bitrate=N/A speed=1.01x    size=N/A time=00:01:03.35 bitrate=N/A speed=1.01x    size=N/A time=00:01:03.88 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00031.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpeg capture: 1950 frames in last 5s (total=1950)
+R1 Brain step 660: P1=MacroAction.PUNISH P2=MacroAction.RETREAT | HP 19-90 T=10
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:04.39 bitrate=N/A speed=1.01x    size=N/A time=00:01:04.90 bitrate=N/A speed=1.01x    size=N/A time=00:01:05.41 bitrate=N/A speed=1.01x    size=N/A time=00:01:05.95 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00032.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+Round 1 over! P1 LOST (hp=0 vs 90)
+Match over! P2 wins (0-1)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+match 8teh7pFvhDhKUK6uXETZw8nVKxCasuvmkX9XNKnLadUW already LOCKED on-chain
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:06.46 bitrate=N/A speed=1.01x    size=N/A time=00:01:06.99 bitrate=N/A speed=1.01x    size=N/A time=00:01:07.50 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00033.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:08.01 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+FFmpeg capture: 2101 frames in last 5s (total=2101)
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:08.55 bitrate=N/A speed=1.01x    size=N/A time=00:01:09.06 bitrate=N/A speed=1.01x    size=N/A time=00:01:09.57 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00034.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: size=N/A time=00:01:10.08 bitrate=N/A speed=1.01x    size=N/A time=00:01:10.61 bitrate=N/A speed=1.01x    size=N/A time=00:01:11.12 bitrate=N/A speed=1.01x    size=N/A time=00:01:11.63 bitrate=N/A speed=1.01x    [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/seg00035.ts' for writing
+FFmpegAudio[b5c6aa0f-cbd5-48e1-83d8-491f1975130b]: [hls @ 0x5aadabbb8340] Opening '/tmp/hls/b5c6aa0f-cbd5-48e1-83d8-491f1975130b/stream.m3u8.tmp' for writing
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+resolve_match tx: ifKi82RwWeLrSi8HW7UqYYq3tPGnGc45Y8X3k17skhEWdxmoK8XbMoVPU28Visq4dQZdiU9TkkMMKbBXcv3juPi (match_pda=8teh7pFvhDhKUK6uXETZw8nVKxCasuvmkX9XNKnLadUW, winner=B)
+Match b5c6aa0f-cbd5-48e1-83d8-491f1975130b settled: winner=P2, bets=0, pool=0.000000, fee_bps=500
+FFmpeg: frame=    0 fps=0.0 q=0.0 size=       0kB time=N/A bitrate=N/A speed=N/A    frame=   18 fps=0.0 q=15.0 size=     409kB time=00:00:00.60 bitrate=5586.0kbits/s speed=1.13x    frame=   33 fps= 32 q=15.0 size=     770kB time=00:00:01.10 bitrate=5735.2kbits/s speed=1.07x    frame=   49 fps= 31 q=15.0 size=    1156kB time=00:00:01.63 bitrate=5798.8kbits/s speed=1.04x    frame=   65 fps= 31 q=15.0 size=    1544kB time=00:00:02.16 bitrate=5838.2kbits/s speed=1.03x    frame=   80 fps= 31 q=15.0 size=    1907kB time=00:00:02.66 bitrate=5858.8kbits/s speed=1.03x    frame=   96 fps= 31 q=15.0 size=    2018kB time=00:00:03.20 bitrate=5165.3kbits/s speed=1.02x    frame=  111 fps= 31 q=15.0 size=    2073kB time=00:00:03.70 bitrate=4590.6kbits/s speed=1.02x    frame=  126 fps= 30 q=15.0 size=    2129kB time=00:00:04.20 bitrate=4152.8kbits/s speed=1.02x    frame=  142 fps= 30 q=15.0 size=    2303kB time=00:00:04.73 bitrate=3986.5kbits/s speed=1.01x    frame=  158 fps= 30 q=15.0 size=    2579kB time=00:00:05.26 bitrate=4010.9kbits/s speed=1.01x    frame=  173 fps= 30 q=15.0 size=    2906kB time=00:00:05.76 bitrate=4127.8kbits/s speed=1.01x    frame=  188 fps= 30 q=15.0 size=    3254kB time=00:00:06.26 bitrate=4253.5kbits/s speed=1.01x    frame=  204 fps= 30 q=15.0 size=    3600kB time=00:00:06.80 bitrate=4336.9kbits/s speed=1.01x    frame=  220 fps= 30 q=15.0 size=    3942kB time=00:00:07.33 bitrate=4403.9kbits/s speed=1.01x    frame=  235 fps= 30 q=15.0 size=    4261kB time=00:00:07.83 bitrate=4456.0kbits/s speed=1.01x    frame=  251 fps= 30 q=15.0 size=    4597kB time=00:00:08.36 bitrate=4500.9kbits/s speed=1.01x    frame=  266 fps= 30 q=15.0 size=    4914kB time=00:00:08.86 bitrate=4540.1kbits/s speed=1.01x    frame=  282 fps= 30 q=15.0 size=    5257kB time=00:00:09.40 bitrate=4581.5kbits/s speed=1.01x    frame=  298 fps= 30 q=15.0 size=    5598kB time=00:00:09.93 bitrate=4616.8kbits/s speed=1.01x    frame=  313 fps= 30 q=15.0 size=    5912kB time=00:00:10.43 bitrate=4641.9kbits/s speed=1.01x    frame=  329 fps= 30 q=15.0 size=    6243kB time=00:00:10.96 bitrate=4663.5kbits/s speed=1.01x    frame=  344 fps= 30 q=15.0 size=    6558kB time=00:00:11.46 bitrate=4685.0kbits/s speed=1.01x    frame=  360 fps= 30 q=15.0 size=    6900kB time=00:00:12.00 bitrate=4710.2kbits/s speed=1.01x    frame=  376 fps= 30 q=15.0 size=    7243kB time=00:00:12.53 bitrate=4734.1kbits/s speed=1.01x    frame=  392 fps= 30 q=15.0 size=    7590kB time=00:00:13.06 bitrate=4758.5kbits/s speed=1.01x    frame=  407 fps= 30 q=15.0 size=    7915kB time=00:00:13.56 bitrate=4779.5kbits/s speed=1.01x    frame=  423 fps= 30 q=15.0 size=    8261kB time=00:00:14.10 bitrate=4799.7kbits/s speed=   1x    frame=  438 fps= 30 q=15.0 size=    8575kB time=00:00:14.60 bitrate=4811.3kbits/s speed=   1x    frame=  454 fps= 30 q=15.0 size=    8908kB time=00:00:15.13 bitrate=4821.9kbits/s speed=   1x    frame=  469 fps= 30 q=15.0 size=    9218kB time=00:00:15.63 bitrate=4830.3kbits/s speed=   1x    frame=  484 fps= 30 q=15.0 size=    9531kB time=00:00:16.13 bitrate=4839.6kbits/s speed=   1x    frame=  500 fps= 30 q=15.0 size=    9868kB time=00:00:16.66 bitrate=4850.4kbits/s speed=   1x    frame=  516 fps= 30 q=15.0 size=   10206kB time=00:00:17.20 bitrate=4861.1kbits/s speed=   1x    frame=  532 fps= 30 q=15.0 size=   10542kB time=00:00:17.73 bitrate=4870.0kbits/s speed=   1x    frame=  548 fps= 30 q=15.0 size=   10881kB time=00:00:18.26 bitrate=4879.8kbits/s speed=   1x    frame=  563 fps= 30 q=15.0 size=   11198kB time=00:00:18.76 bitrate=4888.0kbits/s speed=   1x    frame=  579 fps= 30 q=15.0 size=   11531kB time=00:00:19.30 bitrate=4894.3kbits/s speed=   1x    frame=  594 fps= 30 q=15.0 size=   11840kB time=00:00:19.80 bitrate=4898.6kbits/s speed=   1x    frame=  609 fps= 30 q=15.0 size=   12146kB time=00:00:20.30 bitrate=4901.5kbits/s speed=   1x    frame=  624 fps= 30 q=15.0 size=   12453kB time=00:00:20.80 bitrate=4904.6kbits/s speed=   1x    frame=  640 fps= 30 q=15.0 size=   12784kB time=00:00:21.33 bitrate=4909.0kbits/s speed=   1x    frame=  655 fps= 30 q=15.0 size=   13090kB time=00:00:21.83 bitrate=4911.3kbits/s speed=   1x    frame=  670 fps= 30 q=15.0 size=   13395kB time=00:00:22.33 bitrate=4913.5kbits/s speed=   1x    frame=  686 fps= 30 q=15.0 size=   13719kB time=00:00:22.86 bitrate=4914.9kbits/s speed=   1x    frame=  702 fps= 30 q=15.0 size=   14041kB time=00:00:23.40 bitrate=4915.5kbits/s speed=   1x    frame=  718 fps= 30 q=15.0 size=   14367kB time=00:00:23.93 bitrate=4917.6kbits/s speed=   1x    frame=  734 fps= 30 q=15.0 size=   14694kB time=00:00:24.46 bitrate=4919.9kbits/s speed=   1x    frame=  749 fps= 30 q=15.0 size=   15001kB time=00:00:24.96 bitrate=4922.0kbits/s speed=   1x    frame=  764 fps= 30 q=15.0 size=   15308kB time=00:00:25.46 bitrate=4924.3kbits/s speed=   1x    frame=  780 fps= 30 q=15.0 size=   15637kB time=00:00:26.00 bitrate=4926.7kbits/s speed=   1x    frame=  795 fps= 30 q=15.0 size=   15949kB time=00:00:26.50 bitrate=4930.5kbits/s speed=   1x    frame=  810 fps= 30 q=15.0 size=   16256kB time=00:00:27.00 bitrate=4932.2kbits/s speed=   1x    frame=  825 fps= 30 q=15.0 size=   16561kB time=00:00:27.50 bitrate=4933.3kbits/s speed=   1x    frame=  841 fps= 30 q=15.0 size=   16885kB time=00:00:28.03 bitrate=4934.2kbits/s speed=   1x    frame=  856 fps= 30 q=15.0 size=   17195kB time=00:00:28.53 bitrate=4936.7kbits/s speed=   1x    frame=  871 fps= 30 q=15.0 size=   17511kB time=00:00:29.03 bitrate=4941.0kbits/s speed=   1x    frame=  887 fps= 30 q=15.0 size=   17857kB time=00:00:29.56 bitrate=4947.6kbits/s speed=   1x    frame=  902 fps= 30 q=15.0 size=   18170kB time=00:00:30.06 bitrate=4950.5kbits/s speed=   1x    frame=  917 fps= 30 q=15.0 size=   18468kB time=00:00:30.56 bitrate=4949.6kbits/s speed=   1x    frame=  933 fps= 30 q=15.0 size=   18784kB time=00:00:31.10 bitrate=4947.9kbits/s speed=   1x    frame=  948 fps= 30 q=15.0 size=   19080kB time=00:00:31.60 bitrate=4946.3kbits/s speed=   1x    frame=  964 fps= 30 q=15.0 size=   19392kB time=00:00:32.13 bitrate=4943.8kbits/s speed=   1x    frame=  979 fps= 30 q=15.0 size=   19689kB time=00:00:32.63 bitrate=4942.5kbits/s speed=   1x    frame=  994 fps= 30 q=15.0 size=   20000kB time=00:00:33.13 bitrate=4944.8kbits/s speed=   1x    frame= 1010 fps= 30 q=15.0 size=   20351kB time=00:00:33.66 bitrate=4952.1kbits/s speed=   1x    frame= 1026 fps= 30 q=15.0 size=   20698kB time=00:00:34.20 bitrate=4957.9kbits/s speed=   1x    frame= 1041 fps= 30 q=15.0 size=   21023kB time=00:00:34.70 bitrate=4963.2kbits/s speed=   1x    frame= 1057 fps= 30 q=15.0 size=   21367kB time=00:00:35.23 bitrate=4967.9kbits/s speed=   1x    frame= 1073 fps= 30 q=15.0 size=   21710kB time=00:00:35.76 bitrate=4972.5kbits/s speed=   1x    frame= 1088 fps= 30 q=15.0 size=   22017kB time=00:00:36.26 bitrate=4973.3kbits/s speed=   1x    frame= 1103 fps= 30 q=15.0 size=   22328kB time=00:00:36.76 bitrate=4975.0kbits/s speed=   1x    frame= 1118 fps= 30 q=15.0 size=   22639kB time=00:00:37.26 bitrate=4976.4kbits/s speed=   1x    frame= 1134 fps= 30 q=15.0 size=   22975kB time=00:00:37.80 bitrate=4979.1kbits/s speed=   1x    frame= 1149 fps= 30 q=15.0 size=   23276kB time=00:00:38.30 bitrate=4978.6kbits/s speed=   1x    frame= 1164 fps= 30 q=15.0 size=   23578kB time=00:00:38.80 bitrate=4978.2kbits/s speed=   1x    frame= 1180 fps= 30 q=15.0 size=   23920kB time=00:00:39.33 bitrate=4981.8kbits/s speed=   1x    frame= 1196 fps= 30 q=15.0 size=   24253kB time=00:00:39.86 bitrate=4983.7kbits/s speed=   1x    frame= 1212 fps= 30 q=15.0 size=   24589kB time=00:00:40.40 bitrate=4985.9kbits/s speed=   1x    frame= 1227 fps= 30 q=15.0 size=   24898kB time=00:00:40.90 bitrate=4987.0kbits/s speed=   1x    frame= 1243 fps= 30 q=15.0 size=   25223kB time=00:00:41.43 bitrate=4986.9kbits/s speed=   1x    frame= 1258 fps= 30 q=15.0 size=   25538kB time=00:00:41.93 bitrate=4989.1kbits/s speed=   1x    frame= 1274 fps= 30 q=15.0 size=   25879kB time=00:00:42.46 bitrate=4992.2kbits/s speed=   1x    frame= 1290 fps= 30 q=15.0 size=   26203kB time=00:00:43.00 bitrate=4991.9kbits/s speed=   1x    frame= 1306 fps= 30 q=15.0 size=   26523kB time=00:00:43.53 bitrate=4991.1kbits/s speed=   1x    frame= 1322 fps= 30 q=15.0 size=   26843kB time=00:00:44.06 bitrate=4990.1kbits/s speed=   1x    frame= 1338 fps= 30 q=15.0 size=   27172kB time=00:00:44.60 bitrate=4990.8kbits/s speed=   1x    frame= 1353 fps= 30 q=15.0 size=   27475kB time=00:00:45.10 bitrate=4990.7kbits/s speed=   1x    frame= 1368 fps= 30 q=15.0 size=   27772kB time=00:00:45.60 bitrate=4989.3kbits/s speed=   1x    frame= 1385 fps= 30 q=15.0 size=   28110kB time=00:00:46.13 bitrate=4991.6kbits/s speed=   1x    frame= 1399 fps= 30 q=15.0 size=   28380kB time=00:00:46.63 bitrate=4985.4kbits/s speed=   1x    frame= 1414 fps= 30 q=15.0 size=   28668kB time=00:00:47.13 bitrate=4982.6kbits/s speed=   1x    frame= 1430 fps= 30 q=15.0 size=   28982kB time=00:00:47.66 bitrate=4980.9kbits/s speed=   1x    frame= 1445 fps= 30 q=15.0 size=   29273kB time=00:00:48.16 bitrate=4978.7kbits/s speed=   1x    frame= 1461 fps= 30 q=15.0 size=   29584kB time=00:00:48.70 bitrate=4976.4kbits/s speed=   1x    frame= 1476 fps= 30 q=15.0 size=   29874kB time=00:00:49.20 bitrate=4974.1kbits/s speed=   1x    frame= 1492 fps= 30 q=15.0 size=   30183kB time=00:00:49.73 bitrate=4971.7kbits/s speed=   1x    frame= 1508 fps= 30 q=15.0 size=   30488kB time=00:00:50.26 bitrate=4968.7kbits/s speed=   1x    frame= 1523 fps= 30 q=15.0 size=   30776kB time=00:00:50.76 bitrate=4966.2kbits/s speed=   1x    frame= 1539 fps= 30 q=15.0 size=   31095kB time=00:00:51.30 bitrate=4965.6kbits/s speed=   1x    frame= 1554 fps= 30 q=15.0 size=   31409kB time=00:00:51.80 bitrate=4967.3kbits/s speed=   1x    frame= 1570 fps= 30 q=15.0 size=   31736kB time=00:00:52.33 bitrate=4967.8kbits/s speed=   1x    frame= 1586 fps= 30 q=15.0 size=   32060kB time=00:00:52.86 bitrate=4967.9kbits/s speed=   1x    frame= 1602 fps= 30 q=15.0 size=   32382kB time=00:00:53.40 bitrate=4967.7kbits/s speed=   1x    frame= 1617 fps= 30 q=15.0 size=   32682kB time=00:00:53.90 bitrate=4967.1kbits/s speed=   1x    frame= 1633 fps= 30 q=15.0 size=   33001kB time=00:00:54.43 bitrate=4966.5kbits/s speed=   1x    frame= 1649 fps= 30 q=15.0 size=   33319kB time=00:00:54.96 bitrate=4965.7kbits/s speed=   1x    frame= 1665 fps= 30 q=15.0 size=   33637kB time=00:00:55.50 bitrate=4965.0kbits/s speed=   1x    frame= 1681 fps= 30 q=15.0 size=   33961kB time=00:00:56.03 bitrate=4965.0kbits/s speed=   1x    frame= 1696 fps= 30 q=15.0 size=   34261kB time=00:00:56.53 bitrate=4964.7kbits/s speed=   1x    frame= 1711 fps= 30 q=15.0 size=   34573kB time=00:00:57.03 bitrate=4965.9kbits/s speed=   1x    frame= 1726 fps= 30 q=15.0 size=   34876kB time=00:00:57.53 bitrate=4966.0kbits/s speed=   1x    frame= 1742 fps= 30 q=15.0 size=   35180kB time=00:00:58.06 bitrate=4963.1kbits/s speed=   1x    frame= 1758 fps= 30 q=15.0 size=   35467kB time=00:00:58.60 bitrate=4958.1kbits/s speed=   1x    frame= 1773 fps= 30 q=15.0 size=   35765kB time=00:00:59.10 bitrate=4957.4kbits/s speed=   1x    frame= 1788 fps= 30 q=15.0 size=   36035kB time=00:00:59.60 bitrate=4953.0kbits/s speed=   1x    frame= 1804 fps= 30 q=15.0 size=   36317kB time=00:01:00.13 bitrate=4947.5kbits/s speed=   1x    frame= 1819 fps= 30 q=15.0 size=   36574kB time=00:01:00.63 bitrate=4941.5kbits/s speed=   1x    frame= 1835 fps= 30 q=15.0 size=   36856kB time=00:01:01.16 bitrate=4936.2kbits/s speed=   1x    frame= 1850 fps= 30 q=15.0 size=   37122kB time=00:01:01.66 bitrate=4931.4kbits/s speed=   1x    frame= 1866 fps= 30 q=15.0 size=   37405kB time=00:01:02.20 bitrate=4926.4kbits/s speed=   1x    frame= 1882 fps= 30 q=15.0 size=   37677kB time=00:01:02.73 bitrate=4920.1kbits/s speed=   1x    frame= 1897 fps= 30 q=15.0 size=   37917kB time=00:01:03.23 bitrate=4912.2kbits/s speed=   1x    frame= 1913 fps= 30 q=15.0 size=   38203kB time=00:01:03.76 bitrate=4907.9kbits/s speed=   1x    frame= 1928 fps= 30 q=15.0 size=   38480kB time=00:01:04.26 bitrate=4905.0kbits/s speed=   1x    frame= 1944 fps= 30 q=15.0 size=   38775kB time=00:01:04.80 bitrate=4901.9kbits/s speed=   1x    frame= 1959 fps= 30 q=15.0 size=   39049kB time=00:01:05.30 bitrate=4898.8kbits/s speed=   1x    frame= 1975 fps= 30 q=15.0 size=   39349kB time=00:01:05.83 bitrate=4896.4kbits/s speed=   1x    frame= 1991 fps= 30 q=15.0 size=   39649kB time=00:01:06.36 bitrate=4894.1kbits/s speed=   1x    frame= 2006 fps= 30 q=15.0 size=   39930kB time=00:01:06.86 bitrate=4891.9kbits/s speed=   1x    frame= 2022 fps= 30 q=15.0 size=   40258kB time=00:01:07.40 bitrate=4893.1kbits/s speed=   1x    frame= 2037 fps= 30 q=15.0 size=   40528kB time=00:01:07.90 bitrate=4889.6kbits/s speed=   1x    frame= 2052 fps= 30 q=15.0 size=   40798kB time=00:01:08.40 bitrate=4886.2kbits/s speed=   1x    frame= 2068 fps= 30 q=15.0 size=   41102kB time=00:01:08.93 bitrate=4884.6kbits/s speed=   1x    frame= 2083 fps= 30 q=15.0 size=   41397kB time=00:01:09.43 bitrate=4884.1kbits/s speed=   1x    frame= 2098 fps= 30 q=15.0 size=   41689kB time=00:01:09.93 bitrate=4883.5kbits/s speed=   1x    frame= 2114 fps= 30 q=15.0 size=   41998kB time=00:01:10.46 bitrate=4882.4kbits/s speed=   1x    frame= 2129 fps= 30 q=15.0 size=   42265kB time=00:01:10.96 bitrate=4878.8kbits/s speed=   1x    frame= 2144 fps= 30 q=15.0 size=   42461kB time=00:01:11.46 bitrate=4867.1kbits/s speed=   1x    frame= 2159 fps= 30 q=15.0 size=   42735kB time=00:01:11.96 bitrate=4864.6kbits/s speed=   1x    frame= 2175 fps= 30 q=15.0 size=   43089kB time=00:01:12.50 bitrate=4868.7kbits/s speed=   1x    [out#0/image2pipe @ 0x59337a3474c0] video:43395kB audio:0kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000000%
+FFmpeg: frame= 2187 fps= 30 q=15.0 Lsize=   43395kB time=00:01:12.86 bitrate=4878.7kbits/s speed=   1x
+FFmpeg: Exiting normally, received signal 15.
+FFmpeg capture stopped
+Audio capture stopped for match b5c6aa0f-cbd5-48e1-83d8-491f1975130b
+Stopping emulator session match-ffadf867 (pid=2892088)
+Sent SIGTERM to process 2892088
+Process 2892088 didn't terminate gracefully, force killing
+Stopping Xvfb (display=:99)
+Sent SIGTERM to process 2892079
+Process 2892079 didn't terminate gracefully, force killing
+Emulator session stopped cleanly (instance=match-ffadf867)
+Queue loop create_match_on_chain failed for Sub-Zero vs Cage
+Traceback (most recent call last):
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
+    raise exc
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
+    stream = await self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_async/connection.py", line 124, in _connect
+    stream = await self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
+    return await self._backend.connect_tcp(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/imk/backend/app/services/queue_loop.py", line 376, in _create_loop_match
+    on_chain_id, on_chain_pda = await create_match_on_chain(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/backend/app/services/on_chain_match.py", line 50, in create_match_on_chain
+    blockhash = await solana_tx.get_recent_blockhash(rpc)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/backend/app/services/solana_tx.py", line 59, in get_recent_blockhash
+    resp = await client.post(rpc_url, headers=_RPC_HEADERS, json=payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1859, in post
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/ubuntu/imk/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Queue loop armed countdown: head=c62959c4-fa4f-49d9-bf1a-181b0eb87a36 starts_at=2026-03-07T19:32:10.874509+00:00
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+On-chain match_counter before create: 175
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+create_match tx confirmed: WP4aBKVgxdieL5wrwktQBkdY7m1tPEbZEu8DLJLAxm1fiXreorZb4Wt54XfD9D93T2axzMUkj8wUFsQbWTfxRPs (counter=175)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+On-chain match PDA verified: 8JwsQkPsQoZMCDtqw1bq9L1gVcCydAsURPPbB3u6KLdo (id=175)
+Queue loop enqueued Sub-Zero vs Cage at tail
+Shutting down IMK backend...
+Queue loop manager stopped
+Starting full system cleanup...
+Cleanup complete: {'processes_killed': 0, 'displays_killed': 0, 'sockets_removed': 0}
+Shutdown cleanup: {'processes_killed': 0, 'displays_killed': 0, 'sockets_removed': 0}
+Redis connection closed
+IMK backend shutdown complete
