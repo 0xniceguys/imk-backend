@@ -93,6 +93,14 @@ class ArenaListScreen extends ConsumerWidget {
         )
         .toList();
     sorted.sort((a, b) {
+      final aQueue = a.queuePosition;
+      final bQueue = b.queuePosition;
+      if (aQueue != null && bQueue != null && aQueue != bQueue) {
+        return aQueue.compareTo(bQueue);
+      }
+      if (aQueue != null && bQueue == null) return -1;
+      if (aQueue == null && bQueue != null) return 1;
+
       final aRank = _statusRank(a.status);
       final bRank = _statusRank(b.status);
       if (aRank != bRank) return aRank.compareTo(bRank);

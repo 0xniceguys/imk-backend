@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import '../models/client_config.dart';
 import '../models/wallet_state.dart';
 import '../services/api_service.dart';
 import '../services/privy_service.dart';
@@ -24,7 +23,6 @@ class WalletNotifier extends StateNotifier<WalletState> {
   }
 
   RuntimeClientConfig get _cfg => RuntimeClientConfig.instance;
-  String get _solanaRpc => _cfg.rpcHttp;
   String get _skrMint => _cfg.skrMint;
   bool get _isDevnet => _cfg.isDevnet;
   int get _tokenDecimals => _cfg.tokenDecimals;
@@ -70,10 +68,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
         clearError: true,
       );
     } else {
-      state = state.copyWith(
-        solanaAddress: address,
-        clearError: true,
-      );
+      state = state.copyWith(solanaAddress: address, clearError: true);
     }
 
     if (kUseMockData) {
@@ -83,24 +78,21 @@ class WalletNotifier extends StateNotifier<WalletState> {
         seekerBalance: 500.0,
         solUsdValue: 300.0,
         seekerUsdValue: 50.0,
-        seekerSymbol: cfg.tokenSymbol,
-        isDevnet: cfg.isDevnet,
+        seekerSymbol: _cfg.tokenSymbol,
+        isDevnet: _cfg.isDevnet,
         usdcBalance: 0,
         isLoading: false,
       );
       return;
     }
 
-    final solFuture = _fetchSolBalance(address, rpcHttp: cfg.rpcHttp);
+    final solFuture = _fetchSolBalance(address, rpcHttp: _cfg.rpcHttp);
     final seekerFuture = _fetchSeekerBalance(
       address,
-      rpcHttp: cfg.rpcHttp,
-      seekerMint: cfg.skrMint,
+      rpcHttp: _cfg.rpcHttp,
+      seekerMint: _cfg.skrMint,
     );
-    final pricesFuture = _fetchTokenPrices(
-      seekerMint: cfg.skrMint,
-      isUsdStableToken: cfg.isUsdStable,
-    );
+    final pricesFuture = _fetchTokenPrices(seekerMint: _cfg.skrMint);
 
     try {
       final solBalance = await solFuture;
@@ -113,8 +105,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
         seekerBalance: seekerBalance,
         solUsdValue: solBalance * (prices['sol'] ?? 0),
         seekerUsdValue: seekerBalance * (prices['seeker'] ?? 0),
-        seekerSymbol: cfg.tokenSymbol,
-        isDevnet: cfg.isDevnet,
+        seekerSymbol: _cfg.tokenSymbol,
+        isDevnet: _cfg.isDevnet,
         usdcBalance: 0,
         isLoading: false,
       );
@@ -126,17 +118,6 @@ class WalletNotifier extends StateNotifier<WalletState> {
         isLoading: false,
         errorMessage: 'Failed to load wallet balances. Tap refresh to retry.',
       );
-    }
-  }
-
-  Future<ClientConfig> _resolveClientConfig() async {
-    try {
-      final cfg = await _ref.read(clientConfigProvider.future);
-      _cachedConfig = cfg;
-      return cfg;
-    } catch (e) {
-      debugPrint('[Wallet] client-config fetch failed, using fallback: $e');
-      return _cachedConfig ?? ClientConfig.fallback();
     }
   }
 
@@ -249,9 +230,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 1. Jupiter Price v2 for SKR mint.
   Future<double> _skrPriceJupiter() async {
-    final r = await http.get(Uri.parse(
-      'https://api.jup.ag/price/v2?ids=$_skrMint',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(Uri.parse('https://api.jup.ag/price/v2?ids=$_skrMint'))
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     final d = (body['data'] as Map<String, dynamic>?)?[_skrMint];
@@ -260,9 +241,11 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 2. DexScreener by mint address (best liquidity pair).
   Future<double> _skrPriceDexScreener() async {
-    final r = await http.get(Uri.parse(
-      'https://api.dexscreener.com/tokens/v1/solana/$_skrMint',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse('https://api.dexscreener.com/tokens/v1/solana/$_skrMint'),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body);
     final pairs = (body is List ? body : (body as Map)['pairs']) as List?;
@@ -277,9 +260,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 3. GeckoTerminal on-chain API (no key, Solana network).
   Future<double> _skrPriceGeckoTerminal() async {
-    final r = await http.get(Uri.parse(
-      'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$_skrMint',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$_skrMint',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['data']?['attributes']?['price_usd']);
@@ -287,9 +274,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 4. Raydium price API (no key).
   Future<double> _skrPriceRaydium() async {
-    final r = await http.get(Uri.parse(
-      'https://api-v3.raydium.io/mint/price?mints=$_skrMint',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(Uri.parse('https://api-v3.raydium.io/mint/price?mints=$_skrMint'))
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>?;
@@ -298,9 +285,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 5. CoinPaprika fallback for SKR symbol.
   Future<double> _skrPriceCoinPaprika() async {
-    final r = await http.get(Uri.parse(
-      'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['quotes']?['USD']?['price']);
@@ -310,7 +301,6 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   Future<Map<String, double>> _fetchTokenPrices({
     required String seekerMint,
-    required bool isUsdStableToken,
   }) async {
     double solPrice = 0;
     double seekerPrice = 0;
@@ -350,8 +340,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
     // ── SKR: try each source, stop on first non-zero result ────────────────
     if (_isDevnet) {
-      // Devnet SKR is non-priced test liquidity.
-      seekerPrice = 0.0;
+      // Devnet SKR has no reliable market feed; use a fixed testing price.
+      seekerPrice = 0.25;
     } else {
       final seekerSources = <String, Future<double> Function()>{
         'Jupiter': _skrPriceJupiter,
@@ -429,7 +419,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
           'method': 'getTokenAccountsByOwner',
           'params': [
             address,
-            {'mint': _skrMint},
+            {'mint': seekerMint},
             {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
           ],
         }),
@@ -440,8 +430,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
         if (accounts != null && accounts.isNotEmpty) {
           BigInt rawTotal = BigInt.zero;
           for (final account in accounts) {
-            final tokenAmount = account['account']?['data']?['parsed']?['info']
-                ?['tokenAmount'] as Map<String, dynamic>?;
+            final tokenAmount =
+                account['account']?['data']?['parsed']?['info']?['tokenAmount']
+                    as Map<String, dynamic>?;
             if (tokenAmount == null) continue;
             final raw = tokenAmount['amount']?.toString() ?? '0';
             rawTotal += BigInt.tryParse(raw) ?? BigInt.zero;
@@ -532,5 +523,5 @@ class WalletNotifier extends StateNotifier<WalletState> {
 }
 
 final walletProvider = StateNotifierProvider<WalletNotifier, WalletState>(
-  (ref) => WalletNotifier(ref.read(privyServiceProvider), ref),
+  (ref) => WalletNotifier(ref.read(privyServiceProvider)),
 );

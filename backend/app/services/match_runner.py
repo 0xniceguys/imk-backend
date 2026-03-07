@@ -986,33 +986,22 @@ class MatchRunner:
             logger.exception("Auto-settle failed for match %s", self.match_id)
 
     async def _mark_match_errored(self) -> None:
-        """Mark match as cancelled in DB when runner fails."""
+        """Cancel the match contract-first when runner fails."""
         try:
-            from app.db.engine import async_session
-            from app.db.models import Match, MatchStatus, StreamStatus
-            from sqlalchemy import select
-            from sqlalchemy.orm import selectinload
-            from datetime import datetime, timezone
+            from app.db.models import StreamStatus
+            from app.services.match_cancel import cancel_match_by_id_contract_first
 
-            async with async_session() as db:
-                # ✅ FIX: Eager load stream to avoid lazy-load DetachedInstanceError
-                result = await db.execute(
-                    select(Match)
-                    .where(Match.id == uuid.UUID(self.match_id))
-                    .options(selectinload(Match.stream))
+            result = await cancel_match_by_id_contract_first(
+                self.match_id,
+                stream_status=StreamStatus.ERROR,
+                reason="runner_failure",
+            )
+            if result is not None:
+                logger.info(
+                    "Marked match %s as CANCELLED due to runner failure (on_chain_tx=%s)",
+                    self.match_id,
+                    result.on_chain_tx,
                 )
-                match = result.scalar_one_or_none()
-                if match and match.status == MatchStatus.LIVE:
-                    # Mark as cancelled instead of failed
-                    match.status = MatchStatus.CANCELLED
-                    match.completed_at = datetime.now(timezone.utc)
-
-                    # ✅ FIX: Use ERROR instead of ENDED (ENDED doesn't exist in enum)
-                    if match.stream:
-                        match.stream.status = StreamStatus.ERROR
-
-                    await db.commit()
-                    logger.info(f"Marked match {self.match_id} as CANCELLED due to runner failure")
         except Exception:
             logger.exception("Failed to mark match %s as errored in DB", self.match_id)
 

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../models/fighter.dart';
+import '../../providers/fighter_stats_provider.dart';
+import '../../providers/wallet_provider.dart';
+import '../../utils/skr_pricing.dart';
 import '../shared/pressable.dart';
 import 'fighter_image.dart';
 
@@ -24,10 +28,26 @@ class _FighterCarouselState extends State<FighterCarousel> {
   int _currentPage = 0;
   static const int _loopBase = 10000;
   static const List<double> _greyscaleMatrix = <double>[
-    0.2126, 0.7152, 0.0722, 0, 0,
-    0.2126, 0.7152, 0.0722, 0, 0,
-    0.2126, 0.7152, 0.0722, 0, 0,
-    0, 0, 0, 1, 0,
+    0.2126,
+    0.7152,
+    0.0722,
+    0,
+    0,
+    0.2126,
+    0.7152,
+    0.0722,
+    0,
+    0,
+    0.2126,
+    0.7152,
+    0.0722,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
   ];
 
   int _realIndexForPage(int page) {
@@ -49,7 +69,9 @@ class _FighterCarouselState extends State<FighterCarousel> {
   @override
   void initState() {
     super.initState();
-    final initialPage = widget.fighters.isEmpty ? 0 : widget.fighters.length * _loopBase;
+    final initialPage = widget.fighters.isEmpty
+        ? 0
+        : widget.fighters.length * _loopBase;
     _currentPage = initialPage;
     _controller = PageController(
       viewportFraction: 0.5,
@@ -79,9 +101,15 @@ class _FighterCarouselState extends State<FighterCarousel> {
         builder: (context, constraints) {
           final currentRealIndex = _realIndexForPage(_currentPage);
           final fighter = widget.fighters[currentRealIndex];
-          final heroHeight = (constraints.maxHeight - 190).clamp(220.0, 420.0).toDouble();
-          final activeCardHeight = (heroHeight * 0.95).clamp(220.0, 380.0).toDouble();
-          final inactiveCardHeight = (heroHeight * 0.70).clamp(170.0, 300.0).toDouble();
+          final heroHeight = (constraints.maxHeight - 190)
+              .clamp(220.0, 420.0)
+              .toDouble();
+          final activeCardHeight = (heroHeight * 0.95)
+              .clamp(220.0, 380.0)
+              .toDouble();
+          final inactiveCardHeight = (heroHeight * 0.70)
+              .clamp(170.0, 300.0)
+              .toDouble();
 
           return Column(
             children: [
@@ -93,14 +121,17 @@ class _FighterCarouselState extends State<FighterCarousel> {
                     PageView.builder(
                       controller: _controller,
                       physics: const NeverScrollableScrollPhysics(),
-                      onPageChanged: (index) => setState(() => _currentPage = index),
+                      onPageChanged: (index) =>
+                          setState(() => _currentPage = index),
                       itemBuilder: (context, index) {
                         final active = index == _currentPage;
                         final item = widget.fighters[_realIndexForPage(index)];
                         Widget artwork = _FighterArtwork(fighter: item);
                         if (!active) {
                           artwork = ColorFiltered(
-                            colorFilter: const ColorFilter.matrix(_greyscaleMatrix),
+                            colorFilter: const ColorFilter.matrix(
+                              _greyscaleMatrix,
+                            ),
                             child: artwork,
                           );
                         }
@@ -110,7 +141,9 @@ class _FighterCarouselState extends State<FighterCarousel> {
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 260),
                             curve: Curves.easeOutCubic,
-                            height: active ? activeCardHeight : inactiveCardHeight,
+                            height: active
+                                ? activeCardHeight
+                                : inactiveCardHeight,
                             margin: EdgeInsets.only(
                               top: active ? 16 : 56,
                               bottom: active ? 0 : 10,
@@ -230,10 +263,7 @@ class _FighterArtwork extends StatelessWidget {
 }
 
 class _CarouselIndicators extends StatelessWidget {
-  const _CarouselIndicators({
-    required this.count,
-    required this.activeIndex,
-  });
+  const _CarouselIndicators({required this.count, required this.activeIndex});
 
   final int count;
   final int activeIndex;
@@ -252,8 +282,9 @@ class _CarouselIndicators extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color:
-                    index == activeIndex ? Palette.gold : const Color(0xFF555555),
+                color: index == activeIndex
+                    ? Palette.gold
+                    : const Color(0xFF555555),
               ),
             ),
           ),
@@ -268,23 +299,44 @@ class _CarouselIndicators extends StatelessWidget {
   }
 }
 
-class _FighterOverviewStats extends StatelessWidget {
+class _FighterOverviewStats extends ConsumerWidget {
   const _FighterOverviewStats({required this.fighter});
 
   final Fighter fighter;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statsAsync = ref.watch(fighterStatsProvider(fighter.id));
+    final wallet = ref.watch(walletProvider);
+
+    final winRateText = statsAsync.maybeWhen(
+      data: (stats) =>
+          _winRate((stats?['win_rate'] as num?)?.toDouble() ?? fighter.winRate),
+      orElse: () => _winRate(fighter.winRate),
+    );
+    final matchesPlayedText = statsAsync.maybeWhen(
+      data: (stats) =>
+          '${(stats?['matches_played'] as num?)?.toInt() ?? fighter.matchesPlayed}',
+      orElse: () => '${fighter.matchesPlayed.clamp(0, 999999)}',
+    );
+    final betVolumeText = statsAsync.when(
+      loading: () => '--',
+      error: (_, _) => '\$0.00',
+      data: (stats) {
+        final totalBetVolumeSkr =
+            (stats?['total_bet_volume'] as num?)?.toDouble() ?? 0;
+        final totalBetVolumeUsd = skrToUsd(totalBetVolumeSkr, wallet);
+        return '\$${totalBetVolumeUsd.toStringAsFixed(2)}';
+      },
+    );
+
     final stats = [
-      _StatItem('Win Rate', _winRate(fighter.winRate)),
-      _StatItem(
-        'Matches Played',
-        fighter.matchesPlayed >= 0 ? '${fighter.matchesPlayed}' : 'null',
-      ),
-      const _StatItem('Bet Volume', 'null'),
+      _StatItem('Win Rate', winRateText),
+      _StatItem('Matches Played', matchesPlayedText),
+      _StatItem('Bet Volume', betVolumeText),
       _StatItem(
         'Fight Style',
-        fighter.fightStyle.trim().isEmpty ? 'null' : fighter.fightStyle,
+        fighter.fightStyle.trim().isEmpty ? 'N/A' : fighter.fightStyle,
       ),
     ];
 
@@ -320,7 +372,7 @@ class _FighterOverviewStats extends StatelessWidget {
   }
 
   static String _winRate(double value) {
-    if (value.isNaN || value.isInfinite) return 'null';
+    if (value.isNaN || value.isInfinite) return 'N/A';
     return '${(value * 100).toStringAsFixed(0)}%';
   }
 }

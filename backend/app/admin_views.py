@@ -673,11 +673,21 @@ async def match_start(match_id: UUID):
                 "match_start FAILED for %s: %s\n%s",
                 match_id, exc, traceback.format_exc()
             )
-            match.status = MatchStatus.UPCOMING
-            match.started_at = None
-            if match.stream:
-                match.stream.status = StreamStatus.IDLE
-            await db.commit()
+            from app.services.match_cancel import cancel_match_by_id_contract_first
+            try:
+                await cancel_match_by_id_contract_first(
+                    match_id,
+                    stream_status=StreamStatus.ERROR,
+                    reason="runner_start_failed",
+                )
+            except Exception:
+                _logging.getLogger(__name__).exception(
+                    "Auto-cancel failed after start error for match %s",
+                    match_id,
+                )
+                if match.stream:
+                    match.stream.status = StreamStatus.ERROR
+                await db.commit()
 
         return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
@@ -719,26 +729,22 @@ async def match_cancel(match_id: UUID):
         from app.services.match_runner import stop_match as runner_stop
         await runner_stop(str(match_id))
 
-        # ── CONTRACT FIRST: cancel on-chain BEFORE DB ──
-        if match.on_chain_match_pda:
-            try:
-                from app.services.on_chain_match import cancel_match_on_chain
-                await cancel_match_on_chain(match.on_chain_match_pda)
-            except Exception as exc:
-                _logger.error(
-                    "On-chain cancel_match failed for %s: %s",
-                    match_id, exc, exc_info=True,
-                )
-                # Contract is source of truth — abort if on-chain cancel fails
-                return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
+        from app.services.match_cancel import cancel_match_contract_first
 
-        match.status = MatchStatus.CANCELLED
-        if match.stream:
-            match.stream.status = StreamStatus.STOPPED
-        for bet in match.bets:
-            if bet.status == BetStatus.ACTIVE:
-                bet.status = BetStatus.CANCELLED
-        await db.commit()
+        try:
+            await cancel_match_contract_first(
+                db,
+                match,
+                stream_status=StreamStatus.STOPPED,
+                reason="admin_view_cancel",
+            )
+        except Exception as exc:
+            _logger.error(
+                "On-chain cancel_match failed for %s: %s",
+                match_id, exc, exc_info=True,
+            )
+            # Contract is source of truth — abort if on-chain cancel fails
+            return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
     return RedirectResponse(url="/admin/matches", status_code=303)
 

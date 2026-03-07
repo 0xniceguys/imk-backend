@@ -16,7 +16,7 @@ from app.services.solana_tx import (
     DEVNET_RPC,
     MAINNET_RPC,
     build_sol_transfer,
-    build_spl_transfer,
+    build_spl_transfer_with_optional_dst_ata,
     get_recent_blockhash,
     get_token_account,
 )
@@ -96,19 +96,16 @@ async def withdraw(
 
         if src_ata is None:
             raise HTTPException(400, f"No {token_symbol} token account found in your wallet")
-        if dst_ata is None:
-            raise HTTPException(
-                400,
-                f"Recipient has no {token_symbol} token account — they need to receive {token_symbol} first",
-            )
 
         token_amount = _amount_to_base_units(body.amount, token_decimals)
-        tx_bytes = build_spl_transfer(
+        tx_bytes = build_spl_transfer_with_optional_dst_ata(
             owner=user.wallet_address,
             src_ata=src_ata,
-            dst_ata=dst_ata,
+            dst_owner=body.to_address,
+            mint=mint,
             amount=token_amount,
             blockhash=blockhash,
+            create_dst_ata_if_missing=dst_ata is None,
         )
 
     # Sign + broadcast via Privy (user-delegated via JWT)
@@ -149,6 +146,7 @@ async def prepare_withdraw(
     mint = settings.skr_mint
     token_symbol = settings.token_symbol
     token_decimals = int(settings.token_decimals)
+    created_destination_ata = False
 
     # Fetch recent blockhash from Solana RPC
     blockhash = await get_recent_blockhash(rpc)
@@ -168,26 +166,32 @@ async def prepare_withdraw(
 
         if src_ata is None:
             raise HTTPException(400, f"No {token_symbol} token account found in your wallet")
-        if dst_ata is None:
-            raise HTTPException(
-                400,
-                f"Recipient has no {token_symbol} token account — they need to receive {token_symbol} first",
-            )
 
         token_amount = _amount_to_base_units(body.amount, token_decimals)
-        tx_bytes = build_spl_transfer(
+        created_destination_ata = dst_ata is None
+        tx_bytes = build_spl_transfer_with_optional_dst_ata(
             owner=user.wallet_address,
             src_ata=src_ata,
-            dst_ata=dst_ata,
+            dst_owner=body.to_address,
+            mint=mint,
             amount=token_amount,
             blockhash=blockhash,
+            create_dst_ata_if_missing=created_destination_ata,
         )
 
     # Return unsigned transaction as base64
     tx_b64 = base64.b64encode(tx_bytes).decode()
+    ata_note = (
+        f" Recipient {token_symbol} token account will be created in this transaction."
+        if created_destination_ata
+        else ""
+    )
     return PrepareWithdrawResponse(
         transaction_base64=tx_b64,
-        message=f"Sign this transaction to withdraw {body.amount} {body.token.upper()} to {body.to_address}",
+        message=(
+            f"Sign this transaction to withdraw {body.amount} {body.token.upper()} "
+            f"to {body.to_address}.{ata_note}"
+        ),
     )
 
 

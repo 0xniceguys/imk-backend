@@ -440,9 +440,11 @@ class PrivyService {
 
   /// Get the current Privy ID token for server-side wallet signing.
   /// The Privy Flutter SDK exposes this as `identityToken` on PrivyUser.
-  /// Falls back to access token if identity token is unavailable
-  /// (e.g. user session predates enabling identity tokens in dashboard).
-  Future<String?> getIdToken() async {
+  ///
+  /// By default this is strict and returns `null` if an identity token
+  /// is unavailable, so we don't accidentally send an access token to
+  /// Privy signer endpoints (which often fails with 400).
+  Future<String?> getIdToken({bool allowAccessTokenFallback = false}) async {
     if (_user == null) return null;
     try {
       // 1. Try identity token first (required by Privy server-side signing)
@@ -463,22 +465,24 @@ class PrivyService {
         return refreshedToken;
       }
 
-      // 3. Fall back to access token with a warning
-      _log(
-        'WARNING: identityToken still null — user may need to log out and log back in.',
-      );
-      _log(
-        'Falling back to access token (may fail for server-side wallet signing).',
-      );
-      final accessResult = await _user!.getAccessToken();
-      if (accessResult is Success<String>) {
+      // 3. Optional fallback to access token (not recommended for signer calls)
+      if (allowAccessTokenFallback) {
         _log(
-          'Privy: Falling back to access token (${accessResult.value.length} chars)',
+          'WARNING: identityToken still null; falling back to access token by request.',
         );
-        return accessResult.value;
+        final accessResult = await _user!.getAccessToken();
+        if (accessResult is Success<String>) {
+          _log(
+            'Privy: fallback access token (${accessResult.value.length} chars)',
+          );
+          return accessResult.value;
+        }
       }
 
-      _log('getIdToken: no token available at all');
+      _log(
+        'getIdToken: identity token unavailable (no fallback). '
+        'User should re-authenticate.',
+      );
       return null;
     } catch (e) {
       _log('getIdToken error: $e');
