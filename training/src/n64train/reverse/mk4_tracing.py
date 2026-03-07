@@ -441,8 +441,8 @@ class Mk4FightTraceProvider:
             #  - p2_attack_sig_verified: move-signature decode validity.
             'p2_hitstun_verified': 1.0,
             'p2_attack_sig_verified': p2_move_signals_verified,
-            # P2 hitstun state flag: 2=idle, 1=being hit (from +0x0CC).
-            'p2_hitstun_state': float(p2_hitstun_state_raw == 1) if p2_hitstun_state_raw is not None else 0.0,
+            # P2 hitstun state flag: 2=idle, 1=hit_start/recovery, 0=deep hitstun (from +0x0CC).
+            'p2_hitstun_state': float(p2_hitstun_state_raw is not None and p2_hitstun_state_raw != 2),
             # Short commitment window derived from decoded attack signatures.
             # Now also includes real hitstun detection.
             'p2_recent_attack': p2_recent_attack,

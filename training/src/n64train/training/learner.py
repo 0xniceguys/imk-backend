@@ -155,6 +155,7 @@ class ParallelLearner:
         start_time = time.time()
         ROLLOUT_TIMEOUT = 300.0   # seconds: max-ep (~99s) + savestate + PPO update overhead
         timeout_count = 0
+        MAX_TIMEOUTS = 10        # 10 ×300s = 100 min before giving up
 
         while workers_done < self.n_workers:
             # Bug 4: write heartbeat to per-run-id file
@@ -169,7 +170,7 @@ class ParallelLearner:
                 timeout_count += 1
                 print(f'[learner] WARNING: no rollout received in {ROLLOUT_TIMEOUT:.0f}s — '
                       f'workers may be stuck (done={workers_done}/{self.n_workers})')
-                if timeout_count >= 3:
+                if timeout_count >= MAX_TIMEOUTS:
                     raise RuntimeError(
                         f'Learner timed out waiting for rollouts '
                         f'({timeout_count} x {ROLLOUT_TIMEOUT:.0f}s)'

@@ -49,8 +49,8 @@ MAX_EPISODE_SECS = 99      # full MK4 round timer — agent has full fight durat
 STEP_SECS        = 0.1     # 6 frames per decision — amortizes debugger round-trip overhead, ~3x faster than 2-frame steps
 # Faster episode turnover for parallel training: deterministic 30-frame settle.
 SETTLE_SECS      = 0.5
-X_NORM           = 15.0    # position normalisation ceiling
-DIST_NORM        = 15.0    # distance normalisation ceiling
+X_NORM           = 30.0    # position normalisation ceiling (actual range ~±30)
+DIST_NORM        = 30.0    # distance normalisation ceiling (actual distances reach 30+)
 
 
 # ── Button mapping ────────────────────────────────────────────────────────────
@@ -169,13 +169,13 @@ def write_ctrl(ctrl_state: ControllerState, path: str = P1_CTRL) -> None:
 
 
 # ── Observation builder ───────────────────────────────────────────────────────
-# Observation size constants (update these if adding more RAM signals)
-RAW_OBS_DIM = 22    # single-frame; 7 core + 7 motion/attack + 8 move-type one-hot signals
+# Observation size constants — FINAL: do not change without full checkpoint reset
+RAW_OBS_DIM = 27    # single-frame; 7 core + 12 combat state + 8 move-type one-hot
 
 def build_obs(state) -> list[float]:
     """
-    22-float observation vector:
-      Position/health (always available):
+    27-float observation vector (FINAL — all MK4-relevant signals included):
+      Position/health (7):
         [0]  p1_hp          normalised health P1  [0,1]
         [1]  p2_hp          normalised health P2  [0,1]
         [2]  timer          countdown [0,1]
@@ -184,24 +184,29 @@ def build_obs(state) -> list[float]:
         [5]  dist           distance  [0,1]
         [6]  facing_sign    +1 normal / -1 crossed over
 
-      Live-scan-verified RAM signals (from TracedState.extras):
+      Combat state (12):
         [7]  p1_action      action state P1  {0,1}
         [8]  p2_action      action state P2  {0,1}
         [9]  p1_y_vel       Y velocity P1    [-1,1]  (neg=going up, pos=falling)
-        [10] p2_airborne    airborne flag P2 {0,1}   (P2 y_vel not in struct)
+        [10] p2_airborne    airborne flag P2 {0,1}
         [11] p1_hitstun     attack active P1 {0,1}
         [12] p2_hitstun     attack active P2 {0,1}
         [13] p1_airborne    airborne flag P1 {0,1}
+        [14] p1_victim      P1 being hit     {0,1}  — enables learning to block
+        [15] p2_victim      P2 being hit     {0,1}  — enables combo follow-ups
+        [16] p2_y_vel       Y velocity P2    [-1,1]  — enables anti-air timing
+        [17] p2_committed   P2 in attack window {0,1} — enables punish timing
+        [18] hp_advantage   health diff      [-1,1]  — who's winning
 
-      Deterministic move-type one-hot (verified signatures):
-        [14] p1_move_lp     P1 low punch
-        [15] p1_move_hp     P1 high punch
-        [16] p1_move_lk     P1 low kick
-        [17] p1_move_hk     P1 high kick
-        [18] p2_move_lp     P2 low punch
-        [19] p2_move_hp     P2 high punch
-        [20] p2_move_lk     P2 low kick
-        [21] p2_move_hk     P2 high kick
+      Move-type one-hot (8):
+        [19] p1_move_lp     P1 low punch
+        [20] p1_move_hp     P1 high punch
+        [21] p1_move_lk     P1 low kick
+        [22] p1_move_hk     P1 high kick
+        [23] p2_move_lp     P2 low punch
+        [24] p2_move_hp     P2 high punch
+        [25] p2_move_lk     P2 low kick
+        [26] p2_move_hk     P2 high kick
     """
     ex = state.extras if hasattr(state, 'extras') and state.extras else {}
 
@@ -217,6 +222,14 @@ def build_obs(state) -> list[float]:
     p1_hitstun = float(ex.get('p1_hitstun', 0.0) > 0)
     p2_hitstun = float(ex.get('p2_hitstun', 0.0) > 0)
     p1_airborne = float(ex.get('p1_airborne', 0.0))
+
+    # New signals
+    p1_victim = float(ex.get('p1_victim_hitstun', 0.0) > 0)
+    p2_victim = float(ex.get('p2_hitstun_state', 0.0) > 0)
+    p2_y_vel  = max(-1.0, min(1.0, ex.get('p2_y_vel', 0.0)))
+    p2_committed = float(ex.get('p2_recent_attack', 0.0) > 0)
+    hp_advantage = max(-1.0, min(1.0, p1_hp - p2_hp))
+
     p1_move_lp = float(ex.get('p1_move_lp', 0.0) > 0)
     p1_move_hp = float(ex.get('p1_move_hp', 0.0) > 0)
     p1_move_lk = float(ex.get('p1_move_lk', 0.0) > 0)
@@ -238,24 +251,30 @@ def build_obs(state) -> list[float]:
         p2_action = float((p2_airborne > 0.5) or (p2_hitstun > 0.5))
 
     return [
-        # ── 7 position/health signals ─────────────────────────────────────────
+        # ── 7 position/health ─────────────────────────────────────────────────
         p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing,
-        # ── 7 live-scan-verified signals ──────────────────────────────────────
-        p1_action,                                       # [7]  P1 animation/action state (or proxy)
-        p2_action,                                       # [8]  P2 animation/action state (or proxy)
-        p1_y_vel,                                        # [9]  P1 Y velocity (neg=up, pos=down)
-        p2_airborne,                                     # [10] P2 airborne (P2 y_vel N/A)
-        p1_hitstun,                                      # [11] P1 attack/hitbox active
-        p2_hitstun,                                      # [12] P2 attack/hitbox active
-        p1_airborne,                                     # [13] P1 airborne
-        p1_move_lp,                                      # [14] P1 move: LP
-        p1_move_hp,                                      # [15] P1 move: HP
-        p1_move_lk,                                      # [16] P1 move: LK
-        p1_move_hk,                                      # [17] P1 move: HK
-        p2_move_lp,                                      # [18] P2 move: LP
-        p2_move_hp,                                      # [19] P2 move: HP
-        p2_move_lk,                                      # [20] P2 move: LK
-        p2_move_hk,                                      # [21] P2 move: HK
+        # ── 12 combat state ───────────────────────────────────────────────────
+        p1_action,                                       # [7]
+        p2_action,                                       # [8]
+        p1_y_vel,                                        # [9]
+        p2_airborne,                                     # [10]
+        p1_hitstun,                                      # [11]
+        p2_hitstun,                                      # [12]
+        p1_airborne,                                     # [13]
+        p1_victim,                                       # [14] P1 being hit
+        p2_victim,                                       # [15] P2 being hit/stunned
+        p2_y_vel,                                        # [16] P2 Y velocity
+        p2_committed,                                    # [17] P2 in attack window
+        hp_advantage,                                    # [18] health difference
+        # ── 8 move-type one-hot ───────────────────────────────────────────────
+        p1_move_lp,                                      # [19]
+        p1_move_hp,                                      # [20]
+        p1_move_lk,                                      # [21]
+        p1_move_hk,                                      # [22]
+        p2_move_lp,                                      # [23]
+        p2_move_hp,                                      # [24]
+        p2_move_lk,                                      # [25]
+        p2_move_hk,                                      # [26]
     ]
 
 

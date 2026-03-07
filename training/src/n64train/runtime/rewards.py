@@ -7,7 +7,7 @@ from n64train.runtime.types import RewardTerms, TracedState
 
 HEALTH_MAX = 160.0    # normalized from u32 0x10000 in mk4_tracing.py
 FIGHTING_RANGE = 4.0   # units — slightly wider range to reward sustained pressure
-MAX_DIST = 15.0        # units — normalisation ceiling
+MAX_DIST = 30.0        # units — normalisation ceiling (actual distances reach 30+)
 
 # Anti-spam: which actions are "attacks" (have a cooldown enforcement)
 ATTACK_ACTIONS = {
@@ -52,8 +52,8 @@ class RewardConfig:
     damage_taken_scale:  float = 1.5
 
     # Positional signals
-    approach_scale:      float = 0.45
-    dist_penalty_scale:  float = 0.35
+    approach_scale:      float = 1.0
+    dist_penalty_scale:  float = 0.15
 
     # Episode outcome
     win_bonus:           float = 50.0
@@ -70,11 +70,11 @@ class RewardConfig:
     # LLM-introduced extras
     aggression:          float = 0.5   # bonus when attack CONNECTS in range (hit confirmation)
     idle_penalty:        float = 0.0   # per-step penalty for NEUTRAL action
-    positioning_bonus:   float = 0.10  # per-step reward for being at fighting range (footsies)
+    positioning_bonus:   float = 0.15  # per-step reward for being at fighting range (footsies)
     move_flip_penalty:   float = MOVE_FLIP_PENALTY
     jump_spam_penalty:   float = JUMP_SPAM_PENALTY
     # Engagement shaping while outside fighting range.
-    engage_forward_bonus: float = 0.16
+    engage_forward_bonus: float = 0.35
     retreat_far_penalty:  float = 0.24
     jump_back_far_penalty: float = 0.28
     neutral_far_penalty:  float = 0.18
@@ -165,7 +165,7 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
 
     damage_dealt_scale: float = 1.0
     damage_taken_scale: float = 1.5
-    approach_scale:     float = 0.45
+    approach_scale:     float = 1.0
     dist_penalty_scale: float = 0.15
     win_bonus:          float = 50.0
     loss_penalty:       float = 25.0
@@ -278,6 +278,7 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
         current_dist = None
         prev_dist = None
         next_dist = None
+        pos_bonus_val = self._get('positioning_bonus')
         if (prev_state.p1_x is not None and prev_state.p2_x is not None and
                 next_state.p1_x is not None and next_state.p2_x is not None):
 
@@ -287,10 +288,16 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
 
             if next_dist < prev_dist and prev_dist > FIGHTING_RANGE:
                 approach = (prev_dist - next_dist) * app_scale
+            elif next_dist > prev_dist and next_dist > FIGHTING_RANGE:
+                # Penalize moving AWAY when already outside fighting range
+                approach = -(next_dist - prev_dist) * app_scale * 0.5
             if next_dist > FIGHTING_RANGE:
                 # Scale distance penalty by how far outside fighting range we are.
                 overshoot = min(1.0, max(0.0, (next_dist - FIGHTING_RANGE) / (MAX_DIST - FIGHTING_RANGE)))
                 dist_pen = -(dist_pen_s * (1.0 + 2.0 * overshoot))
+            elif next_dist <= FIGHTING_RANGE:
+                # Reward staying in fighting range — teaches the agent to hold position
+                approach += pos_bonus_val
 
         # ── Survival ──────────────────────────────────────────────────────────
         survival = survival_s
@@ -304,12 +311,7 @@ class Mk4ShapedRewardExtractor(RewardExtractor):
                 and current_dist is not None and current_dist <= FIGHTING_RANGE):
             aggression_bonus = aggression
 
-        # ── Positioning bonus (footsies) ─────────────────────────────────────
-        # Small per-step reward for being at fighting range — teaches spacing
-        pos_bonus_val = self._get('positioning_bonus')
         positioning = 0.0
-        if pos_bonus_val > 0 and current_dist is not None and current_dist <= FIGHTING_RANGE:
-            positioning = pos_bonus_val
 
         # ── Idle penalty (LLM-tunable) ────────────────────────────────────────
         idle_bonus = idle_pen if current_action == 'NEUTRAL' else 0.0

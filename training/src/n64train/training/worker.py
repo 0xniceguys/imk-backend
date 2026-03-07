@@ -113,12 +113,12 @@ def run_worker(
     TERMINAL_WIN_MULT = {
         'ko': 1.00,
         'timer': 0.35,
-        'wall_timeout': 0.15,
+        'wall_timeout': 0.0,   # no reward for running out the wall clock
     }
     TERMINAL_LOSS_MULT = {
         'ko': 1.00,
         'timer': 1.00,
-        'wall_timeout': 1.00,
+        'wall_timeout': 1.50,  # extra punishment for passive wall-timeout losses
     }
     # TRACE logging is expensive with many workers; default to a lower frequency.
     # Set N64TRACE_EVERY=0 to disable, or a small integer for verbose tracing.
@@ -714,7 +714,11 @@ def run_worker(
                             macro_to_ctrl_state_facing(opp_macro, opp_facing),
                             ctrl_path_p2,
                         )
-                    except Exception:
+                    except Exception as _p2_exc:
+                        print(
+                            f'[worker-{worker_id}] P2 opponent error step={ep_steps}: {_p2_exc}',
+                            flush=True,
+                        )
                         write_ctrl_worker(ControllerState(), ctrl_path_p2)
 
                 _step_frames(action_frames)

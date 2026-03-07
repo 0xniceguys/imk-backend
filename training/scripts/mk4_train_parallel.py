@@ -206,9 +206,6 @@ def launch_bridge(
 
     # Per-worker ctrl file so buttons go to the RIGHT emulator
     env = os.environ.copy()
-    # Force software rendering — prevents all 15+ emulators from fighting
-    # the GPU with OpenGL calls. Nobody watches these frames anyway.
-    env['LIBGL_ALWAYS_SOFTWARE'] = '1'
     env['N64TRAIN_CTRL_P1'] = ctrl
     if enable_p2_controller:
         env['N64TRAIN_CTRL_P2'] = ctrl + '_p2'
@@ -552,6 +549,13 @@ def main() -> int:
         learner_proc.join(timeout=2.0)
         for p in bridge_procs:
             _terminate_process(p)
+        # Close queues to release semaphores and prevent resource_tracker warnings
+        for q in [rollout_queue] + weight_queues:
+            try:
+                q.close()
+                q.join_thread()
+            except Exception:
+                pass
         print('[parallel] All processes stopped.')
     return exit_code
 

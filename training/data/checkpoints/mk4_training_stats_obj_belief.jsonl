@@ -1,58 +1,99 @@
-{"episode": 1, "arch": "mk4_object_belief_hier_wm", "n_steps": 347, "belief_loss": 0.038, "ppo_policy_loss": -0.0377, "ppo_value_loss": 6.0961, "ppo_entropy": 3.0322, "ppo_ratio_mean": 1.0017, "ppo_clip_frac": 0.1499}
-{"episode": 2, "arch": "mk4_object_belief_hier_wm", "n_steps": 431, "belief_loss": 0.0725, "ppo_policy_loss": -0.0104, "ppo_value_loss": 8.6507, "ppo_entropy": 3.0344, "ppo_ratio_mean": 1.0103, "ppo_clip_frac": 0.2181}
+{"episode": 1, "arch": "mk4_object_belief_hier_wm", "n_steps": 654, "belief_loss": 0.0945, "ppo_policy_loss": -0.0219, "ppo_value_loss": 13.3045, "ppo_entropy": 3.0302, "ppo_ratio_mean": 1.0024, "ppo_clip_frac": 0.1346}
+{"episode": 2, "arch": "mk4_object_belief_hier_wm", "n_steps": 658, "belief_loss": 0.0693, "ppo_policy_loss": -0.0066, "ppo_value_loss": 13.259, "ppo_entropy": 3.0384, "ppo_ratio_mean": 1.0009, "ppo_clip_frac": 0.0623}
 {"update": 1, "agent": "obj_belief", "episode": 2, "batch_eps": 2}
-{"episode": 3, "arch": "mk4_object_belief_hier_wm", "n_steps": 368, "belief_loss": 0.0488, "ppo_policy_loss": -0.0181, "ppo_value_loss": 6.307, "ppo_entropy": 3.0312, "ppo_ratio_mean": 1.0058, "ppo_clip_frac": 0.2011}
-{"episode": 4, "arch": "mk4_object_belief_hier_wm", "n_steps": 502, "belief_loss": 0.0494, "ppo_policy_loss": 0.0117, "ppo_value_loss": 6.8665, "ppo_entropy": 3.0199, "ppo_ratio_mean": 1.0048, "ppo_clip_frac": 0.4243}
+{"episode": 3, "arch": "mk4_object_belief_hier_wm", "n_steps": 580, "belief_loss": 0.077, "ppo_policy_loss": -0.0218, "ppo_value_loss": 10.9615, "ppo_entropy": 3.0285, "ppo_ratio_mean": 1.0062, "ppo_clip_frac": 0.4224}
+{"episode": 4, "arch": "mk4_object_belief_hier_wm", "n_steps": 653, "belief_loss": 0.0481, "ppo_policy_loss": 0.0184, "ppo_value_loss": 13.0573, "ppo_entropy": 3.0202, "ppo_ratio_mean": 0.9828, "ppo_clip_frac": 0.3859}
 {"update": 2, "agent": "obj_belief", "episode": 4, "batch_eps": 2}
-{"episode": 5, "arch": "mk4_object_belief_hier_wm", "n_steps": 304, "belief_loss": 0.0851, "ppo_policy_loss": 0.0127, "ppo_value_loss": 10.8524, "ppo_entropy": 3.0244, "ppo_ratio_mean": 1.0097, "ppo_clip_frac": 0.3783}
-{"episode": 6, "arch": "mk4_object_belief_hier_wm", "n_steps": 476, "belief_loss": 0.0283, "ppo_policy_loss": 0.0257, "ppo_value_loss": 8.0008, "ppo_entropy": 3.027, "ppo_ratio_mean": 1.0018, "ppo_clip_frac": 0.313}
+{"episode": 5, "arch": "mk4_object_belief_hier_wm", "n_steps": 652, "belief_loss": 0.0299, "ppo_policy_loss": -0.013, "ppo_value_loss": 8.9337, "ppo_entropy": 3.0252, "ppo_ratio_mean": 1.0118, "ppo_clip_frac": 0.4064}
+{"episode": 6, "arch": "mk4_object_belief_hier_wm", "n_steps": 650, "belief_loss": 0.0371, "ppo_policy_loss": 0.0039, "ppo_value_loss": 16.08, "ppo_entropy": 3.0269, "ppo_ratio_mean": 0.9996, "ppo_clip_frac": 0.4277}
 {"update": 3, "agent": "obj_belief", "episode": 6, "batch_eps": 2}
-{"episode": 7, "arch": "mk4_object_belief_hier_wm", "n_steps": 319, "belief_loss": 0.0848, "ppo_policy_loss": 0.0088, "ppo_value_loss": 8.6787, "ppo_entropy": 3.0284, "ppo_ratio_mean": 1.0032, "ppo_clip_frac": 0.2884}
-{"episode": 8, "arch": "mk4_object_belief_hier_wm", "n_steps": 273, "belief_loss": 0.1075, "ppo_policy_loss": 0.0117, "ppo_value_loss": 11.7706, "ppo_entropy": 3.0256, "ppo_ratio_mean": 1.0038, "ppo_clip_frac": 0.1795}
+{"episode": 7, "arch": "mk4_object_belief_hier_wm", "n_steps": 658, "belief_loss": 0.0302, "ppo_policy_loss": 0.0149, "ppo_value_loss": 15.5731, "ppo_entropy": 3.0273, "ppo_ratio_mean": 1.0071, "ppo_clip_frac": 0.5608}
+{"episode": 8, "arch": "mk4_object_belief_hier_wm", "n_steps": 651, "belief_loss": 0.0413, "ppo_policy_loss": -0.0072, "ppo_value_loss": 12.5845, "ppo_entropy": 3.0315, "ppo_ratio_mean": 0.9905, "ppo_clip_frac": 0.1413}
 {"update": 4, "agent": "obj_belief", "episode": 8, "batch_eps": 2}
-{"episode": 9, "arch": "mk4_object_belief_hier_wm", "n_steps": 488, "belief_loss": 0.0799, "ppo_policy_loss": -0.002, "ppo_value_loss": 5.3187, "ppo_entropy": 3.0144, "ppo_ratio_mean": 1.0071, "ppo_clip_frac": 0.1045}
-{"episode": 10, "arch": "mk4_object_belief_hier_wm", "n_steps": 375, "belief_loss": 0.0607, "ppo_policy_loss": -0.0121, "ppo_value_loss": 6.0306, "ppo_entropy": 3.0035, "ppo_ratio_mean": 0.9869, "ppo_clip_frac": 0.336}
+{"episode": 9, "arch": "mk4_object_belief_hier_wm", "n_steps": 580, "belief_loss": 0.0508, "ppo_policy_loss": -0.0074, "ppo_value_loss": 12.5244, "ppo_entropy": 3.0255, "ppo_ratio_mean": 1.0029, "ppo_clip_frac": 0.3931}
+{"episode": 10, "arch": "mk4_object_belief_hier_wm", "n_steps": 660, "belief_loss": 0.032, "ppo_policy_loss": -0.0072, "ppo_value_loss": 15.7221, "ppo_entropy": 3.0209, "ppo_ratio_mean": 1.0099, "ppo_clip_frac": 0.2803}
 {"update": 5, "agent": "obj_belief", "episode": 10, "batch_eps": 2}
-{"episode": 11, "arch": "mk4_object_belief_hier_wm", "n_steps": 519, "belief_loss": 0.0329, "ppo_policy_loss": 0.0093, "ppo_value_loss": 4.7125, "ppo_entropy": 2.9937, "ppo_ratio_mean": 1.0052, "ppo_clip_frac": 0.4547}
-{"episode": 12, "arch": "mk4_object_belief_hier_wm", "n_steps": 350, "belief_loss": 0.1227, "ppo_policy_loss": -0.0059, "ppo_value_loss": 9.188, "ppo_entropy": 2.9922, "ppo_ratio_mean": 0.9925, "ppo_clip_frac": 0.3686}
+{"episode": 11, "arch": "mk4_object_belief_hier_wm", "n_steps": 531, "belief_loss": 0.0877, "ppo_policy_loss": -0.0121, "ppo_value_loss": 13.7515, "ppo_entropy": 3.026, "ppo_ratio_mean": 1.0003, "ppo_clip_frac": 0.3936}
+{"episode": 12, "arch": "mk4_object_belief_hier_wm", "n_steps": 657, "belief_loss": 0.0451, "ppo_policy_loss": -0.0032, "ppo_value_loss": 17.2528, "ppo_entropy": 3.0292, "ppo_ratio_mean": 0.999, "ppo_clip_frac": 0.1674}
 {"update": 6, "agent": "obj_belief", "episode": 12, "batch_eps": 2}
-{"episode": 13, "arch": "mk4_object_belief_hier_wm", "n_steps": 445, "belief_loss": 0.049, "ppo_policy_loss": -0.0041, "ppo_value_loss": 6.3284, "ppo_entropy": 2.9972, "ppo_ratio_mean": 0.9987, "ppo_clip_frac": 0.4809}
-{"episode": 14, "arch": "mk4_object_belief_hier_wm", "n_steps": 352, "belief_loss": 0.0643, "ppo_policy_loss": -0.0017, "ppo_value_loss": 6.2951, "ppo_entropy": 3.0067, "ppo_ratio_mean": 1.0011, "ppo_clip_frac": 0.1847}
+{"episode": 13, "arch": "mk4_object_belief_hier_wm", "n_steps": 656, "belief_loss": 0.0382, "ppo_policy_loss": -0.0037, "ppo_value_loss": 13.912, "ppo_entropy": 3.0301, "ppo_ratio_mean": 0.9978, "ppo_clip_frac": 0.3232}
+{"episode": 14, "arch": "mk4_object_belief_hier_wm", "n_steps": 643, "belief_loss": 0.0385, "ppo_policy_loss": -0.0092, "ppo_value_loss": 11.1005, "ppo_entropy": 3.0213, "ppo_ratio_mean": 1.0015, "ppo_clip_frac": 0.2986}
 {"update": 7, "agent": "obj_belief", "episode": 14, "batch_eps": 2}
-{"episode": 15, "arch": "mk4_object_belief_hier_wm", "n_steps": 350, "belief_loss": 0.0532, "ppo_policy_loss": 0.0105, "ppo_value_loss": 11.0514, "ppo_entropy": 2.9953, "ppo_ratio_mean": 0.9843, "ppo_clip_frac": 0.3857}
-{"episode": 16, "arch": "mk4_object_belief_hier_wm", "n_steps": 293, "belief_loss": 0.0714, "ppo_policy_loss": -0.0018, "ppo_value_loss": 6.4077, "ppo_entropy": 2.9631, "ppo_ratio_mean": 1.0007, "ppo_clip_frac": 0.3242}
+{"episode": 15, "arch": "mk4_object_belief_hier_wm", "n_steps": 657, "belief_loss": 0.0234, "ppo_policy_loss": 0.0027, "ppo_value_loss": 16.4179, "ppo_entropy": 3.0166, "ppo_ratio_mean": 0.9938, "ppo_clip_frac": 0.4688}
+{"episode": 16, "arch": "mk4_object_belief_hier_wm", "n_steps": 519, "belief_loss": 0.0544, "ppo_policy_loss": -0.0155, "ppo_value_loss": 14.5285, "ppo_entropy": 3.0148, "ppo_ratio_mean": 1.0011, "ppo_clip_frac": 0.2852}
 {"update": 8, "agent": "obj_belief", "episode": 16, "batch_eps": 2}
-{"episode": 17, "arch": "mk4_object_belief_hier_wm", "n_steps": 368, "belief_loss": 0.0735, "ppo_policy_loss": 0.03, "ppo_value_loss": 10.5142, "ppo_entropy": 2.9593, "ppo_ratio_mean": 0.955, "ppo_clip_frac": 0.4565}
-{"episode": 18, "arch": "mk4_object_belief_hier_wm", "n_steps": 296, "belief_loss": 0.0703, "ppo_policy_loss": 0.0151, "ppo_value_loss": 10.9335, "ppo_entropy": 2.9868, "ppo_ratio_mean": 0.9879, "ppo_clip_frac": 0.375}
+{"episode": 17, "arch": "mk4_object_belief_hier_wm", "n_steps": 635, "belief_loss": 0.0311, "ppo_policy_loss": -0.0002, "ppo_value_loss": 11.2923, "ppo_entropy": 3.0012, "ppo_ratio_mean": 0.9902, "ppo_clip_frac": 0.3575}
+{"episode": 18, "arch": "mk4_object_belief_hier_wm", "n_steps": 651, "belief_loss": 0.045, "ppo_policy_loss": 0.0225, "ppo_value_loss": 12.02, "ppo_entropy": 2.9966, "ppo_ratio_mean": 0.9929, "ppo_clip_frac": 0.5084}
 {"update": 9, "agent": "obj_belief", "episode": 18, "batch_eps": 2}
-{"episode": 19, "arch": "mk4_object_belief_hier_wm", "n_steps": 264, "belief_loss": 0.1353, "ppo_policy_loss": 0.0433, "ppo_value_loss": 7.8832, "ppo_entropy": 2.9987, "ppo_ratio_mean": 0.9681, "ppo_clip_frac": 0.7765}
-{"episode": 20, "arch": "mk4_object_belief_hier_wm", "n_steps": 386, "belief_loss": 0.092, "ppo_policy_loss": 0.0437, "ppo_value_loss": 9.4956, "ppo_entropy": 2.9964, "ppo_ratio_mean": 1.0033, "ppo_clip_frac": 0.7927}
+{"episode": 19, "arch": "mk4_object_belief_hier_wm", "n_steps": 477, "belief_loss": 0.007, "ppo_policy_loss": -0.0219, "ppo_value_loss": 13.0613, "ppo_entropy": 3.0063, "ppo_ratio_mean": 0.9825, "ppo_clip_frac": 0.4046}
+{"episode": 20, "arch": "mk4_object_belief_hier_wm", "n_steps": 655, "belief_loss": 0.0687, "ppo_policy_loss": 0.011, "ppo_value_loss": 11.0843, "ppo_entropy": 3.0, "ppo_ratio_mean": 1.0167, "ppo_clip_frac": 0.5786}
 {"update": 10, "agent": "obj_belief", "episode": 20, "batch_eps": 2}
-{"episode": 21, "arch": "mk4_object_belief_hier_wm", "n_steps": 404, "belief_loss": 0.0767, "ppo_policy_loss": 0.0122, "ppo_value_loss": 9.8085, "ppo_entropy": 3.0008, "ppo_ratio_mean": 0.9982, "ppo_clip_frac": 0.2005}
-{"episode": 22, "arch": "mk4_object_belief_hier_wm", "n_steps": 458, "belief_loss": 0.0171, "ppo_policy_loss": -0.0069, "ppo_value_loss": 6.545, "ppo_entropy": 2.9973, "ppo_ratio_mean": 0.9923, "ppo_clip_frac": 0.1048}
+{"episode": 21, "arch": "mk4_object_belief_hier_wm", "n_steps": 652, "belief_loss": 0.0929, "ppo_policy_loss": 0.0132, "ppo_value_loss": 16.3062, "ppo_entropy": 2.9917, "ppo_ratio_mean": 0.9855, "ppo_clip_frac": 0.6396}
+{"episode": 22, "arch": "mk4_object_belief_hier_wm", "n_steps": 549, "belief_loss": 0.1082, "ppo_policy_loss": -0.0035, "ppo_value_loss": 16.4172, "ppo_entropy": 2.9875, "ppo_ratio_mean": 0.9956, "ppo_clip_frac": 0.2951}
 {"update": 11, "agent": "obj_belief", "episode": 22, "batch_eps": 2}
-{"episode": 23, "arch": "mk4_object_belief_hier_wm", "n_steps": 449, "belief_loss": 0.0893, "ppo_policy_loss": 0.024, "ppo_value_loss": 12.5754, "ppo_entropy": 2.9888, "ppo_ratio_mean": 0.9989, "ppo_clip_frac": 0.5301}
-{"episode": 24, "arch": "mk4_object_belief_hier_wm", "n_steps": 433, "belief_loss": 0.0229, "ppo_policy_loss": -0.0008, "ppo_value_loss": 6.8496, "ppo_entropy": 2.9848, "ppo_ratio_mean": 1.0031, "ppo_clip_frac": 0.0231}
+{"episode": 23, "arch": "mk4_object_belief_hier_wm", "n_steps": 439, "belief_loss": 0.0849, "ppo_policy_loss": -0.0058, "ppo_value_loss": 11.2637, "ppo_entropy": 3.0008, "ppo_ratio_mean": 1.0023, "ppo_clip_frac": 0.1344}
+{"episode": 24, "arch": "mk4_object_belief_hier_wm", "n_steps": 659, "belief_loss": 0.0654, "ppo_policy_loss": 0.0135, "ppo_value_loss": 16.5398, "ppo_entropy": 2.9941, "ppo_ratio_mean": 1.0073, "ppo_clip_frac": 0.6039}
 {"update": 12, "agent": "obj_belief", "episode": 24, "batch_eps": 2}
-{"episode": 25, "arch": "mk4_object_belief_hier_wm", "n_steps": 299, "belief_loss": 0.0565, "ppo_policy_loss": -0.0303, "ppo_value_loss": 10.4553, "ppo_entropy": 2.9847, "ppo_ratio_mean": 1.0014, "ppo_clip_frac": 0.2207}
-{"episode": 26, "arch": "mk4_object_belief_hier_wm", "n_steps": 319, "belief_loss": 0.0536, "ppo_policy_loss": 0.0283, "ppo_value_loss": 9.7799, "ppo_entropy": 2.971, "ppo_ratio_mean": 1.0143, "ppo_clip_frac": 0.6646}
+{"episode": 25, "arch": "mk4_object_belief_hier_wm", "n_steps": 659, "belief_loss": 0.0385, "ppo_policy_loss": 0.0097, "ppo_value_loss": 13.3296, "ppo_entropy": 2.9864, "ppo_ratio_mean": 1.0008, "ppo_clip_frac": 0.3612}
+{"episode": 26, "arch": "mk4_object_belief_hier_wm", "n_steps": 653, "belief_loss": 0.0461, "ppo_policy_loss": 0.0092, "ppo_value_loss": 13.3548, "ppo_entropy": 2.9833, "ppo_ratio_mean": 0.9947, "ppo_clip_frac": 0.3002}
 {"update": 13, "agent": "obj_belief", "episode": 26, "batch_eps": 2}
-{"episode": 27, "arch": "mk4_object_belief_hier_wm", "n_steps": 381, "belief_loss": 0.0704, "ppo_policy_loss": 0.0068, "ppo_value_loss": 6.4574, "ppo_entropy": 2.9631, "ppo_ratio_mean": 0.9842, "ppo_clip_frac": 0.5433}
-{"episode": 28, "arch": "mk4_object_belief_hier_wm", "n_steps": 348, "belief_loss": 0.0363, "ppo_policy_loss": 0.0427, "ppo_value_loss": 6.6468, "ppo_entropy": 2.9554, "ppo_ratio_mean": 0.9891, "ppo_clip_frac": 0.4799}
+{"episode": 27, "arch": "mk4_object_belief_hier_wm", "n_steps": 654, "belief_loss": 0.0328, "ppo_policy_loss": 0.0083, "ppo_value_loss": 14.8755, "ppo_entropy": 2.9983, "ppo_ratio_mean": 1.0016, "ppo_clip_frac": 0.2783}
+{"episode": 28, "arch": "mk4_object_belief_hier_wm", "n_steps": 652, "belief_loss": 0.0459, "ppo_policy_loss": 0.0081, "ppo_value_loss": 19.1065, "ppo_entropy": 3.0052, "ppo_ratio_mean": 0.9951, "ppo_clip_frac": 0.25}
 {"update": 14, "agent": "obj_belief", "episode": 28, "batch_eps": 2}
-{"episode": 29, "arch": "mk4_object_belief_hier_wm", "n_steps": 358, "belief_loss": 0.0219, "ppo_policy_loss": 0.0144, "ppo_value_loss": 6.362, "ppo_entropy": 2.9357, "ppo_ratio_mean": 0.9859, "ppo_clip_frac": 0.5084}
-{"episode": 30, "arch": "mk4_object_belief_hier_wm", "n_steps": 322, "belief_loss": 0.0892, "ppo_policy_loss": 0.0082, "ppo_value_loss": 8.7014, "ppo_entropy": 2.9329, "ppo_ratio_mean": 1.0044, "ppo_clip_frac": 0.6366}
+{"episode": 29, "arch": "mk4_object_belief_hier_wm", "n_steps": 401, "belief_loss": 0.0563, "ppo_policy_loss": -0.0015, "ppo_value_loss": 11.25, "ppo_entropy": 2.9995, "ppo_ratio_mean": 0.9911, "ppo_clip_frac": 0.1122}
+{"episode": 30, "arch": "mk4_object_belief_hier_wm", "n_steps": 660, "belief_loss": 0.0519, "ppo_policy_loss": 0.017, "ppo_value_loss": 19.2723, "ppo_entropy": 2.9867, "ppo_ratio_mean": 0.9925, "ppo_clip_frac": 0.2818}
 {"update": 15, "agent": "obj_belief", "episode": 30, "batch_eps": 2}
-{"episode": 31, "arch": "mk4_object_belief_hier_wm", "n_steps": 404, "belief_loss": 0.0775, "ppo_policy_loss": 0.0079, "ppo_value_loss": 8.1781, "ppo_entropy": 2.953, "ppo_ratio_mean": 1.0096, "ppo_clip_frac": 0.2673}
-{"episode": 32, "arch": "mk4_object_belief_hier_wm", "n_steps": 376, "belief_loss": 0.0824, "ppo_policy_loss": 0.0081, "ppo_value_loss": 7.2189, "ppo_entropy": 2.9648, "ppo_ratio_mean": 1.0091, "ppo_clip_frac": 0.2367}
+{"episode": 31, "arch": "mk4_object_belief_hier_wm", "n_steps": 657, "belief_loss": 0.0377, "ppo_policy_loss": 0.0069, "ppo_value_loss": 14.1546, "ppo_entropy": 3.0001, "ppo_ratio_mean": 0.9951, "ppo_clip_frac": 0.1674}
+{"episode": 32, "arch": "mk4_object_belief_hier_wm", "n_steps": 660, "belief_loss": 0.0227, "ppo_policy_loss": 0.0074, "ppo_value_loss": 13.6019, "ppo_entropy": 3.002, "ppo_ratio_mean": 0.9963, "ppo_clip_frac": 0.5197}
 {"update": 16, "agent": "obj_belief", "episode": 32, "batch_eps": 2}
-{"episode": 33, "arch": "mk4_object_belief_hier_wm", "n_steps": 257, "belief_loss": 0.0701, "ppo_policy_loss": 0.0402, "ppo_value_loss": 12.6105, "ppo_entropy": 2.9692, "ppo_ratio_mean": 1.0263, "ppo_clip_frac": 0.5914}
-{"episode": 34, "arch": "mk4_object_belief_hier_wm", "n_steps": 420, "belief_loss": 0.0622, "ppo_policy_loss": 0.0142, "ppo_value_loss": 8.7124, "ppo_entropy": 2.9522, "ppo_ratio_mean": 1.014, "ppo_clip_frac": 0.5167}
+{"episode": 33, "arch": "mk4_object_belief_hier_wm", "n_steps": 660, "belief_loss": 0.0742, "ppo_policy_loss": 0.0143, "ppo_value_loss": 15.6457, "ppo_entropy": 2.9885, "ppo_ratio_mean": 1.0056, "ppo_clip_frac": 0.3424}
+{"episode": 34, "arch": "mk4_object_belief_hier_wm", "n_steps": 571, "belief_loss": 0.0589, "ppo_policy_loss": -0.0098, "ppo_value_loss": 12.1013, "ppo_entropy": 2.983, "ppo_ratio_mean": 1.007, "ppo_clip_frac": 0.1471}
 {"update": 17, "agent": "obj_belief", "episode": 34, "batch_eps": 2}
-{"episode": 35, "arch": "mk4_object_belief_hier_wm", "n_steps": 364, "belief_loss": 0.0401, "ppo_policy_loss": 0.0226, "ppo_value_loss": 5.1995, "ppo_entropy": 2.9441, "ppo_ratio_mean": 1.0287, "ppo_clip_frac": 0.511}
-{"episode": 36, "arch": "mk4_object_belief_hier_wm", "n_steps": 399, "belief_loss": 0.0139, "ppo_policy_loss": 0.0085, "ppo_value_loss": 8.7179, "ppo_entropy": 2.9711, "ppo_ratio_mean": 1.0242, "ppo_clip_frac": 0.4236}
+{"episode": 35, "arch": "mk4_object_belief_hier_wm", "n_steps": 657, "belief_loss": 0.0525, "ppo_policy_loss": 0.0185, "ppo_value_loss": 17.2669, "ppo_entropy": 2.9816, "ppo_ratio_mean": 1.0025, "ppo_clip_frac": 0.5023}
+{"episode": 36, "arch": "mk4_object_belief_hier_wm", "n_steps": 657, "belief_loss": 0.0373, "ppo_policy_loss": -0.002, "ppo_value_loss": 12.7997, "ppo_entropy": 2.9839, "ppo_ratio_mean": 1.0016, "ppo_clip_frac": 0.3029}
 {"update": 18, "agent": "obj_belief", "episode": 36, "batch_eps": 2}
-{"episode": 21, "arch": "mk4_object_belief_hier_wm", "n_steps": 552, "belief_loss": 0.02, "ppo_policy_loss": -0.0069, "ppo_value_loss": 10.1091, "ppo_entropy": 2.989, "ppo_ratio_mean": 1.0089, "ppo_clip_frac": 0.5417}
-{"episode": 22, "arch": "mk4_object_belief_hier_wm", "n_steps": 666, "belief_loss": 0.0367, "ppo_policy_loss": -0.0141, "ppo_value_loss": 6.77, "ppo_entropy": 3.0099, "ppo_ratio_mean": 1.0019, "ppo_clip_frac": 0.1291}
-{"episode": 23, "arch": "mk4_object_belief_hier_wm", "n_steps": 666, "belief_loss": 0.0052, "ppo_policy_loss": 0.029, "ppo_value_loss": 6.0429, "ppo_entropy": 2.9829, "ppo_ratio_mean": 1.0062, "ppo_clip_frac": 0.6847}
-{"update": 1, "agent": "obj_belief", "episode": 3, "batch_eps": 3}
+{"episode": 37, "arch": "mk4_object_belief_hier_wm", "n_steps": 656, "belief_loss": 0.0078, "ppo_policy_loss": -0.0079, "ppo_value_loss": 15.1173, "ppo_entropy": 2.9888, "ppo_ratio_mean": 1.012, "ppo_clip_frac": 0.314}
+{"episode": 38, "arch": "mk4_object_belief_hier_wm", "n_steps": 659, "belief_loss": 0.0375, "ppo_policy_loss": -0.013, "ppo_value_loss": 14.41, "ppo_entropy": 2.9911, "ppo_ratio_mean": 0.9939, "ppo_clip_frac": 0.2534}
+{"update": 19, "agent": "obj_belief", "episode": 38, "batch_eps": 2}
+{"episode": 39, "arch": "mk4_object_belief_hier_wm", "n_steps": 656, "belief_loss": 0.0675, "ppo_policy_loss": -0.0018, "ppo_value_loss": 13.0604, "ppo_entropy": 2.9973, "ppo_ratio_mean": 1.003, "ppo_clip_frac": 0.2561}
+{"episode": 40, "arch": "mk4_object_belief_hier_wm", "n_steps": 656, "belief_loss": 0.0972, "ppo_policy_loss": 0.0016, "ppo_value_loss": 12.4756, "ppo_entropy": 2.9954, "ppo_ratio_mean": 1.0043, "ppo_clip_frac": 0.0869}
+{"update": 20, "agent": "obj_belief", "episode": 40, "batch_eps": 2}
+{"episode": 41, "arch": "mk4_object_belief_hier_wm", "n_steps": 658, "belief_loss": 0.0227, "ppo_policy_loss": 0.0019, "ppo_value_loss": 9.3045, "ppo_entropy": 2.9839, "ppo_ratio_mean": 1.0023, "ppo_clip_frac": 0.1733}
+{"episode": 42, "arch": "mk4_object_belief_hier_wm", "n_steps": 655, "belief_loss": 0.0156, "ppo_policy_loss": -0.0123, "ppo_value_loss": 11.9298, "ppo_entropy": 2.9698, "ppo_ratio_mean": 1.0021, "ppo_clip_frac": 0.1389}
+{"update": 21, "agent": "obj_belief", "episode": 42, "batch_eps": 2}
+{"episode": 43, "arch": "mk4_object_belief_hier_wm", "n_steps": 664, "belief_loss": 0.0443, "ppo_policy_loss": -0.0004, "ppo_value_loss": 14.5289, "ppo_entropy": 2.9583, "ppo_ratio_mean": 0.9931, "ppo_clip_frac": 0.2063}
+{"episode": 44, "arch": "mk4_object_belief_hier_wm", "n_steps": 661, "belief_loss": 0.0298, "ppo_policy_loss": -0.0032, "ppo_value_loss": 14.8352, "ppo_entropy": 2.9583, "ppo_ratio_mean": 0.9961, "ppo_clip_frac": 0.2103}
+{"update": 22, "agent": "obj_belief", "episode": 44, "batch_eps": 2}
+{"episode": 45, "arch": "mk4_object_belief_hier_wm", "n_steps": 658, "belief_loss": 0.0372, "ppo_policy_loss": -0.0002, "ppo_value_loss": 11.9067, "ppo_entropy": 2.9631, "ppo_ratio_mean": 0.9998, "ppo_clip_frac": 0.1581}
+{"episode": 46, "arch": "mk4_object_belief_hier_wm", "n_steps": 655, "belief_loss": 0.03, "ppo_policy_loss": -0.0016, "ppo_value_loss": 15.7441, "ppo_entropy": 2.9613, "ppo_ratio_mean": 0.9932, "ppo_clip_frac": 0.0519}
+{"update": 23, "agent": "obj_belief", "episode": 46, "batch_eps": 2}
+{"episode": 47, "arch": "mk4_object_belief_hier_wm", "n_steps": 652, "belief_loss": 0.0374, "ppo_policy_loss": -0.0018, "ppo_value_loss": 12.8958, "ppo_entropy": 2.9503, "ppo_ratio_mean": 0.9916, "ppo_clip_frac": 0.2086}
+{"episode": 48, "arch": "mk4_object_belief_hier_wm", "n_steps": 648, "belief_loss": 0.0529, "ppo_policy_loss": -0.0126, "ppo_value_loss": 14.7069, "ppo_entropy": 2.9274, "ppo_ratio_mean": 1.0041, "ppo_clip_frac": 0.4691}
+{"update": 24, "agent": "obj_belief", "episode": 48, "batch_eps": 2}
+{"episode": 49, "arch": "mk4_object_belief_hier_wm", "n_steps": 578, "belief_loss": 0.0244, "ppo_policy_loss": 0.011, "ppo_value_loss": 12.9909, "ppo_entropy": 2.9414, "ppo_ratio_mean": 0.9928, "ppo_clip_frac": 0.3114}
+{"episode": 50, "arch": "mk4_object_belief_hier_wm", "n_steps": 654, "belief_loss": 0.0448, "ppo_policy_loss": 0.0102, "ppo_value_loss": 16.2431, "ppo_entropy": 2.9499, "ppo_ratio_mean": 1.0058, "ppo_clip_frac": 0.4373}
+{"update": 25, "agent": "obj_belief", "episode": 50, "batch_eps": 2}
+{"episode": 51, "arch": "mk4_object_belief_hier_wm", "n_steps": 566, "belief_loss": 0.102, "ppo_policy_loss": -0.0031, "ppo_value_loss": 14.0191, "ppo_entropy": 2.9484, "ppo_ratio_mean": 0.9921, "ppo_clip_frac": 0.2686}
+{"episode": 52, "arch": "mk4_object_belief_hier_wm", "n_steps": 654, "belief_loss": 0.0804, "ppo_policy_loss": -0.0019, "ppo_value_loss": 15.8031, "ppo_entropy": 2.933, "ppo_ratio_mean": 1.0062, "ppo_clip_frac": 0.2294}
+{"update": 26, "agent": "obj_belief", "episode": 52, "batch_eps": 2}
+{"episode": 53, "arch": "mk4_object_belief_hier_wm", "n_steps": 657, "belief_loss": 0.0322, "ppo_policy_loss": -0.0062, "ppo_value_loss": 15.5552, "ppo_entropy": 2.9377, "ppo_ratio_mean": 1.0044, "ppo_clip_frac": 0.2085}
+{"episode": 54, "arch": "mk4_object_belief_hier_wm", "n_steps": 654, "belief_loss": 0.0168, "ppo_policy_loss": -0.0134, "ppo_value_loss": 11.219, "ppo_entropy": 2.9495, "ppo_ratio_mean": 0.9966, "ppo_clip_frac": 0.1361}
+{"update": 27, "agent": "obj_belief", "episode": 54, "batch_eps": 2}
+{"episode": 55, "arch": "mk4_object_belief_hier_wm", "n_steps": 489, "belief_loss": 0.1013, "ppo_policy_loss": 0.0046, "ppo_value_loss": 14.7968, "ppo_entropy": 2.9704, "ppo_ratio_mean": 1.0002, "ppo_clip_frac": 0.3292}
+{"episode": 56, "arch": "mk4_object_belief_hier_wm", "n_steps": 655, "belief_loss": 0.0609, "ppo_policy_loss": 0.0031, "ppo_value_loss": 19.6077, "ppo_entropy": 2.9743, "ppo_ratio_mean": 0.9998, "ppo_clip_frac": 0.0947}
+{"update": 28, "agent": "obj_belief", "episode": 56, "batch_eps": 2}
+{"episode": 57, "arch": "mk4_object_belief_hier_wm", "n_steps": 659, "belief_loss": 0.0214, "ppo_policy_loss": 0.0036, "ppo_value_loss": 13.419, "ppo_entropy": 2.9692, "ppo_ratio_mean": 1.0202, "ppo_clip_frac": 0.2413}
+{"episode": 58, "arch": "mk4_object_belief_hier_wm", "n_steps": 319, "belief_loss": 0.0061, "ppo_policy_loss": -0.0187, "ppo_value_loss": 19.4075, "ppo_entropy": 2.9592, "ppo_ratio_mean": 0.9965, "ppo_clip_frac": 0.1285}
+{"update": 29, "agent": "obj_belief", "episode": 58, "batch_eps": 2}
+{"episode": 59, "arch": "mk4_object_belief_hier_wm", "n_steps": 654, "belief_loss": 0.0061, "ppo_policy_loss": 0.0089, "ppo_value_loss": 12.1906, "ppo_entropy": 2.9373, "ppo_ratio_mean": 1.0011, "ppo_clip_frac": 0.4144}
+{"episode": 60, "arch": "mk4_object_belief_hier_wm", "n_steps": 659, "belief_loss": 0.0147, "ppo_policy_loss": -0.0069, "ppo_value_loss": 8.9021, "ppo_entropy": 2.9246, "ppo_ratio_mean": 1.0092, "ppo_clip_frac": 0.1426}
+{"update": 30, "agent": "obj_belief", "episode": 60, "batch_eps": 2}
+{"episode": 61, "arch": "mk4_object_belief_hier_wm", "n_steps": 648, "belief_loss": 0.0527, "ppo_policy_loss": -0.0012, "ppo_value_loss": 8.6342, "ppo_entropy": 2.9156, "ppo_ratio_mean": 0.9971, "ppo_clip_frac": 0.2222}
+{"episode": 62, "arch": "mk4_object_belief_hier_wm", "n_steps": 652, "belief_loss": 0.0226, "ppo_policy_loss": -0.0104, "ppo_value_loss": 12.3952, "ppo_entropy": 2.915, "ppo_ratio_mean": 0.9937, "ppo_clip_frac": 0.1825}
+{"update": 31, "agent": "obj_belief", "episode": 62, "batch_eps": 2}
+{"episode": 63, "arch": "mk4_object_belief_hier_wm", "n_steps": 652, "belief_loss": 0.0298, "ppo_policy_loss": 0.0116, "ppo_value_loss": 13.1819, "ppo_entropy": 2.9244, "ppo_ratio_mean": 1.0013, "ppo_clip_frac": 0.2853}
+{"episode": 64, "arch": "mk4_object_belief_hier_wm", "n_steps": 482, "belief_loss": 0.0058, "ppo_policy_loss": -0.01, "ppo_value_loss": 12.4641, "ppo_entropy": 2.9346, "ppo_ratio_mean": 1.0017, "ppo_clip_frac": 0.0539}
+{"update": 32, "agent": "obj_belief", "episode": 64, "batch_eps": 2}
+{"episode": 65, "arch": "mk4_object_belief_hier_wm", "n_steps": 570, "belief_loss": 0.0232, "ppo_policy_loss": 0.0026, "ppo_value_loss": 12.5457, "ppo_entropy": 2.9303, "ppo_ratio_mean": 0.984, "ppo_clip_frac": 0.1719}
+{"episode": 66, "arch": "mk4_object_belief_hier_wm", "n_steps": 647, "belief_loss": 0.0052, "ppo_policy_loss": 0.0287, "ppo_value_loss": 14.3107, "ppo_entropy": 2.8739, "ppo_ratio_mean": 1.0091, "ppo_clip_frac": 0.5781}
+{"update": 33, "agent": "obj_belief", "episode": 66, "batch_eps": 2}

@@ -44,7 +44,7 @@ CKPT_DIR    = N64_ROOT / 'training/data/checkpoints'
 CKPT_PATH   = CKPT_DIR / 'mk4_policy.pt'
 STATS_PATH  = CKPT_DIR / 'mk4_training_stats.jsonl'
 
-RAW_OBS_DIM = 22   # single-frame obs size (mirrors mk4_train.RAW_OBS_DIM)
+RAW_OBS_DIM = 27   # single-frame obs size (mirrors mk4_train.RAW_OBS_DIM) — FINAL
 OBS_DIM     = RAW_OBS_DIM * 4
 N_ACTIONS   = len(MacroAction)
 ACTIONS     = list(MacroAction)
