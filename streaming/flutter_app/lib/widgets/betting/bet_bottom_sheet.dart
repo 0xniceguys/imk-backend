@@ -74,6 +74,19 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
     return widget.match.totalPool * widget.match.odds.fighter2PoolPct;
   }
 
+  double _oppositePoolBefore() {
+    if (_selectedFighter == 0) {
+      if (widget.match.odds.fighter2Pool > 0) {
+        return widget.match.odds.fighter2Pool;
+      }
+      return widget.match.totalPool * widget.match.odds.fighter2PoolPct;
+    }
+    if (widget.match.odds.fighter1Pool > 0) {
+      return widget.match.odds.fighter1Pool;
+    }
+    return widget.match.totalPool * widget.match.odds.fighter1PoolPct;
+  }
+
   int _toBaseUnits(double uiAmount) {
     final scale = math.pow(10, _tokenDecimals).toDouble();
     return (uiAmount * scale).floor();
@@ -110,13 +123,14 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
 
   double _estimatedPayout(double amount) {
     if (amount <= 0) return 0;
-    final totalBeforeBase = _toBaseUnits(widget.match.totalPool);
     final selectedBeforeBase = _toBaseUnits(_selectedPoolBefore());
+    final oppositeBeforeBase = _toBaseUnits(_oppositePoolBefore());
     final amountBase = _toBaseUnits(amount);
-    final totalAfterBase = totalBeforeBase + amountBase;
     final selectedAfterBase = selectedBeforeBase + amountBase;
     if (selectedAfterBase <= 0) return 0;
 
+    // Platform fee is charged from the full pool (both sides).
+    final totalAfterBase = selectedAfterBase + oppositeBeforeBase;
     final feeBase = (totalAfterBase * _feeBps) ~/ 10_000;
     final payoutPoolBase = totalAfterBase - feeBase;
     final estimatedBase = (payoutPoolBase * amountBase) ~/ selectedAfterBase;
@@ -189,9 +203,15 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
     final canBet = maxSelectable + _eps >= _minBetUi;
     final quickBets = _quickBetsFor(maxSelectable);
     final amount = _selectedAmount;
-    final amountValid =
-        amount != null && _isAmountValid(amount, maxSelectable);
-    final estPayout = amountValid ? _estimatedPayout(amount) : 0.0;
+    final amountValid = amount != null && _isAmountValid(amount, maxSelectable);
+    final amountUi = amount ?? 0.0;
+    final estPayout = amountValid ? _estimatedPayout(amountUi) : 0.0;
+    final estWinnings = amountValid ? (estPayout - amountUi) : 0.0;
+    final estRoiPct = amountValid && amountUi > 0
+        ? (estWinnings / amountUi) * 100
+        : 0.0;
+    final estReturnLabel =
+        '${_fmt(estPayout, decimals: 6)} $_tokenSymbol (${_fmt(estRoiPct, decimals: 2)}%)';
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return AnimatedSwitcher(
@@ -225,13 +245,13 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Center(child: Text('Place Your Bet', style: displayStyle(size: 28))),
-                  const SizedBox(height: 4),
+                  // Center(child: Text('Place Your Bet', style: displayStyle(size: 28))),
+                  // const SizedBox(height: 4),
                   Center(
                     child: Text(
                       'Bet on ${_selectedName.toUpperCase()}',
                       style: bodyStyle(
-                        size: 13,
+                        size: 28,
                         color: Palette.gold,
                         weight: FontWeight.w700,
                       ),
@@ -268,7 +288,8 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                         ),
                       _QuickChip(
                         label: 'MAX',
-                        selected: canBet &&
+                        selected:
+                            canBet &&
                             amount != null &&
                             (amount - maxSelectable).abs() < _eps,
                         onTap: canBet
@@ -310,15 +331,26 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Text(
-                          '${_fmt(estPayout, decimals: 6)} $_tokenSymbol',
-                          style: bodyStyle(
-                            size: 13,
-                            color: Palette.green,
-                            weight: FontWeight.w700,
+                        Flexible(
+                          child: Text(
+                            estReturnLabel,
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: bodyStyle(
+                              size: 12,
+                              color:
+                                  estWinnings >= 0 ? Palette.green : Palette.red,
+                              weight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'returns might change based on new bets.',
+                      style: bodyStyle(size: 11, color: Palette.muted),
                     ),
                   ],
                   if (_error != null) ...[
@@ -335,10 +367,10 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                     child: ElevatedButton(
                       onPressed: !_loading && amountValid
                           ? () => _placeBet(
-                                amount: amount,
-                                canBet: canBet,
-                                maxSelectable: maxSelectable,
-                              )
+                              amount: amount,
+                              canBet: canBet,
+                              maxSelectable: maxSelectable,
+                            )
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Palette.gold,
