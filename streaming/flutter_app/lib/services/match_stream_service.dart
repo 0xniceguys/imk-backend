@@ -94,13 +94,15 @@ class MatchStreamService {
     } else if (message is List<int>) {
       final bytes = Uint8List.fromList(message);
       if (bytes.isEmpty) return;
-      final type = bytes[0]; // 0x00 = video JPEG, 0x01 = audio Opus/OGG
-      final payload = bytes.sublist(1);
-      if (type == 0x01) {
-        _audioChunkCtrl.add(payload);
+      // Audio messages are prefixed with 0x01.
+      // Video frames are raw JPEG bytes — JPEG always starts with 0xFF (0xD8),
+      // so these are unambiguous without any prefix byte.
+      if (bytes[0] == 0x01) {
+        // Strip the 0x01 prefix and emit the Opus/OGG payload
+        _audioChunkCtrl.add(bytes.sublist(1));
       } else {
-        // 0x00 or legacy (no prefix) — treat as video
-        _frameCtrl.add(payload);
+        // Raw JPEG — pass through as-is to frameStream
+        _frameCtrl.add(bytes);
       }
     }
   }
