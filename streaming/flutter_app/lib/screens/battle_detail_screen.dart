@@ -27,27 +27,25 @@ class BattleDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
-  int _selectedFighter = 0;
+  int? _selectedFighter;
   Future<List<MatchBetFeedItem>>? _betFeedFuture;
   String? _betFeedMatchId;
 
   void _ensureBetFeedFuture(String matchId) {
     if (_betFeedFuture == null || _betFeedMatchId != matchId) {
       _betFeedMatchId = matchId;
-      _betFeedFuture = ref.read(apiServiceProvider).fetchMatchBetFeed(
-            matchId,
-            limit: 20,
-          );
+      _betFeedFuture = ref
+          .read(apiServiceProvider)
+          .fetchMatchBetFeed(matchId, limit: 20);
     }
   }
 
   void _refreshBetFeed(String matchId) {
     setState(() {
       _betFeedMatchId = matchId;
-      _betFeedFuture = ref.read(apiServiceProvider).fetchMatchBetFeed(
-            matchId,
-            limit: 20,
-          );
+      _betFeedFuture = ref
+          .read(apiServiceProvider)
+          .fetchMatchBetFeed(matchId, limit: 20);
     });
   }
 
@@ -188,8 +186,9 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
               ),
             ],
           ),
+
           const GoldGradientDivider(
-            margin: EdgeInsets.fromLTRB(18, 12, 18, 12),
+            margin: EdgeInsets.fromLTRB(18, 24, 18, 24),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -245,8 +244,9 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
               future: _betFeedFuture,
             ),
           ),
+          const SizedBox(height: 24),
           const GoldGradientDivider(margin: EdgeInsets.fromLTRB(18, 14, 18, 0)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 60),
         ],
       ),
     );
@@ -265,7 +265,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => BetBottomSheet(
         match: match,
-        initialSelectedFighter: _selectedFighter,
+        initialSelectedFighter: _selectedFighter ?? 0,
       ),
     );
     if (!mounted) return;
@@ -440,29 +440,40 @@ class _MarketPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Palette.border),
+        // border: Border.all(color: Palette.border),
         borderRadius: BorderRadius.circular(6),
-        color: Palette.sheetBg.withValues(alpha: 0.3),
+        // color: Palette.sheetBg.withValues(alpha: 0.3),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'MARKET POOLS',
-            style: bodyStyle(
-              size: 11,
-              color: Palette.gold,
-              weight: FontWeight.w700,
-              letterSpacing: 0.8,
+          const GoldGradientDivider(
+            margin: EdgeInsets.fromLTRB(18, 12, 18, 12),
+          ),
+          Center(
+            child: Text(
+              'BET POOLS',
+              style: bodyStyle(
+                size: 13,
+                color: Palette.gold,
+                weight: FontWeight.w700,
+                letterSpacing: 0.9,
+              ),
             ),
           ),
           const SizedBox(height: 8),
           _MarketRow(
-            label: 'Total Pool',
+            label: 'Total SKR in Pool',
             value: '${_fmt(totalPool)} $tokenSymbol',
             valueColor: Palette.white,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          _MarketRow(
+            label: 'Active Bets',
+            value: '$activeBets',
+            valueColor: Palette.secondary,
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -485,12 +496,6 @@ class _MarketPanel extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          _MarketRow(
-            label: 'Active Bets',
-            value: '$activeBets',
-            valueColor: Palette.secondary,
           ),
         ],
       ),
@@ -521,9 +526,9 @@ class _PoolCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
+      // padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: BoxDecoration(
-        border: Border.all(color: Palette.border),
+        // border: Border.all(color: Palette.border.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -531,7 +536,11 @@ class _PoolCard extends StatelessWidget {
         children: [
           Text(
             'SIDE $side',
-            style: bodyStyle(size: 10, color: Palette.muted, letterSpacing: 0.6),
+            style: bodyStyle(
+              size: 11,
+              color: Palette.muted,
+              letterSpacing: 0.6,
+            ),
           ),
           const SizedBox(height: 3),
           Text(
@@ -539,7 +548,7 @@ class _PoolCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: bodyStyle(
-              size: 11,
+              size: 12,
               color: Palette.secondary,
               weight: FontWeight.w600,
             ),
@@ -548,7 +557,7 @@ class _PoolCard extends StatelessWidget {
           Text(
             '${_fmt(amount)} $tokenSymbol',
             style: bodyStyle(
-              size: 14,
+              size: 16,
               color: Palette.white,
               weight: FontWeight.w700,
             ),
@@ -556,7 +565,11 @@ class _PoolCard extends StatelessWidget {
           const SizedBox(height: 1),
           Text(
             '${(pct * 100).toStringAsFixed(1)}%',
-            style: bodyStyle(size: 11, color: Palette.gold),
+            style: bodyStyle(
+              size: 12,
+              color: Palette.gold,
+              weight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -580,10 +593,14 @@ class _MarketRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: bodyStyle(size: 12, color: Palette.muted)),
+        Text(label, style: bodyStyle(size: 13, color: Palette.muted)),
         Text(
           value,
-          style: bodyStyle(size: 12, color: valueColor, weight: FontWeight.w600),
+          style: bodyStyle(
+            size: 13,
+            color: valueColor,
+            weight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -591,10 +608,7 @@ class _MarketRow extends StatelessWidget {
 }
 
 class _RecentBetsPanel extends StatelessWidget {
-  const _RecentBetsPanel({
-    required this.tokenSymbol,
-    required this.future,
-  });
+  const _RecentBetsPanel({required this.tokenSymbol, required this.future});
 
   final String tokenSymbol;
   final Future<List<MatchBetFeedItem>>? future;
@@ -612,20 +626,25 @@ class _RecentBetsPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Palette.border),
+        // border: Border.all(color: Palette.border),
         borderRadius: BorderRadius.circular(6),
-        color: Palette.sheetBg.withValues(alpha: 0.2),
+        // color: Palette.sheetBg.withValues(alpha: 0.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'WHO ALL BET',
-            style: bodyStyle(
-              size: 11,
-              color: Palette.gold,
-              weight: FontWeight.w700,
-              letterSpacing: 0.8,
+          const GoldGradientDivider(
+            margin: EdgeInsets.fromLTRB(18, 24, 18, 24),
+          ),
+          Center(
+            child: Text(
+              'BET HISTORY',
+              style: bodyStyle(
+                size: 13,
+                color: Palette.gold,
+                weight: FontWeight.w700,
+                letterSpacing: 0.9,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -633,16 +652,24 @@ class _RecentBetsPanel extends StatelessWidget {
             future: future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return Text(
-                  'Loading recent bets...',
-                  style: bodyStyle(size: 12, color: Palette.muted),
+                return SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    'Loading recent bets...',
+                    textAlign: TextAlign.center,
+                    style: bodyStyle(size: 13, color: Palette.muted),
+                  ),
                 );
               }
               final items = snapshot.data ?? const <MatchBetFeedItem>[];
               if (items.isEmpty) {
-                return Text(
-                  'No bets placed yet for this match.',
-                  style: bodyStyle(size: 12, color: Palette.muted),
+                return SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    'No bets placed yet for this match.',
+                    textAlign: TextAlign.center,
+                    style: bodyStyle(size: 13, color: Palette.muted),
+                  ),
                 );
               }
               final visible = items.take(8).toList();
@@ -650,12 +677,12 @@ class _RecentBetsPanel extends StatelessWidget {
                 children: [
                   for (final item in visible)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         children: [
                           Container(
-                            width: 18,
-                            height: 18,
+                            width: 20,
+                            height: 20,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               border: Border.all(color: Palette.border),
@@ -664,7 +691,7 @@ class _RecentBetsPanel extends StatelessWidget {
                             child: Text(
                               item.side,
                               style: bodyStyle(
-                                size: 10,
+                                size: 11,
                                 color: Palette.gold,
                                 weight: FontWeight.w700,
                               ),
@@ -676,14 +703,17 @@ class _RecentBetsPanel extends StatelessWidget {
                               '${item.walletMasked} • ${item.fighterName}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: bodyStyle(size: 12, color: Palette.secondary),
+                              style: bodyStyle(
+                                size: 13,
+                                color: Palette.secondary,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             '${_fmt(item.amount)} $tokenSymbol',
                             style: bodyStyle(
-                              size: 12,
+                              size: 13,
                               color: Palette.white,
                               weight: FontWeight.w600,
                             ),
@@ -700,4 +730,3 @@ class _RecentBetsPanel extends StatelessWidget {
     );
   }
 }
-
