@@ -96,7 +96,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
               if (status == 'completed' || status == 'cancelled') {
                 debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
                 _stopHls();
-                _navigateToPostMatch(eventMatchId);
+                if (eventMatchId != null) {
+                  _navigateToPostMatch(eventMatchId);
+                }
               }
             }
           }
