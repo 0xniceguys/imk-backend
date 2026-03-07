@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 import '../core/constants.dart';
 import '../core/palette.dart';
@@ -34,6 +35,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   // Prevents double-navigation when WS event + REST poll both fire at once
   bool _navigatedToPostMatch = false;
   Timer? _fastPollTimer;
+
+  // Audio player — plays the HLS audio-only stream for the current match
+  VideoPlayerController? _audioController;
 
   // FPS counter — track timestamps of the last N frames in a 1s window
   final List<int> _frameTimes = []; // milliseconds since epoch
@@ -102,6 +106,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
     _lastConnectedMatchId = matchId;
     ref.read(matchStreamServiceProvider).connect(matchId);
+    _startAudio(matchId);
   }
 
   /// Returns the ID of the first truly LIVE match, or null.
@@ -120,7 +125,35 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   void dispose() {
     _fastPollTimer?.cancel();
     _pulseCtrl.dispose();
+    _stopAudio();
     super.dispose();
+  }
+
+  // ── Audio helpers ──
+  void _startAudio(String matchId) {
+    _stopAudio();
+    // Delay 2s to allow the first HLS segment to be written
+    final url = '$kStreamBaseUrl/stream/audio/$matchId/stream.m3u8';
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    _audioController = controller;
+    controller.initialize().then((_) {
+      if (_audioController == controller && mounted) {
+        controller.setVolume(1.0);
+        controller.play();
+        debugPrint('[Audio] Playing HLS stream: $url');
+      }
+    }).catchError((e) {
+      debugPrint('[Audio] Failed to initialize: $e');
+    });
+  }
+
+  void _stopAudio() {
+    final ctrl = _audioController;
+    _audioController = null;
+    ctrl?.dispose();
   }
 
   @override

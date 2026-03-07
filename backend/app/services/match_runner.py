@@ -492,7 +492,7 @@ class MatchRunner:
             logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
 
         await self._frame_capture.start(self._on_ffmpeg_frame)
-        await self._audio_capture.start(self._on_audio_chunk)
+        await self._audio_capture.start()
         fps = 30 if is_linux() else 60
         logger.info("FFmpeg capture started at %dfps", fps)
 
