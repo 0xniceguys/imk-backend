@@ -108,6 +108,41 @@ async def health():
     """Basic health check for load balancer."""
     return {"status": "ok"}
 
+# ── HLS Audio Streaming ──────────────────────────────────────────────────────
+
+from fastapi.responses import FileResponse  # noqa: E402
+from app.services.ffmpeg_audio_capture import hls_playlist_path, hls_dir  # noqa: E402
+
+
+@app.get("/stream/audio/{match_id}/stream.m3u8")
+async def audio_playlist(match_id: str):
+    """Serve the HLS audio playlist for a live match."""
+    path = hls_playlist_path(match_id)
+    if not path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Audio stream not yet available")
+    return FileResponse(
+        str(path),
+        media_type="application/vnd.apple.mpegurl",
+        headers={"Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*"},
+    )
+
+
+@app.get("/stream/audio/{match_id}/{segment}")
+async def audio_segment(match_id: str, segment: str):
+    """Serve an individual HLS .ts segment."""
+    if not segment.endswith(".ts"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Only .ts segments served here")
+    path = hls_dir(match_id) / segment
+    if not path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Segment not found")
+    return FileResponse(
+        str(path),
+        media_type="video/mp2t",
+        headers={"Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*"},
+    )
 
 
 
