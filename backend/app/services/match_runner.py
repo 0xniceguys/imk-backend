@@ -207,6 +207,8 @@ class MatchRunner:
         }
         self._bridge_lock = asyncio.Lock()
         self._round_context_reset_requested = False
+        # Game state broadcast throttle: cap at 5Hz to avoid spamming clients
+        self._last_state_broadcast: float = 0.0
 
     @property
     def rounds_to_win(self) -> int:
@@ -490,7 +492,7 @@ class MatchRunner:
             logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
 
         await self._frame_capture.start(self._on_ffmpeg_frame)
-        await self._audio_capture.start()
+        await self._audio_capture.start(self._on_audio_chunk)
         fps = 30 if is_linux() else 60
         logger.info("FFmpeg capture started at %dfps", fps)
 
@@ -498,6 +500,10 @@ class MatchRunner:
         """Callback: FFmpeg delivered a JPEG frame — broadcast it."""
         self.latest_frame = jpeg_bytes
         await ws_manager.broadcast_bytes(self.match_id, jpeg_bytes)
+
+    async def _on_audio_chunk(self, opus_bytes: bytes) -> None:
+        """Callback: FFmpeg delivered an Opus/OGG audio chunk — broadcast it."""
+        await ws_manager.broadcast_audio(self.match_id, opus_bytes)
 
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
@@ -747,6 +753,11 @@ class MatchRunner:
                     await self._frame_capture.stop()
                     self._frame_capture = None
 
+                # Stop audio alongside video so there's no stale audio
+                # stream playing through the round transition. It will be
+                # restarted in _start_free_running after savestate reload.
+                await self._audio_capture.stop()
+
                 await asyncio.sleep(2.0)  # KO animation visible
 
                 await self._load_savestate()
@@ -931,10 +942,15 @@ class MatchRunner:
                     }
                 )
 
-                await ws_manager.broadcast_json(
-                    self.match_id,
-                    self.latest_snapshot.to_dict(),
-                )
+                # Throttle game state broadcast to 5Hz — clients only need
+                # ~3-5 updates/sec for smooth health bar UI.
+                _now = time.monotonic()
+                if _now - self._last_state_broadcast >= 0.2:
+                    await ws_manager.broadcast_json(
+                        self.match_id,
+                        self.latest_snapshot.to_dict(),
+                    )
+                    self._last_state_broadcast = _now
 
                 # Cache latest state in Redis for late joiners
                 try:

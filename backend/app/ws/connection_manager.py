@@ -1,10 +1,17 @@
 """WebSocket connection manager with room-based pub/sub.
 
+Binary frame protocol (1-byte type prefix):
+  0x00  = video JPEG frame
+  0x01  = audio Opus/OGG chunk
+
 Architecture:
 - In-process broadcast: immediate delivery to clients on THIS server instance
 - Redis pub/sub: fan-out to clients on OTHER server instances (multi-server scaling)
 
 Both paths operate independently. Redis failures never break local delivery.
+
+Broadcast strategy: fire-and-forget per client with a 100ms per-send timeout.
+A slow or dead client never blocks the emulator agent loop or other clients.
 """
 
 from __future__ import annotations
@@ -18,6 +25,14 @@ from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
+# Frame type prefix bytes
+FRAME_VIDEO: bytes = b"\x00"
+FRAME_AUDIO: bytes = b"\x01"
+
+# Per-client send timeout: if a client can't receive within this window,
+# it is marked dead and removed from the room.
+_SEND_TIMEOUT = 0.1  # seconds
+
 
 class ConnectionManager:
     """Manages WebSocket connections grouped by match rooms."""
@@ -25,11 +40,16 @@ class ConnectionManager:
     def __init__(self) -> None:
         # match_id (str) → set of active WebSocket connections
         self._rooms: dict[str, set[WebSocket]] = defaultdict(set)
+        # Connections queued for removal (pruned on next broadcast)
+        self._dead: set[WebSocket] = set()
 
     async def connect(self, ws: WebSocket, match_id: str) -> None:
         await ws.accept()
         self._rooms[match_id].add(ws)
-        logger.info("WS connected to match %s (%d viewers)", match_id, len(self._rooms[match_id]))
+        logger.info(
+            "WS connected to match %s (%d viewers)",
+            match_id, len(self._rooms[match_id]),
+        )
 
     def disconnect(self, ws: WebSocket, match_id: str) -> None:
         self._rooms[match_id].discard(ws)
@@ -39,17 +59,63 @@ class ConnectionManager:
     def viewer_count(self, match_id: str) -> int:
         return len(self._rooms.get(match_id, set()))
 
-    async def broadcast_json(self, match_id: str, data: dict) -> None:
-        """Send JSON payload to all local viewers + publish to Redis for remote servers."""
-        # 1. In-process delivery (fast path)
+    # ── Internal helpers ────────────────────────────────────────────────────
+
+    def _prune_dead(self, match_id: str) -> None:
+        """Remove any dead connections from the room."""
         room = self._rooms.get(match_id)
-        if room:
-            message = json.dumps(data)
-            dead: list[WebSocket] = []
-            tasks = [self._safe_send(ws, message, dead) for ws in room]
-            await asyncio.gather(*tasks)
-            for ws in dead:
-                room.discard(ws)
+        if room and self._dead:
+            room -= self._dead
+            self._dead.clear()
+            if not room:
+                del self._rooms[match_id]
+
+    async def _fire_text(self, ws: WebSocket, message: str) -> None:
+        """Send a text frame to one client; mark dead on any failure."""
+        try:
+            await asyncio.wait_for(ws.send_text(message), timeout=_SEND_TIMEOUT)
+        except Exception:
+            self._dead.add(ws)
+
+    async def _fire_bytes(self, ws: WebSocket, data: bytes) -> None:
+        """Send a binary frame to one client; mark dead on any failure."""
+        try:
+            await asyncio.wait_for(ws.send_bytes(data), timeout=_SEND_TIMEOUT)
+        except Exception:
+            self._dead.add(ws)
+
+    def _schedule_bytes(self, match_id: str, data: bytes) -> None:
+        """Fire-and-forget binary broadcast to all local clients."""
+        room = self._rooms.get(match_id)
+        if not room:
+            return
+        self._prune_dead(match_id)
+        for ws in list(room):  # snapshot to avoid mutation during iteration
+            asyncio.create_task(
+                self._fire_bytes(ws, data),
+                name=f"ws-send-bytes-{match_id}",
+            )
+
+    def _schedule_text(self, match_id: str, message: str) -> None:
+        """Fire-and-forget text broadcast to all local clients."""
+        room = self._rooms.get(match_id)
+        if not room:
+            return
+        self._prune_dead(match_id)
+        for ws in list(room):
+            asyncio.create_task(
+                self._fire_text(ws, message),
+                name=f"ws-send-text-{match_id}",
+            )
+
+    # ── Public broadcast API ────────────────────────────────────────────────
+
+    async def broadcast_json(self, match_id: str, data: dict) -> None:
+        """Send JSON payload to all local viewers + publish to Redis."""
+        message = json.dumps(data)
+
+        # 1. In-process (fire-and-forget)
+        self._schedule_text(match_id, message)
 
         # 2. Redis fan-out (non-blocking, non-fatal)
         try:
@@ -58,16 +124,12 @@ class ConnectionManager:
         except Exception:
             pass
 
-    async def broadcast_bytes(self, match_id: str, data: bytes) -> None:
-        """Send binary payload (JPEG frame) to all local viewers + Redis."""
-        # 1. In-process delivery
-        room = self._rooms.get(match_id)
-        if room:
-            dead: list[WebSocket] = []
-            tasks = [self._safe_send_bytes(ws, data, dead) for ws in room]
-            await asyncio.gather(*tasks)
-            for ws in dead:
-                room.discard(ws)
+    async def broadcast_bytes(self, match_id: str, jpeg_bytes: bytes) -> None:
+        """Send a video JPEG frame (prefixed with 0x00) to all local viewers + Redis."""
+        data = FRAME_VIDEO + jpeg_bytes
+
+        # 1. In-process (fire-and-forget)
+        self._schedule_bytes(match_id, data)
 
         # 2. Redis fan-out
         try:
@@ -76,19 +138,19 @@ class ConnectionManager:
         except Exception:
             pass
 
-    @staticmethod
-    async def _safe_send(ws: WebSocket, message: str, dead: list[WebSocket]) -> None:
-        try:
-            await ws.send_text(message)
-        except Exception:
-            dead.append(ws)
+    async def broadcast_audio(self, match_id: str, opus_bytes: bytes) -> None:
+        """Send an audio Opus/OGG chunk (prefixed with 0x01) to all local viewers + Redis."""
+        data = FRAME_AUDIO + opus_bytes
 
-    @staticmethod
-    async def _safe_send_bytes(ws: WebSocket, data: bytes, dead: list[WebSocket]) -> None:
+        # 1. In-process (fire-and-forget)
+        self._schedule_bytes(match_id, data)
+
+        # 2. Redis fan-out
         try:
-            await ws.send_bytes(data)
+            from app.services.redis_client import publish_bytes
+            await publish_bytes(match_id, data)
         except Exception:
-            dead.append(ws)
+            pass
 
     async def start_redis_subscriber(
         self, match_id: str, ws: WebSocket, stop_event: asyncio.Event
@@ -98,6 +160,9 @@ class ConnectionManager:
 
         This enables clients on OTHER server instances to receive frames + events
         published by the match runner on the primary server.
+
+        Note: binary frames already include the 0x00/0x01 type-prefix byte because
+        broadcast_bytes / broadcast_audio add it before publishing to Redis.
         """
         try:
             from app.services.redis_client import (
@@ -122,6 +187,7 @@ class ConnectionManager:
                         channel = channel.decode()
                     try:
                         if f":{match_id}:frames" in channel and isinstance(data, bytes):
+                            # data already has 0x00/0x01 prefix
                             await ws.send_bytes(data)
                         elif f":{match_id}:events" in channel:
                             text = data.decode() if isinstance(data, bytes) else data
@@ -136,7 +202,9 @@ class ConnectionManager:
             await pubsub.aclose()
             logger.debug("Redis subscriber stopped for match %s", match_id)
         except Exception:
-            logger.debug("Redis subscriber unavailable for match %s (non-fatal)", match_id)
+            logger.debug(
+                "Redis subscriber unavailable for match %s (non-fatal)", match_id
+            )
 
 
 # Singleton — shared across the app
