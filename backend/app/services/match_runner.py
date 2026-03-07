@@ -37,7 +37,7 @@ from app.services.emulator import EmulatorSession, LaunchOptions
 from app.services.ffmpeg_capture import ffmpeg_available, is_linux
 from app.services.ffmpeg_combined_hls import FFmpegCombinedHls
 from app.services.ram_debug import RamDebugRecorder
-from app.services.game_state import FightState, read_fight_state
+from app.services.game_state import FightState, is_round_over, p1_won, read_fight_state
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,16 @@ class RunnerState(str, Enum):
     COMPLETED = "completed"
     ERROR = "error"
     STOPPED = "stopped"
+
+
+class StreamingState(str, Enum):
+    """HLS streaming lifecycle state."""
+    NOT_STARTED = "not_started"
+    INITIALIZING = "initializing"
+    READY = "ready"
+    PLAYING = "playing"
+    STOPPED = "stopped"
+    ERROR = "error"
 
 
 @dataclass
@@ -174,6 +184,7 @@ class MatchRunner:
         self.savestate_path = savestate_path
         self.instance_id = instance_id or f"match-{uuid.uuid4().hex[:8]}"
         self.state = RunnerState.IDLE
+        self.streaming_state = StreamingState.NOT_STARTED
         self.latest_snapshot: GameSnapshot = GameSnapshot(best_of=best_of)
         self.latest_frame: bytes | None = None
 
@@ -204,6 +215,8 @@ class MatchRunner:
         self._round_context_reset_requested = False
         # Game state broadcast throttle: cap at 5Hz to avoid spamming clients
         self._last_state_broadcast: float = 0.0
+        # Streaming state monitoring
+        self._stream_monitor_task: asyncio.Task | None = None
 
     @property
     def rounds_to_win(self) -> int:
@@ -466,14 +479,64 @@ class MatchRunner:
         # Give the video plugin time to render the first frame before FFmpeg starts
         await asyncio.sleep(1.5)
 
+        # Update streaming state and notify clients
+        self.streaming_state = StreamingState.INITIALIZING
+        await ws_manager.broadcast_json(self.match_id, {
+            "type": "streaming_state",
+            "state": self.streaming_state.value,
+        })
+
         await self._hls_capture.start()
         logger.info("Combined HLS capture started for match %s", self.match_id)
+
+        # Start monitoring for HLS playlist ready
+        self._stream_monitor_task = asyncio.create_task(
+            self._monitor_hls_ready(), name=f"hls-monitor-{self.match_id}"
+        )
+
+    async def _monitor_hls_ready(self) -> None:
+        """Poll until HLS playlist is ready, then notify clients."""
+        max_wait = 10  # seconds
+        poll_interval = 0.5
+        elapsed = 0.0
+
+        while elapsed < max_wait:
+            if self._hls_capture.playlist_ready:
+                self.streaming_state = StreamingState.READY
+                logger.info("HLS stream ready for match %s", self.match_id)
+                await ws_manager.broadcast_json(self.match_id, {
+                    "type": "streaming_state",
+                    "state": self.streaming_state.value,
+                    "hls_url": f"/stream/{self.match_id}/stream.m3u8",
+                })
+                return
+
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        # Timeout — stream failed to initialize
+        self.streaming_state = StreamingState.ERROR
+        logger.error("HLS stream failed to initialize for match %s", self.match_id)
+        await ws_manager.broadcast_json(self.match_id, {
+            "type": "streaming_state",
+            "state": self.streaming_state.value,
+            "error": "Stream initialization timeout",
+        })
 
 
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
         logger.info("Stopping match runner %s", self.match_id)
         self.state = RunnerState.STOPPED
+        self.streaming_state = StreamingState.STOPPED
+
+        # Stop HLS monitor
+        if self._stream_monitor_task and not self._stream_monitor_task.done():
+            self._stream_monitor_task.cancel()
+            try:
+                await self._stream_monitor_task
+            except asyncio.CancelledError:
+                pass
 
         # Stop combined HLS capture (video + audio)
         await self._hls_capture.stop()

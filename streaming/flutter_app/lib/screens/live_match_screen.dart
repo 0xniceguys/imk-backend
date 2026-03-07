@@ -109,7 +109,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
     _lastConnectedMatchId = matchId;
     ref.read(matchStreamServiceProvider).connect(matchId);
-    _startHls(matchId);
+    // Don't auto-start HLS here — wait for streaming_state: ready from backend
   }
 
   /// Returns the ID of the first truly LIVE match, or null.
@@ -145,15 +145,13 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     if (!mounted || _hlsMatchId != matchId) return;
     _hlsInitializing = true;
 
-    // Poll for the HLS playlist to appear (FFmpeg needs ~1.5s to write seg 0)
-    // Retry up to 5 times with 2s gaps before giving up.
+    // Backend signals when HLS is ready, so we should be able to init immediately.
+    // Still allow retries for network issues, but fewer and with shorter delays.
     final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
 
-    if (attempt == 1) {
-      // Brief initial wait — FFmpeg needs 1s to write first segment
-      await Future.delayed(const Duration(seconds: 2));
-    } else {
-      await Future.delayed(const Duration(seconds: 2));
+    if (attempt > 1) {
+      // Retry delay: 1s (network hiccup recovery)
+      await Future.delayed(const Duration(seconds: 1));
     }
     if (!mounted || _hlsMatchId != matchId) return;
 
@@ -180,8 +178,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       controller.removeListener(_onPlayerUpdate);
       controller.dispose();
       if (!mounted || _hlsMatchId != matchId) return;
-      if (attempt < 5) {
-        debugPrint('[HLS] Retrying in 2s (attempt ${attempt + 1}/5)...');
+      if (attempt < 3) {
+        debugPrint('[HLS] Retrying in 1s (attempt ${attempt + 1}/3)...');
         _initHls(matchId, attempt: attempt + 1);
       } else {
         debugPrint('[HLS] ✗ Giving up after $attempt attempts for $matchId');
@@ -241,6 +239,26 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       }
     });
 
+    // Listen for streaming state changes → start HLS when ready
+    ref.listen<AsyncValue<Map<String, dynamic>>>(streamingStateProvider, (_, next) {
+      next.whenData((data) {
+        final state = data['state'] as String?;
+        final hlsUrl = data['hls_url'] as String?;
+        final error = data['error'] as String?;
+
+        debugPrint('[LiveMatch] Streaming state: $state');
+
+        if (state == 'ready' && matchId != null && hlsUrl != null) {
+          // Backend confirmed HLS is ready — start player now
+          debugPrint('[LiveMatch] HLS ready signal received — starting player');
+          _startHls(matchId);
+        } else if (state == 'error') {
+          debugPrint('[LiveMatch] HLS error: $error');
+          // Could show error UI here
+        }
+      });
+    });
+
     if (match == null) {
       final isStillLoading = !matchState.hasLoaded;
       return AppShell(
@@ -271,6 +289,27 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final isHlsLoading = _hlsInitializing && !isHlsReady;
     final gameStateAsync = ref.watch(gameStateProvider);
     final viewerAsync = ref.watch(viewerCountProvider);
+    final streamingStateAsync = ref.watch(streamingStateProvider);
+
+    // Determine what message to show when stream isn't playing
+    String streamStatusMessage = 'Stream starting...';
+    streamingStateAsync.whenData((data) {
+      final state = data['state'] as String?;
+      final error = data['error'] as String?;
+      switch (state) {
+        case 'initializing':
+          streamStatusMessage = 'Initializing stream...';
+          break;
+        case 'ready':
+          streamStatusMessage = 'Stream ready, loading...';
+          break;
+        case 'error':
+          streamStatusMessage = error ?? 'Stream error';
+          break;
+        default:
+          streamStatusMessage = 'Stream starting...';
+      }
+    });
 
     return AppShell(
       activeTab: NavTab.arena,
@@ -340,7 +379,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                               const SizedBox(height: 12),
                               Text(
                                 isHlsLoading
-                                    ? 'Stream starting...'
+                                    ? streamStatusMessage
                                     : 'Stream unavailable',
                                 style: const TextStyle(
                                     color: Palette.muted, fontSize: 13),
