@@ -13,6 +13,7 @@ import '../models/game_state.dart';
 import '../providers/bet_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
+import '../providers/global_events_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
@@ -74,7 +75,34 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // Connect after first frame — at this point providers may already have data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectToMatch();
+      _listenForGlobalEvents();
     });
+  }
+
+  void _listenForGlobalEvents() {
+    // Listen for match status changes from global events
+    ref.listen<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (previous, next) {
+        next.whenData((event) {
+          final eventMatchId = event['match_id'] as String?;
+          final currentMatchId = widget.matchId ?? _lastConnectedMatchId;
+
+          // Check if this event is for our current match
+          if (eventMatchId == currentMatchId) {
+            if (event['type'] == 'match_status_changed') {
+              final status = event['status'] as String?;
+
+              if (status == 'completed' || status == 'cancelled') {
+                debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
+                _stopHls();
+                _navigateToPostMatch(eventMatchId);
+              }
+            }
+          }
+        });
+      },
+    );
   }
 
   void _navigateToPostMatch(String matchId) {

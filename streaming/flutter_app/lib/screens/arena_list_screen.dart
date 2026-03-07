@@ -6,16 +6,83 @@ import '../router.dart';
 import '../models/match.dart';
 import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
+import '../providers/global_events_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
 import '../widgets/shared/ik_shimmer.dart';
 
-class ArenaListScreen extends ConsumerWidget {
+class ArenaListScreen extends ConsumerStatefulWidget {
   const ArenaListScreen({super.key, required this.onNavigate});
   final void Function(String) onNavigate;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ArenaListScreen> createState() => _ArenaListScreenState();
+}
+
+class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
+  bool _autoNavigating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start listening to global events when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _listenForLiveMatches();
+    });
+  }
+
+  void _listenForLiveMatches() {
+    ref.listen<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (previous, next) {
+        next.whenData((event) {
+          // Check if a match just went live
+          if (event['type'] == 'match_status_changed' &&
+              event['status'] == 'live' &&
+              !_autoNavigating) {
+            final matchId = event['match_id'];
+            if (matchId != null) {
+              _autoNavigating = true;
+              debugPrint('[ArenaList] Auto-navigating to live match: $matchId');
+
+              // Show notification
+              if (mounted && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Match is starting! Redirecting to live stream...',
+                      style: bodyStyle(size: 14, color: Palette.white),
+                    ),
+                    backgroundColor: Palette.gold.withValues(alpha: 0.9),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                );
+              }
+
+              // Small delay for smooth transition
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) {
+                  widget.onNavigate('/live-match/$matchId');
+                  // Reset flag after navigation
+                  Future.delayed(const Duration(seconds: 2), () {
+                    if (mounted) _autoNavigating = false;
+                  });
+                }
+              });
+            }
+          }
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(clockTickProvider);
     final matchState = ref.watch(matchProvider);
     final allMatches = matchState.matches;
@@ -24,7 +91,7 @@ class ArenaListScreen extends ConsumerWidget {
     return AppShell(
       activeTab: NavTab.arena,
       scrollable: false,
-      onNavigate: (slug) => onNavigate(routeFor(slug)),
+      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -75,9 +142,9 @@ class ArenaListScreen extends ConsumerWidget {
               emptyLabel: 'No matches available',
               onTap: (m) {
                 if (m.status == MatchStatus.live) {
-                  onNavigate('/live-match/${m.id}');
+                  widget.onNavigate('/live-match/${m.id}');
                 } else {
-                  onNavigate('/battle-detail/${m.id}');
+                  widget.onNavigate('/battle-detail/${m.id}');
                 }
               },
             ),

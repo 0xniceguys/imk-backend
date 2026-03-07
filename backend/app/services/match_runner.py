@@ -442,6 +442,14 @@ class MatchRunner:
 
             self.state = RunnerState.RUNNING
 
+            # Broadcast global event that match is going live
+            await ws_manager.broadcast_global_event({
+                "type": "match_status_changed",
+                "match_id": self.match_id,
+                "status": "live",
+                "timestamp": time.time(),
+            })
+
             # Clear any stale Redis cache from previous runs of this match
             try:
                 from app.services.redis_client import clear_match_cache
