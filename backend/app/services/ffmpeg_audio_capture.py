@@ -67,16 +67,24 @@ class FFmpegAudioCapture:
             # PulseAudio input — game audio arrives at 44100Hz from the null-sink
             "-f", "pulse",
             "-i", PULSE_MONITOR_SOURCE,
-            # AAC audio codec
+            # AAC audio — use strict baseline profile for max ExoPlayer compat
             "-c:a", "aac",
+            "-profile:a", "aac_low",  # LC profile — universally supported
             "-b:a", "128k",
             "-ar", "44100",
             "-ac", "2",
+            # MPEG-TS muxer flags to produce clean PES packets:
+            #   resend_headers  — resend PAT/PMT at each segment start
+            #   latm            — NOT used (causes PesReader confusion on Android)
+            "-mpegts_flags", "resend_headers",
+            "-muxrate", "0",         # CBR off — let muxer adapt to audio bitrate
+            "-pcr_period", "20",     # PCR every 20ms — reduces ExoPlayer pipeline stalls
             # HLS output — 1s segments for lower latency
             "-f", "hls",
             "-hls_time", str(HLS_SEGMENT_DURATION),
             "-hls_list_size", str(HLS_LIST_SIZE),
-            "-hls_flags", "delete_segments+append_list",
+            "-hls_flags", "delete_segments+append_list+discont_start",
+            "-hls_segment_type", "mpegts",   # explicit — avoids any fmp4 fallback
             "-hls_segment_filename", out_pattern,
             playlist,
         ]

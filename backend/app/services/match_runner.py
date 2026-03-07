@@ -501,9 +501,6 @@ class MatchRunner:
         self.latest_frame = jpeg_bytes
         await ws_manager.broadcast_bytes(self.match_id, jpeg_bytes)
 
-    async def _on_audio_chunk(self, opus_bytes: bytes) -> None:
-        """Callback: FFmpeg delivered an Opus/OGG audio chunk — broadcast it."""
-        await ws_manager.broadcast_audio(self.match_id, opus_bytes)
 
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
