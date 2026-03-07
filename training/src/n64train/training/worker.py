@@ -132,9 +132,8 @@ def run_worker(
         if b is None:
             raise RuntimeError("bridge not connected")
         remaining = max(1, int(frames))
-        # Large "frame N" debugger requests can timeout under load on some
-        # instances; chunking keeps stepping deterministic but more robust.
-        chunk = 20
+        # Larger chunks = fewer round-trips = faster stepping (each call has fixed IPC overhead)
+        chunk = 120
         while remaining > 0:
             n = min(chunk, remaining)
             timeout_sec = max(10.0, float(n) * 2.0)
@@ -258,7 +257,7 @@ def run_worker(
 
     # ── Stagger startup to prevent all workers from slamming stateload at once ──
     # With 16 simultaneous emulators, CPU is bottlenecked; spread load over time.
-    STAGGER_PER_WORKER_SEC = 8.0
+    STAGGER_PER_WORKER_SEC = 2.0  # was 8s — designed for 16 emulators, 2 per run needs much less
     stagger = worker_id * STAGGER_PER_WORKER_SEC
     if stagger > 0:
         print(f'[worker-{worker_id}] startup stagger: sleeping {stagger:.0f}s')
@@ -434,7 +433,6 @@ def run_worker(
             # ── Episode setup: pause → stateload → deterministic frame step ────
             try:
                 h.pause()
-                time.sleep(0.2)
             except Exception:
                 pass  # first episode may be already paused — ignore
 
@@ -618,7 +616,7 @@ def run_worker(
                 write_ctrl_worker(ControllerState(), ctrl_path)
                 if ctrl_path_p2 is not None:
                     write_ctrl_worker(ControllerState(), ctrl_path_p2)
-                warmup_frames = 300  # ~5s at 60 FPS
+                warmup_frames = 12   # ~0.2s at 60 FPS — minimal settle for control responsiveness
                 _step_frames(warmup_frames)
                 print(
                     f'[worker-{worker_id}] attempt={attempt_idx} warmup done '
@@ -626,24 +624,7 @@ def run_worker(
                     flush=True,
                 )
 
-                if ctrl_path_p2 is not None and opponent_agent is not None:
-                    write_ctrl_worker(
-                        ControllerState(pressed=frozenset([Button.D_RIGHT])),
-                        ctrl_path,
-                    )
-                    write_ctrl_worker(
-                        ControllerState(pressed=frozenset([Button.D_LEFT])),
-                        ctrl_path_p2,
-                    )
-                    _step_frames(120)
-                    write_ctrl_worker(ControllerState(), ctrl_path)
-                    write_ctrl_worker(ControllerState(), ctrl_path_p2)
-                    _step_frames(15)
-                    print(
-                        f'[worker-{worker_id}] attempt={attempt_idx} pre-engage done '
-                        f'(self-play close-range setup)',
-                        flush=True,
-                    )
+                # No pre-engage walk — approach reward handles closing distance
 
             ep_start       = time.time()
             ep_steps       = 0
@@ -742,8 +723,8 @@ def run_worker(
                 # If we still cannot read state, mark this rollout invalid and
                 # restart from a fresh savestate on the next attempt.
                 next_state = None
-                READ_RETRIES = 30
-                READ_RETRY_SLEEP = 0.5   # 0.5s between retries → 15s total tolerance
+                READ_RETRIES = 5
+                READ_RETRY_SLEEP = 0.1   # 0.1s between retries → 0.5s total tolerance
                 for _retry in range(READ_RETRIES):
                     try:
                         next_state = tracer.read(ep_steps)

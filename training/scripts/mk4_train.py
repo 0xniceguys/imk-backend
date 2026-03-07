@@ -46,7 +46,7 @@ P1_CTRL    = '/tmp/mk4_ctrl'
 
 # Episode tuning
 MAX_EPISODE_SECS = 99      # full MK4 round timer — agent has full fight duration
-STEP_SECS        = 0.033   # 33ms per agent decision (~2 frames at 60fps, near human reflex)
+STEP_SECS        = 0.1     # 6 frames per decision — amortizes debugger round-trip overhead, ~3x faster than 2-frame steps
 # Faster episode turnover for parallel training: deterministic 30-frame settle.
 SETTLE_SECS      = 0.5
 X_NORM           = 15.0    # position normalisation ceiling

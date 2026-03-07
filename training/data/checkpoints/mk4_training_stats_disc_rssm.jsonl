@@ -40,3 +40,26 @@
 {"episode": 27, "arch": "discrete_rssm_hier_ac", "n_steps": 373, "kl": 1.0, "tau": 0.999, "ppo_policy_loss": 0.0072, "ppo_value_loss": 2.6472, "ppo_entropy": 2.9653, "ppo_ratio_mean": 0.9868, "ppo_clip_frac": 0.2574}
 {"episode": 28, "arch": "discrete_rssm_hier_ac", "n_steps": 325, "kl": 1.0004, "tau": 0.999, "ppo_policy_loss": 0.0046, "ppo_value_loss": 2.1904, "ppo_entropy": 2.957, "ppo_ratio_mean": 1.0075, "ppo_clip_frac": 0.4923}
 {"update": 14, "agent": "disc_rssm", "episode": 28, "batch_eps": 2}
+{"episode": 29, "arch": "discrete_rssm_hier_ac", "n_steps": 286, "kl": 1.0001, "tau": 0.999, "ppo_policy_loss": 0.0015, "ppo_value_loss": 2.6579, "ppo_entropy": 2.9461, "ppo_ratio_mean": 0.9879, "ppo_clip_frac": 0.2622}
+{"episode": 30, "arch": "discrete_rssm_hier_ac", "n_steps": 423, "kl": 1.0001, "tau": 0.9989, "ppo_policy_loss": -0.0036, "ppo_value_loss": 2.0762, "ppo_entropy": 2.9354, "ppo_ratio_mean": 1.0236, "ppo_clip_frac": 0.6525}
+{"update": 15, "agent": "disc_rssm", "episode": 30, "batch_eps": 2}
+{"episode": 31, "arch": "discrete_rssm_hier_ac", "n_steps": 273, "kl": 1.0, "tau": 0.9989, "ppo_policy_loss": -0.0117, "ppo_value_loss": 2.8544, "ppo_entropy": 2.9399, "ppo_ratio_mean": 1.0141, "ppo_clip_frac": 0.5018}
+{"episode": 32, "arch": "discrete_rssm_hier_ac", "n_steps": 350, "kl": 1.0, "tau": 0.9988, "ppo_policy_loss": -0.0151, "ppo_value_loss": 1.8223, "ppo_entropy": 2.9251, "ppo_ratio_mean": 0.9854, "ppo_clip_frac": 0.4771}
+{"update": 16, "agent": "disc_rssm", "episode": 32, "batch_eps": 2}
+{"episode": 33, "arch": "discrete_rssm_hier_ac", "n_steps": 237, "kl": 1.0, "tau": 0.9988, "ppo_policy_loss": 0.0049, "ppo_value_loss": 2.3792, "ppo_entropy": 2.9324, "ppo_ratio_mean": 1.0009, "ppo_clip_frac": 0.5823}
+{"episode": 34, "arch": "discrete_rssm_hier_ac", "n_steps": 336, "kl": 1.0, "tau": 0.9988, "ppo_policy_loss": 0.0418, "ppo_value_loss": 2.573, "ppo_entropy": 2.8989, "ppo_ratio_mean": 1.022, "ppo_clip_frac": 0.6786}
+{"update": 17, "agent": "disc_rssm", "episode": 34, "batch_eps": 2}
+{"episode": 35, "arch": "discrete_rssm_hier_ac", "n_steps": 285, "kl": 1.0, "tau": 0.9987, "ppo_policy_loss": 0.0855, "ppo_value_loss": 2.9765, "ppo_entropy": 2.8866, "ppo_ratio_mean": 1.0345, "ppo_clip_frac": 0.8351}
+{"episode": 36, "arch": "discrete_rssm_hier_ac", "n_steps": 330, "kl": 1.0, "tau": 0.9987, "ppo_policy_loss": 0.061, "ppo_value_loss": 2.6031, "ppo_entropy": 2.9125, "ppo_ratio_mean": 1.0345, "ppo_clip_frac": 0.7152}
+{"update": 18, "agent": "disc_rssm", "episode": 36, "batch_eps": 2}
+{"episode": 37, "arch": "discrete_rssm_hier_ac", "n_steps": 337, "kl": 1.0, "tau": 0.9987, "ppo_policy_loss": 0.0357, "ppo_value_loss": 1.6979, "ppo_entropy": 2.946, "ppo_ratio_mean": 0.9965, "ppo_clip_frac": 0.6528}
+{"episode": 38, "arch": "discrete_rssm_hier_ac", "n_steps": 211, "kl": 1.0, "tau": 0.9986, "ppo_policy_loss": 0.0313, "ppo_value_loss": 6.097, "ppo_entropy": 2.965, "ppo_ratio_mean": 0.9969, "ppo_clip_frac": 0.7393}
+{"update": 19, "agent": "disc_rssm", "episode": 38, "batch_eps": 2}
+{"episode": 21, "arch": "discrete_rssm_hier_ac", "n_steps": 667, "kl": 1.0, "tau": 0.9992, "ppo_policy_loss": -0.0141, "ppo_value_loss": 2.1058, "ppo_entropy": 2.8699, "ppo_ratio_mean": 1.0008, "ppo_clip_frac": 0.6537}
+{"episode": 22, "arch": "discrete_rssm_hier_ac", "n_steps": 667, "kl": 1.0002, "tau": 0.9992, "ppo_policy_loss": -0.0117, "ppo_value_loss": 1.4319, "ppo_entropy": 2.8773, "ppo_ratio_mean": 1.0064, "ppo_clip_frac": 0.1934}
+{"episode": 23, "arch": "discrete_rssm_hier_ac", "n_steps": 666, "kl": 1.0, "tau": 0.9992, "ppo_policy_loss": -0.0076, "ppo_value_loss": 2.1121, "ppo_entropy": 2.8907, "ppo_ratio_mean": 0.9974, "ppo_clip_frac": 0.2823}
+{"update": 1, "agent": "disc_rssm", "episode": 3, "batch_eps": 3}
+{"episode": 24, "arch": "discrete_rssm_hier_ac", "n_steps": 666, "kl": 1.0, "tau": 0.9991, "ppo_policy_loss": 0.0036, "ppo_value_loss": 2.1023, "ppo_entropy": 2.9095, "ppo_ratio_mean": 1.0037, "ppo_clip_frac": 0.1441}
+{"episode": 25, "arch": "discrete_rssm_hier_ac", "n_steps": 665, "kl": 1.0, "tau": 0.9991, "ppo_policy_loss": 0.006, "ppo_value_loss": 1.9627, "ppo_entropy": 2.9167, "ppo_ratio_mean": 0.9988, "ppo_clip_frac": 0.2436}
+{"episode": 26, "arch": "discrete_rssm_hier_ac", "n_steps": 666, "kl": 1.0, "tau": 0.9991, "ppo_policy_loss": 0.0109, "ppo_value_loss": 1.5806, "ppo_entropy": 2.9237, "ppo_ratio_mean": 0.9957, "ppo_clip_frac": 0.2838}
+{"update": 2, "agent": "disc_rssm", "episode": 6, "batch_eps": 3}

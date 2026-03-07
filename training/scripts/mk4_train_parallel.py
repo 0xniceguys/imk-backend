@@ -206,6 +206,9 @@ def launch_bridge(
 
     # Per-worker ctrl file so buttons go to the RIGHT emulator
     env = os.environ.copy()
+    # Force software rendering — prevents all 15+ emulators from fighting
+    # the GPU with OpenGL calls. Nobody watches these frames anyway.
+    env['LIBGL_ALWAYS_SOFTWARE'] = '1'
     env['N64TRAIN_CTRL_P1'] = ctrl
     if enable_p2_controller:
         env['N64TRAIN_CTRL_P2'] = ctrl + '_p2'
