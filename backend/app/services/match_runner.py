@@ -34,14 +34,8 @@ from app.services.actions import (
 from app.services.bridge import EmulatorBridge
 from app.services.ctrl_writer import write_ctrl
 from app.services.emulator import EmulatorSession, LaunchOptions
-from app.services.ffmpeg_capture import FFmpegCapture, ffmpeg_available, is_linux
-from app.services.game_state import (
-    FightState,
-    is_round_over,
-    p1_won,
-    read_fight_state,
-)
-from app.services.ffmpeg_audio_capture import FFmpegAudioCapture
+from app.services.ffmpeg_capture import ffmpeg_available, is_linux
+from app.services.ffmpeg_combined_hls import FFmpegCombinedHls
 from app.services.ram_debug import RamDebugRecorder
 from app.ws.connection_manager import manager as ws_manager
 
@@ -198,8 +192,8 @@ class MatchRunner:
         self._ctrl_p1_path: str | None = None
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
-        self._frame_capture: FFmpegCapture | None = None
-        self._audio_capture = FFmpegAudioCapture(match_id=self.match_id)
+        # Combined HLS capture: one FFmpeg for video + audio
+        self._hls_capture = FFmpegCombinedHls(match_id=self.match_id)
         self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
         self._manual_overrides: dict[int, ManualOverrideState] = {
             1: ManualOverrideState(),
@@ -458,48 +452,21 @@ class MatchRunner:
             raise
 
     async def _start_free_running(self) -> None:
-        """Let the emulator run freely and start FFmpeg frame capture.
+        """Let the emulator run freely and start combined H.264+AAC HLS capture.
 
-        The emulator runs at native 60fps for smooth video output.
-        RAM reads use a brief pause→read→run cycle per iteration so reads are
-        always taken from a deterministic (paused) state, not mid-execution.
+        Video and audio are both captured by a single FFmpeg process and muxed
+        into HLS segments. Flutter's VideoPlayer plays stream.m3u8 directly,
+        giving perfect A/V sync with no extra pipeline complexity.
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._bridge.debugger_command, "run")
         logger.info("Emulator set to free-running mode")
 
-        # Give the video plugin time to render the first frame
+        # Give the video plugin time to render the first frame before FFmpeg starts
         await asyncio.sleep(1.5)
 
-        if is_linux():
-            display = self._session.display if self._session else ":99"
-            self._frame_capture = FFmpegCapture(
-                display=display,
-                width=640,
-                height=480,
-                framerate=30,
-                quality=15,
-            )
-            logger.info("FFmpeg capture: x11grab on display %s", display)
-        else:
-            self._frame_capture = FFmpegCapture(
-                screen_index="2",
-                width=320,
-                height=240,
-                framerate=60,
-                quality=5,
-            )
-            logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
-
-        await self._frame_capture.start(self._on_ffmpeg_frame)
-        await self._audio_capture.start()
-        fps = 30 if is_linux() else 60
-        logger.info("FFmpeg capture started at %dfps", fps)
-
-    async def _on_ffmpeg_frame(self, jpeg_bytes: bytes) -> None:
-        """Callback: FFmpeg delivered a JPEG frame — broadcast it."""
-        self.latest_frame = jpeg_bytes
-        await ws_manager.broadcast_bytes(self.match_id, jpeg_bytes)
+        await self._hls_capture.start()
+        logger.info("Combined HLS capture started for match %s", self.match_id)
 
 
     async def stop(self) -> None:
@@ -507,11 +474,8 @@ class MatchRunner:
         logger.info("Stopping match runner %s", self.match_id)
         self.state = RunnerState.STOPPED
 
-        # Stop FFmpeg capture (video + audio)
-        if self._frame_capture:
-            await self._frame_capture.stop()
-            self._frame_capture = None
-        await self._audio_capture.stop()
+        # Stop combined HLS capture (video + audio)
+        await self._hls_capture.stop()
 
         # Cancel background task
         if self._agent_loop_task and not self._agent_loop_task.done():
@@ -746,14 +710,10 @@ class MatchRunner:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, self._bridge.debugger_command, "pause")
 
-                if self._frame_capture:
-                    await self._frame_capture.stop()
-                    self._frame_capture = None
-
-                # Stop audio alongside video so there's no stale audio
-                # stream playing through the round transition. It will be
-                # restarted in _start_free_running after savestate reload.
-                await self._audio_capture.stop()
+                # Between rounds: stop HLS capture so there's no stale stream
+                # through the round transition. It will be restarted by
+                # _start_free_running after the savestate reload.
+                await self._hls_capture.stop()
 
                 await asyncio.sleep(2.0)  # KO animation visible
 
@@ -1020,10 +980,8 @@ class MatchRunner:
 
     async def _cleanup_emulator(self) -> None:
         """Clean up emulator resources after match ends."""
-        if self._frame_capture:
-            await self._frame_capture.stop()
-            self._frame_capture = None
-        await self._audio_capture.stop()
+        # Stop combined HLS capture if still running
+        await self._hls_capture.stop()
         if self._bridge:
             try:
                 self._bridge.close()
