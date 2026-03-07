@@ -39,6 +39,8 @@ class ConnectionManager:
     def __init__(self) -> None:
         # match_id (str) → set of active WebSocket connections
         self._rooms: dict[str, set[WebSocket]] = defaultdict(set)
+        # Global events subscribers (for match status changes)
+        self._global_subscribers: set[WebSocket] = set()
         # Connections queued for removal (pruned on next broadcast)
         self._dead: set[WebSocket] = set()
         # Background task: periodically prune dead connections even if no
@@ -71,6 +73,16 @@ class ConnectionManager:
         self._rooms[match_id].discard(ws)
         if not self._rooms[match_id]:
             del self._rooms[match_id]
+
+    def subscribe_global(self, ws: WebSocket) -> None:
+        """Subscribe to global events (match status changes)."""
+        self._global_subscribers.add(ws)
+        logger.info("Global subscriber added (%d total)", len(self._global_subscribers))
+
+    def unsubscribe_global(self, ws: WebSocket) -> None:
+        """Unsubscribe from global events."""
+        self._global_subscribers.discard(ws)
+        logger.info("Global subscriber removed (%d total)", len(self._global_subscribers))
 
     def viewer_count(self, match_id: str) -> int:
         return len(self._rooms.get(match_id, set()))
@@ -125,6 +137,27 @@ class ConnectionManager:
             )
 
     # ── Public broadcast API ────────────────────────────────────────────────
+
+    async def broadcast_global_event(self, event: dict) -> None:
+        """Broadcast an event to all global subscribers."""
+        message = json.dumps(event)
+        dead_subs = set()
+
+        for ws in list(self._global_subscribers):
+            try:
+                await asyncio.wait_for(ws.send_text(message), timeout=_SEND_TIMEOUT)
+            except Exception:
+                dead_subs.add(ws)
+
+        # Clean up dead connections
+        self._global_subscribers -= dead_subs
+
+        # Also publish to Redis for multi-server setups
+        try:
+            from app.services.redis_client import publish_global_event
+            await publish_global_event(event)
+        except Exception:
+            pass
 
     async def broadcast_json(self, match_id: str, data: dict) -> None:
         """Send JSON payload to all local viewers + publish to Redis (fire-and-forget)."""

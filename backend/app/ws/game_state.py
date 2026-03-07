@@ -37,6 +37,40 @@ async def _get_match_ended(match_id: str) -> dict | None:
         return None
 
 
+@router.websocket("/ws/events")
+async def global_events_websocket(ws: WebSocket):
+    """
+    Global events channel for all match status changes.
+    Clients connect here to get notified when ANY match goes live.
+    """
+    await ws.accept()
+    manager.subscribe_global(ws)
+    client_id = f"client-{id(ws)}"
+
+    try:
+        # Send initial connection confirmation
+        await ws.send_json({
+            "type": "connected",
+            "client_id": client_id,
+        })
+
+        # Keep connection alive and handle pings
+        while True:
+            try:
+                data = await ws.receive_json()
+                if data.get("type") == "ping":
+                    await ws.send_json({"type": "pong"})
+            except Exception:
+                break
+
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("Global events WebSocket error")
+    finally:
+        manager.unsubscribe_global(ws)
+
+
 @router.websocket("/ws/match/{match_id}")
 async def match_websocket(ws: WebSocket, match_id: str):
     """
