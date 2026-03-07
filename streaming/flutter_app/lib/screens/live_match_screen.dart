@@ -205,11 +205,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
 
-    // FPS counter — fires every time a new binary frame arrives from WebSocket
-    ref.listen<AsyncValue<Uint8List>>(frameProvider, (prev, next) {
-      if (next.hasValue) _recordFrame();
-    });
-
     // Retry connecting when match list loads or updates (handles the race
     // where matchProvider is still empty when initState fires).
     // Also catches the case where REST polling flips the match to completed
