@@ -81,6 +81,7 @@ def setup_test_database():
     """Create all database tables before running tests."""
     import asyncio
     settings.use_devnet = True
+    settings.auto_queue_enabled = False
     asyncio.run(_create_tables())
 
 

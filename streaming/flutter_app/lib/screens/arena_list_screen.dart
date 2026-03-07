@@ -4,6 +4,7 @@ import '../core/palette.dart';
 import '../core/typography.dart';
 import '../router.dart';
 import '../models/match.dart';
+import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
@@ -15,6 +16,7 @@ class ArenaListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(clockTickProvider);
     final matchState = ref.watch(matchProvider);
     final allMatches = matchState.matches;
     final feed = _sortedFeed(allMatches);

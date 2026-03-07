@@ -8,6 +8,7 @@ import '../core/constants.dart';
 import '../models/match.dart';
 import '../models/fighter.dart';
 import '../models/bet.dart';
+import '../models/match_bet_feed_item.dart';
 
 void _log(String msg) {
   // ignore: avoid_print
@@ -80,6 +81,28 @@ class ApiService {
     } catch (e) {
       _log('fetchMatch error: $e');
       return null;
+    }
+  }
+
+  Future<List<MatchBetFeedItem>> fetchMatchBetFeed(
+    String matchId, {
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse(
+      '$kApiBaseUrl/matches/$matchId/bet-feed',
+    ).replace(queryParameters: {'limit': '$limit'});
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return [];
+      final list = jsonDecode(resp.body) as List;
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((j) => MatchBetFeedItem.fromJson(j))
+          .toList();
+    } catch (e) {
+      _log('fetchMatchBetFeed error: $e');
+      return [];
     }
   }
 

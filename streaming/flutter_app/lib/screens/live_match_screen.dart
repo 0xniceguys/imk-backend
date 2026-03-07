@@ -15,7 +15,6 @@ import '../providers/match_stream_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
-import '../widgets/betting/odds_display.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
 
 class LiveMatchScreen extends ConsumerStatefulWidget {
@@ -407,10 +406,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             '${match.fighter1?.llmModel ?? ''} vs ${match.fighter2?.llmModel ?? ''}',
             style: bodyStyle(size: 14, color: Palette.secondary),
           ),
-          const SizedBox(height: 12),
-
-          // Live odds
-          OddsDisplay(odds: match.odds, match: match),
           const SizedBox(height: 12),
 
           // Place Bet button (only if betting is open)

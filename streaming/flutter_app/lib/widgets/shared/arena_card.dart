@@ -158,7 +158,16 @@ class ArenaCard extends StatelessWidget {
     }
     if (match.status == MatchStatus.upcoming) {
       final q = match.queuePosition;
-      if (q == 1) return 'NEXT MATCH';
+      if (q == 1) {
+        final startsAt = match.queueStartsAt;
+        if (startsAt == null) return 'NEXT MATCH';
+        final remain = startsAt.difference(DateTime.now()).inSeconds;
+        if (remain <= 0) return 'NEXT MATCH';
+        final safe = remain;
+        final mm = (safe ~/ 60).toString().padLeft(2, '0');
+        final ss = (safe % 60).toString().padLeft(2, '0');
+        return 'NEXT MATCH  $mm:$ss';
+      }
       if (q != null && q >= 2) return '#$q IN-QUEUE';
       return 'IN-QUEUE';
     }

@@ -22,6 +22,8 @@ class Match {
   final int roundsWonP2;
   final bool bettingOpen;
   final int? queuePosition;
+  final DateTime? queueStartsAt;
+  final int? queueCountdownSeconds;
 
   const Match({
     required this.id,
@@ -42,6 +44,8 @@ class Match {
     this.roundsWonP2 = 0,
     this.bettingOpen = false,
     this.queuePosition,
+    this.queueStartsAt,
+    this.queueCountdownSeconds,
   });
 
   factory Match.fromJson(Map<String, dynamic> json) {
@@ -75,6 +79,10 @@ class Match {
       roundsWonP2: json['rounds_won_p2'] as int? ?? 0,
       bettingOpen: json['betting_open'] as bool? ?? false,
       queuePosition: _parseQueuePosition(json['queue_position']),
+      queueStartsAt: json['queue_starts_at'] != null
+          ? DateTime.tryParse(json['queue_starts_at'] as String)
+          : null,
+      queueCountdownSeconds: _parseQueuePosition(json['queue_countdown_seconds']),
     );
   }
 
