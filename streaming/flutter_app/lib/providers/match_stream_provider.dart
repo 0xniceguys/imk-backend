@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/game_state.dart';
@@ -16,12 +14,6 @@ final matchStreamServiceProvider = Provider<MatchStreamService>((ref) {
 final gameStateProvider = StreamProvider<GameState>((ref) {
   final service = ref.watch(matchStreamServiceProvider);
   return service.gameStateStream;
-});
-
-/// Latest PNG frame bytes from the emulator.
-final frameProvider = StreamProvider<Uint8List>((ref) {
-  final service = ref.watch(matchStreamServiceProvider);
-  return service.frameStream;
 });
 
 /// Current viewer count for the match.

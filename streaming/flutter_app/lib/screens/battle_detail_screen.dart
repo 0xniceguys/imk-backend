@@ -30,7 +30,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   int? _selectedFighter;
   Future<List<MatchBetFeedItem>>? _betFeedFuture;
   String? _betFeedMatchId;
-
+  bool _navigatedToLive = false;
   void _ensureBetFeedFuture(String matchId) {
     if (_betFeedFuture == null || _betFeedMatchId != matchId) {
       _betFeedMatchId = matchId;
@@ -55,6 +55,21 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
     final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+
+    // Auto-navigate to live screen when this upcoming match becomes live
+    ref.listen<MatchState>(matchProvider, (prev, next) {
+      if (_navigatedToLive || !mounted) return;
+      if (widget.matchId == null) return;
+      final updated = next.matches.cast<Match?>().firstWhere(
+        (m) => m?.id == widget.matchId,
+        orElse: () => null,
+      );
+      if (updated != null && updated.status == MatchStatus.live) {
+        _navigatedToLive = true;
+        debugPrint('[BattleDetail] Match ${widget.matchId} went live — auto-navigating');
+        widget.onNavigate('/live-match/${widget.matchId}');
+      }
+    });
 
     if (!matchState.hasLoaded) {
       return const Scaffold(
