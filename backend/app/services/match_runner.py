@@ -37,6 +37,7 @@ from app.services.emulator import EmulatorSession, LaunchOptions
 from app.services.ffmpeg_capture import ffmpeg_available, is_linux
 from app.services.ffmpeg_combined_hls import FFmpegCombinedHls
 from app.services.ram_debug import RamDebugRecorder
+from app.services.game_state import FightState, read_fight_state
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
