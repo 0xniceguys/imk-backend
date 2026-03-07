@@ -25,8 +25,7 @@ from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
-# Frame type prefix bytes
-FRAME_VIDEO: bytes = b"\x00"
+# Audio message prefix byte (video is sent raw — JPEG always starts with 0xFF)
 FRAME_AUDIO: bytes = b"\x01"
 
 # Per-client send timeout: if a client can't receive within this window,
@@ -125,16 +124,19 @@ class ConnectionManager:
             pass
 
     async def broadcast_bytes(self, match_id: str, jpeg_bytes: bytes) -> None:
-        """Send a video JPEG frame (prefixed with 0x00) to all local viewers + Redis."""
-        data = FRAME_VIDEO + jpeg_bytes
+        """Send a raw video JPEG frame to all local viewers + Redis.
 
+        Video is sent without a prefix byte — JPEG always starts with 0xFF 0xD8
+        which is unambiguous, allowing the client to distinguish video from audio
+        by checking the first byte (0x01 = audio, anything else = video JPEG).
+        """
         # 1. In-process (fire-and-forget)
-        self._schedule_bytes(match_id, data)
+        self._schedule_bytes(match_id, jpeg_bytes)
 
         # 2. Redis fan-out
         try:
             from app.services.redis_client import publish_bytes
-            await publish_bytes(match_id, data)
+            await publish_bytes(match_id, jpeg_bytes)
         except Exception:
             pass
 
