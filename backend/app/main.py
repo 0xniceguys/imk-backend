@@ -30,6 +30,31 @@ async def lifespan(app: FastAPI):
     stats = full_cleanup()
     logger.info(f"Startup cleanup: {stats}")
 
+    # Clean up any stale LIVE matches from previous runs
+    from app.db.engine import async_session
+    from app.db.models import Match, MatchStatus
+    from sqlalchemy import update
+    from datetime import datetime, timezone
+
+    async with async_session() as db:
+        # Find matches that are LIVE but have no active runner
+        # These are matches that were interrupted by a service restart
+        result = await db.execute(
+            update(Match)
+            .where(Match.status == MatchStatus.LIVE)
+            .values(
+                status=MatchStatus.COMPLETED,
+                completed_at=datetime.now(timezone.utc),
+                # Don't set a winner since we don't know who won
+            )
+            .returning(Match.id)
+        )
+        updated_ids = result.scalars().all()
+        await db.commit()
+
+        if updated_ids:
+            logger.warning(f"Cleaned up {len(updated_ids)} stale LIVE matches: {updated_ids}")
+
     # Pre-fetch Privy JWKS so first auth request is fast
     from app.auth.privy import verify_privy_token  # noqa: F401
 

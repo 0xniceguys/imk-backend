@@ -1027,8 +1027,51 @@ class MatchRunner:
         try:
             from app.services.settlement import settle_match
             await settle_match(self.match_id, winner_player)
+            logger.info("Successfully settled match %s with winner player %d", self.match_id, winner_player)
+        except Exception as e:
+            logger.exception("Auto-settle failed for match %s: %s", self.match_id, str(e))
+            # Even if settlement fails, we should still mark the match as completed
+            # to prevent it from being stuck in LIVE status
+            await self._mark_match_completed_fallback(winner_player)
+
+    async def _mark_match_completed_fallback(self, winner_player: int) -> None:
+        """Fallback to mark match as completed in DB when settlement fails."""
+        try:
+            from datetime import datetime, timezone
+            from uuid import UUID
+            from app.db.engine import async_session
+            from app.db.models import Match, MatchStatus, StreamStatus
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Match)
+                    .where(Match.id == UUID(self.match_id))
+                    .options(selectinload(Match.stream))
+                )
+                match = result.scalar_one_or_none()
+                if not match:
+                    logger.error("Fallback: match %s not found", self.match_id)
+                    return
+
+                if match.status != MatchStatus.LIVE:
+                    logger.warning("Fallback: match %s not LIVE (status=%s), skipping",
+                                 self.match_id, match.status.value)
+                    return
+
+                winner_id = match.fighter1_id if winner_player == 1 else match.fighter2_id
+                match.status = MatchStatus.COMPLETED
+                match.winner_id = winner_id
+                match.completed_at = datetime.now(timezone.utc)
+                if match.stream:
+                    match.stream.status = StreamStatus.STOPPED
+
+                await db.commit()
+                logger.warning("Fallback: Marked match %s as COMPLETED (winner=%s) without full settlement",
+                             self.match_id, winner_id)
         except Exception:
-            logger.exception("Auto-settle failed for match %s", self.match_id)
+            logger.exception("Fallback failed to mark match %s as completed", self.match_id)
 
     async def _mark_match_errored(self) -> None:
         """Cancel the match contract-first when runner fails."""
