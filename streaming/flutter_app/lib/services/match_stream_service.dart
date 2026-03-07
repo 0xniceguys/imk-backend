@@ -26,13 +26,17 @@ class MatchStreamService {
   // Stream controllers for different message types
   final _gameStateCtrl = StreamController<GameState>.broadcast();
   final _frameCtrl = StreamController<Uint8List>.broadcast();
+  final _audioChunkCtrl = StreamController<Uint8List>.broadcast();
   final _viewerCountCtrl = StreamController<int>.broadcast();
   final _matchEndCtrl = StreamController<void>.broadcast();
   final _roundEndCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionCtrl = StreamController<bool>.broadcast();
 
   Stream<GameState> get gameStateStream => _gameStateCtrl.stream;
+  /// JPEG frame bytes (video)
   Stream<Uint8List> get frameStream => _frameCtrl.stream;
+  /// Raw Opus/OGG audio chunks — wire up to a player (e.g. just_audio)
+  Stream<Uint8List> get audioChunkStream => _audioChunkCtrl.stream;
   Stream<int> get viewerCountStream => _viewerCountCtrl.stream;
   Stream<void> get matchEndStream => _matchEndCtrl.stream;
   Stream<Map<String, dynamic>> get roundEndStream => _roundEndCtrl.stream;
@@ -88,7 +92,16 @@ class MatchStreamService {
     if (message is String) {
       _handleText(message);
     } else if (message is List<int>) {
-      _frameCtrl.add(Uint8List.fromList(message));
+      final bytes = Uint8List.fromList(message);
+      if (bytes.isEmpty) return;
+      final type = bytes[0]; // 0x00 = video JPEG, 0x01 = audio Opus/OGG
+      final payload = bytes.sublist(1);
+      if (type == 0x01) {
+        _audioChunkCtrl.add(payload);
+      } else {
+        // 0x00 or legacy (no prefix) — treat as video
+        _frameCtrl.add(payload);
+      }
     }
   }
 
@@ -192,6 +205,7 @@ class MatchStreamService {
     disconnect();
     _gameStateCtrl.close();
     _frameCtrl.close();
+    _audioChunkCtrl.close();
     _viewerCountCtrl.close();
     _matchEndCtrl.close();
     _roundEndCtrl.close();

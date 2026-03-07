@@ -2,8 +2,8 @@
 {% block title %}Live Viewer{% endblock %}
 
 {% block content %}
-<!-- hls.js for HLS audio playback — must load before inline JS -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+{# hls.js removed — audio now streams over WebSocket (0x01 prefix) #}
+
 
 <div class="flex justify-between items-center mb-2">
   <h1>
@@ -26,8 +26,6 @@
   </div>
 </div>
 
-<!-- Hidden audio element for HLS audio stream -->
-<audio id="game-audio" autoplay style="display:none;"></audio>
 
 <!-- Game display area -->
 <div class="card" style="padding:0;overflow:hidden;position:relative;background:#000;">
@@ -723,54 +721,45 @@
     Promise.all([releaseManual(1, false), releaseManual(2, false)]).catch(() => { });
   });
 
-  // ── Audio (HLS) ──
-  const gameAudio = document.getElementById('game-audio');
+  // ── Audio (WebSocket Opus via Web Audio API) ──
   const audioMuteBtn = document.getElementById('audio-mute-btn');
-  let hlsInstance = null;
   let audioMuted = false;
+  let audioCtx = null;
+  let gainNode = null;
+  // Accumulate incoming OGG/Opus data until we have enough to decode
+  const audioQueue = [];
 
-  function startAudio(matchId) {
-    stopAudio();
-    const playlist = `/stream/audio/${matchId}/stream.m3u8`;
-    if (Hls.isSupported()) {
-      hlsInstance = new Hls({ lowLatencyMode: true });
-      hlsInstance.loadSource(playlist);
-      hlsInstance.attachMedia(gameAudio);
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        gameAudio.muted = audioMuted;
-        gameAudio.play().catch(() => {
-          // Autoplay blocked — mark as muted, user can unmute
-          audioMuted = true;
-          gameAudio.muted = true;
-          updateMuteBtn();
-          logEvent('warn', 'Audio autoplay blocked — click 🔇 to unmute');
-        });
-      });
-      hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          logEvent('warn', `Audio stream error (${data.type}) — will retry`);
-          // Retry after 3s — stream may not be ready yet
-          setTimeout(() => { if (currentMatchId === matchId) startAudio(matchId); }, 3000);
-        }
-      });
-      logEvent('info', `Audio stream loading: ${playlist}`);
-    } else if (gameAudio.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS (Safari)
-      gameAudio.src = playlist;
-      gameAudio.muted = audioMuted;
-      gameAudio.play().catch(() => { });
-    } else {
-      logEvent('warn', 'HLS audio not supported in this browser');
-    }
+  function ensureAudioContext() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = audioMuted ? 0 : 1;
+    gainNode.connect(audioCtx.destination);
+  }
+
+  function handleAudioChunk(buffer) {
+    // buffer = ArrayBuffer WITHOUT the leading 0x01 prefix byte
+    ensureAudioContext();
+    if (audioMuted) return;
+    audioCtx.decodeAudioData(buffer.slice(0), (decoded) => {
+      const src = audioCtx.createBufferSource();
+      src.buffer = decoded;
+      src.connect(gainNode);
+      // Schedule immediately; slight scheduling ahead prevents glitches
+      const startAt = Math.max(audioCtx.currentTime, (gainNode._nextStart || 0));
+      src.start(startAt);
+      gainNode._nextStart = startAt + decoded.duration;
+    }, () => {
+      // decode error is normal for partial OGG pages — silently ignore
+    });
   }
 
   function stopAudio() {
-    if (hlsInstance) {
-      hlsInstance.destroy();
-      hlsInstance = null;
+    if (audioCtx) {
+      audioCtx.close();
+      audioCtx = null;
+      gainNode = null;
     }
-    gameAudio.pause();
-    gameAudio.src = '';
   }
 
   function updateMuteBtn() {
@@ -779,7 +768,7 @@
 
   window.toggleAudioMute = function () {
     audioMuted = !audioMuted;
-    gameAudio.muted = audioMuted;
+    if (gainNode) gainNode.gain.value = audioMuted ? 0 : 1;
     updateMuteBtn();
   };
 
@@ -791,9 +780,6 @@
     overlay.style.display = 'none';
     reconnectDelay = 1000;
 
-    // Start audio stream alongside WebSocket
-    // Delay 2s so FFmpeg has time to write the first HLS segment
-    setTimeout(() => { if (currentMatchId === matchId) startAudio(matchId); }, 2000);
 
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${location.host}/ws/match/${matchId}`;
@@ -880,6 +866,17 @@
     binaryMsgCount++;
     msgCountBinary.textContent = binaryMsgCount;
 
+    const view = new Uint8Array(buffer);
+    const type = view[0];  // 0x00 = video JPEG, 0x01 = audio Opus/OGG
+    const payload = buffer.slice(1);  // strip the 1-byte type prefix
+
+    if (type === 0x01) {
+      // Audio chunk — decode with Web Audio API
+      handleAudioChunk(payload);
+      return;
+    }
+
+    // Default: 0x00 = video JPEG frame
     // Track FPS
     const now = performance.now();
     frameTimestamps.push(now);
@@ -887,7 +884,7 @@
     fpsCounter.textContent = frameTimestamps.length + ' fps';
 
     // Render JPEG to canvas
-    const blob = new Blob([buffer], { type: 'image/jpeg' });
+    const blob = new Blob([payload], { type: 'image/jpeg' });
     createImageBitmap(blob).then(bitmap => {
       ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       bitmap.close();
