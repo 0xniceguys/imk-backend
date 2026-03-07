@@ -17,6 +17,15 @@ class OddsOut(BaseModel):
     active_bets: int
 
 
+class MatchBetFeedOut(BaseModel):
+    wallet_masked: str
+    side: str
+    fighter_name: str
+    amount: float
+    status: str
+    placed_at: datetime
+
+
 class MatchOut(BaseModel):
     id: UUID
     fighter1: FighterOut | None = None
@@ -35,6 +44,8 @@ class MatchOut(BaseModel):
     rounds_won_p2: int = 0
     betting_open: bool = False
     queue_position: int | None = None
+    queue_starts_at: datetime | None = None
+    queue_countdown_seconds: int | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

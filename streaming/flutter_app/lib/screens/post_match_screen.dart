@@ -70,18 +70,37 @@ class PostMatchScreen extends ConsumerWidget {
             style: bodyStyle(size: 13, color: Palette.secondary),
           ),
           const SizedBox(height: 12),
-          // Winner avatar
+          // Winner portrait (reframed to avoid aggressive face/body crop)
           Container(
-            width: 140,
-            height: 140,
+            width: 176,
+            height: 204,
             decoration: BoxDecoration(
-              border: Border.all(color: Palette.gold, width: 6),
-              shape: BoxShape.circle,
+              border: Border.all(color: Palette.gold, width: 3),
+              borderRadius: BorderRadius.circular(10),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Palette.sheetBg.withValues(alpha: 0.5),
+                  Colors.transparent,
+                ],
+              ),
             ),
             clipBehavior: Clip.antiAlias,
-            child: winner != null
-                ? FighterImage(fighter: winner, fit: BoxFit.cover)
-                : Image.asset(Assets.detailsHero, fit: BoxFit.cover),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: winner != null
+                  ? FighterImage(
+                      fighter: winner,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.topCenter,
+                    )
+                  : Image.asset(
+                      Assets.detailsHero,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.topCenter,
+                    ),
+            ),
           ),
           const SizedBox(height: 16),
           Text('WINNER', style: displayStyle(size: 18, color: Palette.gold)),
@@ -125,7 +144,7 @@ class PostMatchScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 _StatRow(
                   label: 'Total Pool',
-                  value: '${match.totalPool.toStringAsFixed(1)} SOL',
+                  value: '${match.totalPool.toStringAsFixed(1)} SKR',
                 ),
               ],
             ),
@@ -162,10 +181,10 @@ class _BetResult extends StatelessWidget {
         ? 'You Lost'
         : 'Bet ${bet.status.name}';
     final payoutText = isWon && bet.payout != null
-        ? '+${bet.payout!.toStringAsFixed(2)} SOL'
+        ? '+${bet.payout!.toStringAsFixed(2)} SKR'
         : isLost
-        ? '-${bet.amount.toStringAsFixed(2)} SOL'
-        : '${bet.amount.toStringAsFixed(2)} SOL';
+        ? '-${bet.amount.toStringAsFixed(2)} SKR'
+        : '${bet.amount.toStringAsFixed(2)} SKR';
 
     return Container(
       width: 260,
@@ -201,7 +220,7 @@ class _NoBetPlaced extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        'No bet placed on this match',
+        'No bet(S) placed on this match',
         style: bodyStyle(size: 14, color: Palette.muted),
         textAlign: TextAlign.center,
       ),

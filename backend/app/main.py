@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
     # Startup
     import logging
     logger = logging.getLogger(__name__)
+    queue_loop_started = False
 
     # Clean up any orphaned processes from previous runs
     from app.services.process_manager import full_cleanup
@@ -32,10 +33,23 @@ async def lifespan(app: FastAPI):
     # Pre-fetch Privy JWKS so first auth request is fast
     from app.auth.privy import verify_privy_token  # noqa: F401
 
+    if settings.auto_queue_enabled:
+        from app.services.queue_loop import queue_loop_manager
+
+        await queue_loop_manager.start()
+        queue_loop_started = True
+        logger.info("Auto queue loop enabled")
+    else:
+        logger.info("Auto queue loop disabled via config")
+
     yield
 
     # Shutdown: gracefully stop all running matches
     logger.info("Shutting down IMK backend...")
+    if queue_loop_started:
+        from app.services.queue_loop import queue_loop_manager
+
+        await queue_loop_manager.stop()
     from app.services.match_runner import get_all_runners, stop_match
 
     runners = list(get_all_runners().keys())

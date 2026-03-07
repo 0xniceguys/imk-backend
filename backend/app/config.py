@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     dev_local_signer_user1_keyfile: str = "user1.json"
     dev_local_signer_user2_keyfile: str = "user2.json"
 
+    # ── Automated loop queue (4-fighter directed cycle) ──────────────────────
+    auto_queue_enabled: bool = True
+    queue_tick_seconds: float = 1.0
+    queue_match_countdown_seconds: int = 60
+    queue_lock_before_start_seconds: int = 1
+    queue_leader_lock_file: str = "/tmp/imk_queue_loop.lock"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

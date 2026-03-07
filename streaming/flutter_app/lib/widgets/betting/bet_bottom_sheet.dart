@@ -34,7 +34,6 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
 
   late int _selectedFighter; // 0 = fighter1 (A), 1 = fighter2 (B)
   double? _selectedAmount;
-  bool _selectedMax = false;
   bool _loading = false;
   bool _confirmed = false;
   Bet? _placedBet;
@@ -103,22 +102,10 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
     return true;
   }
 
-  double _resolveCurrentAmount({
-    required bool canBet,
-    required double maxSelectable,
-    required List<double> quickBets,
-  }) {
-    if (!canBet) return 0;
-    if (_selectedMax) return maxSelectable;
-
-    final manual = _selectedAmount;
-    if (manual != null) {
-      final clamped = manual.clamp(0, maxSelectable).toDouble();
-      if (clamped + _eps >= _minBetUi) return clamped;
-    }
-
-    if (quickBets.isNotEmpty) return quickBets.first;
-    return maxSelectable;
+  bool _isSelected(double value) {
+    final picked = _selectedAmount;
+    if (picked == null) return false;
+    return (picked - value).abs() < _eps;
   }
 
   double _estimatedPayout(double amount) {
@@ -201,25 +188,10 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
     final maxSelectable = math.min(walletBalance, _maxBetUi);
     final canBet = maxSelectable + _eps >= _minBetUi;
     final quickBets = _quickBetsFor(maxSelectable);
-    final amount = _resolveCurrentAmount(
-      canBet: canBet,
-      maxSelectable: maxSelectable,
-      quickBets: quickBets,
-    );
-    final amountValid = _isAmountValid(amount, maxSelectable);
-    final totalPool = widget.match.totalPool;
-    final sideAPool = widget.match.odds.fighter1Pool > 0
-        ? widget.match.odds.fighter1Pool
-        : totalPool * widget.match.odds.fighter1PoolPct;
-    final sideBPool = widget.match.odds.fighter2Pool > 0
-        ? widget.match.odds.fighter2Pool
-        : totalPool * widget.match.odds.fighter2PoolPct;
-    final selectedPoolBefore = _selectedPoolBefore();
-    final selectedPoolAfter = selectedPoolBefore + amount;
-    final totalAfter = totalPool + amount;
-    final feeRate = _feeBps / 10000.0;
-    final payoutPoolAfter = totalAfter * (1 - feeRate);
-    final estPayout = _estimatedPayout(amount);
+    final amount = _selectedAmount;
+    final amountValid =
+        amount != null && _isAmountValid(amount, maxSelectable);
+    final estPayout = amountValid ? _estimatedPayout(amount) : 0.0;
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return AnimatedSwitcher(
@@ -240,55 +212,45 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Palette.muted,
-                      borderRadius: BorderRadius.circular(2),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Palette.muted,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Text('Place Your Bet', style: displayStyle(size: 28)),
+                  Center(child: Text('Place Your Bet', style: displayStyle(size: 28))),
                   const SizedBox(height: 4),
+                  Center(
+                    child: Text(
+                      'Bet on ${_selectedName.toUpperCase()}',
+                      style: bodyStyle(
+                        size: 13,
+                        color: Palette.gold,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Text(
                     'Wallet: ${_fmt(walletBalance, decimals: 6)} $_tokenSymbol',
                     style: bodyStyle(size: 12, color: Palette.muted),
                   ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FighterCard(
-                          name: widget.match.fighter1?.name ?? 'Fighter 1',
-                          poolAmount: sideAPool,
-                          tokenSymbol: _tokenSymbol,
-                          side: 'A',
-                          selected: _selectedFighter == 0,
-                          onTap: () => setState(() => _selectedFighter = 0),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _FighterCard(
-                          name: widget.match.fighter2?.name ?? 'Fighter 2',
-                          poolAmount: sideBPool,
-                          tokenSymbol: _tokenSymbol,
-                          side: 'B',
-                          selected: _selectedFighter == 1,
-                          onTap: () => setState(() => _selectedFighter = 1),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 3),
+                  Text(
+                    'Allowed range: ${_fmt(_minBetUi, decimals: 6)} - ${_fmt(_maxBetUi, decimals: 6)} $_tokenSymbol',
+                    style: bodyStyle(size: 12, color: Palette.muted),
                   ),
                   const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Quick Bet',
-                      style: bodyStyle(size: 12, color: Palette.muted),
-                    ),
+                  Text(
+                    'Quick Bet',
+                    style: bodyStyle(size: 12, color: Palette.muted),
                   ),
                   const SizedBox(height: 6),
                   Wrap(
@@ -298,83 +260,72 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                       for (final quick in quickBets)
                         _QuickChip(
                           label: _fmt(quick),
-                          selected:
-                              !_selectedMax && (amount - quick).abs() < _eps,
+                          selected: _isSelected(quick),
                           onTap: () => setState(() {
-                            _selectedMax = false;
                             _selectedAmount = quick;
                             _error = null;
                           }),
                         ),
                       _QuickChip(
                         label: 'MAX',
-                        selected: _selectedMax,
-                        onTap: () => setState(() {
-                          _selectedMax = true;
-                          _selectedAmount = maxSelectable;
-                          _error = null;
-                        }),
+                        selected: canBet &&
+                            amount != null &&
+                            (amount - maxSelectable).abs() < _eps,
+                        onTap: canBet
+                            ? () => setState(() {
+                                _selectedAmount = maxSelectable;
+                                _error = null;
+                              })
+                            : () {},
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
+                  if (amount != null)
+                    Text(
                       'Selected Amount: ${_fmt(amount, decimals: 6)} $_tokenSymbol',
                       style: bodyStyle(size: 13, color: Palette.secondary),
+                    )
+                  else
+                    Text(
+                      'Pick an amount to preview return.',
+                      style: bodyStyle(size: 13, color: Palette.muted),
                     ),
-                  ),
                   if (!canBet) ...[
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Minimum bet is ${_fmt(_minBetUi, decimals: 6)} $_tokenSymbol.',
-                        style: bodyStyle(size: 12, color: Palette.red),
-                      ),
+                    Text(
+                      'Minimum bet is ${_fmt(_minBetUi, decimals: 6)} $_tokenSymbol.',
+                      style: bodyStyle(size: 12, color: Palette.red),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  _InfoRow(
-                    label: 'Total Pool',
-                    value: '${_fmt(totalPool, decimals: 6)} $_tokenSymbol',
-                  ),
-                  _InfoRow(
-                    label: 'Side A Pool',
-                    value: '${_fmt(sideAPool, decimals: 6)} $_tokenSymbol',
-                  ),
-                  _InfoRow(
-                    label: 'Side B Pool',
-                    value: '${_fmt(sideBPool, decimals: 6)} $_tokenSymbol',
-                  ),
-                  _InfoRow(
-                    label: 'Your Side Pool After Bet',
-                    value:
-                        '${_fmt(selectedPoolAfter, decimals: 6)} $_tokenSymbol',
-                  ),
-                  _InfoRow(
-                    label: 'Platform Fee',
-                    value: '${(_feeBps / 100).toStringAsFixed(2)}%',
-                  ),
-                  _InfoRow(
-                    label: 'Payout Pool After Fee',
-                    value:
-                        '${_fmt(payoutPoolAfter, decimals: 6)} $_tokenSymbol',
-                  ),
-                  _InfoRow(
-                    label: 'Estimated Payout if $_selectedName wins',
-                    value: '${_fmt(estPayout, decimals: 6)} $_tokenSymbol',
-                    valueColor: Palette.green,
-                  ),
+                  if (amountValid) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Return if $_selectedName wins',
+                            style: bodyStyle(size: 12, color: Palette.muted),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${_fmt(estPayout, decimals: 6)} $_tokenSymbol',
+                          style: bodyStyle(
+                            size: 13,
+                            color: Palette.green,
+                            weight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _error!,
-                        style: bodyStyle(size: 12, color: Palette.red),
-                      ),
+                    Text(
+                      _error!,
+                      style: bodyStyle(size: 12, color: Palette.red),
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -382,12 +333,12 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: !_loading && canBet && amountValid
+                      onPressed: !_loading && amountValid
                           ? () => _placeBet(
-                              amount: amount,
-                              canBet: canBet,
-                              maxSelectable: maxSelectable,
-                            )
+                                amount: amount,
+                                canBet: canBet,
+                                maxSelectable: maxSelectable,
+                              )
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Palette.gold,
@@ -407,12 +358,13 @@ class _BetBottomSheetState extends ConsumerState<BetBottomSheet> {
                               ),
                             )
                           : Text(
-                              'Confirm ${_fmt(amount, decimals: 6)} $_tokenSymbol on $_selectedName',
+                              'PLACE BET ON ${_selectedName.toUpperCase()}',
                               style: bodyStyle(
-                                size: 14,
+                                size: 13,
                                 color: Palette.black,
-                                weight: FontWeight.w600,
+                                weight: FontWeight.w700,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                     ),
                   ),
@@ -460,108 +412,6 @@ class _QuickChip extends StatelessWidget {
             weight: FontWeight.w600,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _FighterCard extends StatelessWidget {
-  const _FighterCard({
-    required this.name,
-    required this.poolAmount,
-    required this.tokenSymbol,
-    required this.side,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String name;
-  final double poolAmount;
-  final String tokenSymbol;
-  final String side;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onTap,
-      haptic: true,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: selected ? Palette.gold : Palette.border,
-            width: selected ? 1.4 : 1,
-          ),
-          borderRadius: BorderRadius.circular(4),
-          color: selected
-              ? Palette.darkGold.withValues(alpha: 0.45)
-              : Colors.transparent,
-        ),
-        child: Column(
-          children: [
-            Text(
-              'SIDE $side',
-              style: bodyStyle(
-                size: 10,
-                color: selected ? Palette.gold : Palette.muted,
-                weight: FontWeight.w600,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: displayStyle(
-                size: 14,
-                color: selected ? Palette.gold : Palette.white,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '${poolAmount.toStringAsFixed(2)} $tokenSymbol',
-              style: bodyStyle(size: 11, color: Palette.secondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.valueColor = Palette.secondary,
-  });
-
-  final String label;
-  final String value;
-  final Color valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: bodyStyle(size: 12, color: Palette.muted),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(value, style: bodyStyle(size: 12, color: valueColor)),
-        ],
       ),
     );
   }

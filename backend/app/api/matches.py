@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.dependencies import get_db
 from app.db.models import Bet, BetStatus, Match, MatchStatus
 from app.exceptions import MatchNotFoundError
-from app.schemas.match import MatchOut, OddsOut
+from app.schemas.match import MatchBetFeedOut, MatchOut, OddsOut
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -45,6 +46,15 @@ def _compute_odds(bets: list[Bet], fighter1_id: UUID, fighter2_id: UUID) -> Odds
     )
 
 
+def _mask_wallet(wallet: str | None) -> str:
+    if not wallet:
+        return "Unknown"
+    value = wallet.strip()
+    if len(value) <= 10:
+        return value
+    return f"{value[:4]}...{value[-4:]}"
+
+
 def _queue_positions_for_matches(matches: list[Match]) -> dict[UUID, int]:
     """Queue mapping for arena UI.
 
@@ -60,18 +70,37 @@ def _queue_positions_for_matches(matches: list[Match]) -> dict[UUID, int]:
         out[m.id] = 0
 
     upcoming = [m for m in matches if m.status == MatchStatus.UPCOMING]
-    upcoming.sort(key=lambda m: m.scheduled_at)
+    upcoming.sort(key=lambda m: (m.scheduled_at, m.created_at))
     for idx, m in enumerate(upcoming, start=1):
         out[m.id] = idx
 
     return out
 
 
-def _match_to_out(match: Match, queue_position: int | None = None) -> MatchOut:
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _match_to_out(
+    match: Match,
+    queue_position: int | None = None,
+    now: datetime | None = None,
+    show_head_countdown: bool = True,
+) -> MatchOut:
     # fighter IDs may be None if fighter was deleted
     f1_id = match.fighter1_id or match.id  # fallback prevents div-by-zero
     f2_id = match.fighter2_id or match.id
     odds = _compute_odds(match.bets, f1_id, f2_id)
+    now_utc = _as_utc(now or datetime.now(timezone.utc))
+
+    queue_starts_at: datetime | None = None
+    queue_countdown_seconds: int | None = None
+    if show_head_countdown and queue_position == 1 and match.status == MatchStatus.UPCOMING:
+        starts_at = _as_utc(match.scheduled_at)
+        queue_starts_at = starts_at
+        queue_countdown_seconds = max(0, int((starts_at - now_utc).total_seconds()))
 
     stream_url = None
     if match.status == MatchStatus.LIVE:
@@ -98,6 +127,8 @@ def _match_to_out(match: Match, queue_position: int | None = None) -> MatchOut:
         rounds_won_p2=match.rounds_won_p2,
         betting_open=match.status == MatchStatus.UPCOMING,
         queue_position=queue_position,
+        queue_starts_at=queue_starts_at,
+        queue_countdown_seconds=queue_countdown_seconds,
         created_at=match.created_at,
     )
 
@@ -133,7 +164,17 @@ async def list_matches(
     result = await db.execute(query)
     matches = result.scalars().all()
     queue_positions = _queue_positions_for_matches(matches)
-    return [_match_to_out(m, queue_position=queue_positions.get(m.id)) for m in matches]
+    has_live = any(m.status == MatchStatus.LIVE for m in matches)
+    now = datetime.now(timezone.utc)
+    return [
+        _match_to_out(
+            m,
+            queue_position=queue_positions.get(m.id),
+            now=now,
+            show_head_countdown=not has_live,
+        )
+        for m in matches
+    ]
 
 
 @router.get("/{match_id}", response_model=MatchOut)
@@ -159,8 +200,64 @@ async def get_match(match_id: UUID, db: AsyncSession = Depends(get_db)):
         )
         queue_matches = queue_rows.scalars().all()
         queue_position = _queue_positions_for_matches(queue_matches).get(match.id)
+        has_live = any(m.status == MatchStatus.LIVE for m in queue_matches)
+    else:
+        has_live = False
 
-    return _match_to_out(match, queue_position=queue_position)
+    return _match_to_out(
+        match,
+        queue_position=queue_position,
+        now=datetime.now(timezone.utc),
+        show_head_countdown=not has_live,
+    )
+
+
+@router.get("/{match_id}/bet-feed", response_model=list[MatchBetFeedOut])
+async def get_match_bet_feed(
+    match_id: UUID,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    safe_limit = max(1, min(limit, 100))
+    result = await db.execute(
+        select(Match)
+        .where(Match.id == match_id)
+        .options(
+            selectinload(Match.bets).selectinload(Bet.user),
+            selectinload(Match.fighter1),
+            selectinload(Match.fighter2),
+        )
+    )
+    match = result.scalar_one_or_none()
+    if match is None:
+        raise MatchNotFoundError(str(match_id))
+
+    if match.status in (MatchStatus.UPCOMING, MatchStatus.LIVE):
+        bets = [b for b in match.bets if b.status == BetStatus.ACTIVE]
+    else:
+        bets = list(match.bets)
+
+    bets.sort(key=lambda b: b.placed_at, reverse=True)
+
+    out: list[MatchBetFeedOut] = []
+    for bet in bets[:safe_limit]:
+        side = "A" if bet.fighter_id == match.fighter1_id else "B"
+        if side == "A":
+            fighter_name = match.fighter1.name if match.fighter1 else "Fighter 1"
+        else:
+            fighter_name = match.fighter2.name if match.fighter2 else "Fighter 2"
+
+        out.append(
+            MatchBetFeedOut(
+                wallet_masked=_mask_wallet(bet.user.wallet_address if bet.user else None),
+                side=side,
+                fighter_name=fighter_name,
+                amount=float(bet.amount),
+                status=bet.status.value if hasattr(bet.status, "value") else str(bet.status),
+                placed_at=bet.placed_at,
+            )
+        )
+    return out
 
 
 @router.get("/{match_id}/odds", response_model=OddsOut)
