@@ -108,19 +108,19 @@ async def health():
     """Basic health check for load balancer."""
     return {"status": "ok"}
 
-# ── HLS Audio Streaming ──────────────────────────────────────────────────────
+# ── Combined H.264+AAC HLS Streaming ────────────────────────────────────────
 
 from fastapi.responses import FileResponse  # noqa: E402
-from app.services.ffmpeg_audio_capture import hls_playlist_path, hls_dir  # noqa: E402
+from app.services.ffmpeg_combined_hls import hls_playlist_path, hls_dir  # noqa: E402
 
 
-@app.get("/stream/audio/{match_id}/stream.m3u8")
-async def audio_playlist(match_id: str):
-    """Serve the HLS audio playlist for a live match."""
+@app.get("/stream/{match_id}/stream.m3u8")
+async def stream_playlist(match_id: str):
+    """Serve the combined HLS playlist (video+audio) for a live match."""
     path = hls_playlist_path(match_id)
     if not path.exists():
         from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Audio stream not yet available")
+        raise HTTPException(status_code=404, detail="Stream not yet available — match may be starting")
     return FileResponse(
         str(path),
         media_type="application/vnd.apple.mpegurl",
@@ -128,8 +128,8 @@ async def audio_playlist(match_id: str):
     )
 
 
-@app.get("/stream/audio/{match_id}/{segment}")
-async def audio_segment(match_id: str, segment: str):
+@app.get("/stream/{match_id}/{segment}")
+async def stream_segment(match_id: str, segment: str):
     """Serve an individual HLS .ts segment."""
     if not segment.endswith(".ts"):
         from fastapi import HTTPException
@@ -143,6 +143,19 @@ async def audio_segment(match_id: str, segment: str):
         media_type="video/mp2t",
         headers={"Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*"},
     )
+
+
+# Legacy audio-only path — redirects to combined stream for backward compat
+@app.get("/stream/audio/{match_id}/stream.m3u8")
+async def audio_playlist_compat(match_id: str):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/stream/{match_id}/stream.m3u8")
+
+
+@app.get("/stream/audio/{match_id}/{segment}")
+async def audio_segment_compat(match_id: str, segment: str):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/stream/{match_id}/{segment}")
 
 
 
