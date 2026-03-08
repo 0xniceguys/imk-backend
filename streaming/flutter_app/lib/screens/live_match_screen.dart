@@ -114,6 +114,15 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _streamState = LiveStreamClientState.idle;
     ref.read(matchProvider.notifier).startFastPolling();
     _setupListeners();
+    // Unmute the pre-loaded controller — it was started muted in the background
+    // to prevent audio leaking while user was browsing other tabs.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          ref.read(hlsPlayerServiceProvider).unmute();
+        } catch (_) {}
+      }
+    });
   }
 
   void _setupListeners() {
