@@ -1,10 +1,12 @@
 """Integration tests for fighters API."""
 
+from datetime import datetime, timezone
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Fighter
+from app.db.models import Bet, BetStatus, Fighter, Match, MatchStatus, User
 
 
 @pytest.mark.asyncio
@@ -77,3 +79,169 @@ async def test_get_fighter_not_found(client: AsyncClient):
     assert response.status_code == 404
     data = response.json()
     assert data["error"]["code"] == "FighterNotFoundError"
+
+
+@pytest.mark.asyncio
+async def test_fighter_stats_counts_claimed_bets_as_wins(
+    client: AsyncClient,
+    test_db: AsyncSession,
+):
+    """Fighter stats should treat CLAIMED winner bets as wins."""
+    user = User(
+        privy_user_id="stats-user",
+        wallet_address="So1statswallet11111111111111111111111111111111111",
+    )
+    fighter1 = Fighter(
+        name="Stats Fighter A",
+        slug="stats-fighter-a",
+        character="Sub-Zero",
+        character_id=11,
+        llm_model="test-model",
+        agent_architecture="random",
+    )
+    fighter2 = Fighter(
+        name="Stats Fighter B",
+        slug="stats-fighter-b",
+        character="Scorpion",
+        character_id=12,
+        llm_model="test-model",
+        agent_architecture="cpu",
+    )
+    test_db.add_all([user, fighter1, fighter2])
+    await test_db.flush()
+
+    now = datetime.now(timezone.utc)
+    match = Match(
+        fighter1_id=fighter1.id,
+        fighter2_id=fighter2.id,
+        p1_agent="random",
+        p2_agent="cpu",
+        status=MatchStatus.COMPLETED,
+        scheduled_at=now,
+        completed_at=now,
+        winner_id=fighter1.id,
+    )
+    test_db.add(match)
+    await test_db.flush()
+
+    bets = [
+        Bet(
+            user_id=user.id,
+            match_id=match.id,
+            fighter_id=fighter1.id,
+            amount=1.0,
+            odds_at_placement=2.0,
+            status=BetStatus.WON,
+        ),
+        Bet(
+            user_id=user.id,
+            match_id=match.id,
+            fighter_id=fighter1.id,
+            amount=1.5,
+            odds_at_placement=2.0,
+            status=BetStatus.CLAIMED,
+        ),
+        Bet(
+            user_id=user.id,
+            match_id=match.id,
+            fighter_id=fighter1.id,
+            amount=1.0,
+            odds_at_placement=2.0,
+            status=BetStatus.LOST,
+        ),
+    ]
+    test_db.add_all(bets)
+    await test_db.commit()
+
+    response = await client.get(f"/api/fighters/{fighter1.id}/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_bets_won"] == 2
+
+
+@pytest.mark.asyncio
+async def test_fighter_matches_includes_bet_amounts(
+    client: AsyncClient,
+    test_db: AsyncSession,
+):
+    """Match history rows include total and side-split bet amounts."""
+    user = User(
+        privy_user_id="match-history-user",
+        wallet_address="So1matchhistorywallet1111111111111111111111111111111",
+    )
+    fighter1 = Fighter(
+        name="History Fighter A",
+        slug="history-fighter-a",
+        character="Sub-Zero",
+        character_id=21,
+        llm_model="test-model",
+        agent_architecture="random",
+    )
+    fighter2 = Fighter(
+        name="History Fighter B",
+        slug="history-fighter-b",
+        character="Scorpion",
+        character_id=22,
+        llm_model="test-model",
+        agent_architecture="cpu",
+    )
+    test_db.add_all([user, fighter1, fighter2])
+    await test_db.flush()
+
+    now = datetime.now(timezone.utc)
+    match = Match(
+        fighter1_id=fighter1.id,
+        fighter2_id=fighter2.id,
+        p1_agent="random",
+        p2_agent="cpu",
+        status=MatchStatus.COMPLETED,
+        scheduled_at=now,
+        completed_at=now,
+        winner_id=fighter1.id,
+        rounds_won_p1=2,
+        rounds_won_p2=1,
+    )
+    test_db.add(match)
+    await test_db.flush()
+
+    bets = [
+        Bet(
+            user_id=user.id,
+            match_id=match.id,
+            fighter_id=fighter1.id,
+            amount=1.25,
+            odds_at_placement=2.0,
+            status=BetStatus.WON,
+        ),
+        Bet(
+            user_id=user.id,
+            match_id=match.id,
+            fighter_id=fighter1.id,
+            amount=0.75,
+            odds_at_placement=2.0,
+            status=BetStatus.LOST,
+        ),
+        Bet(
+            user_id=user.id,
+            match_id=match.id,
+            fighter_id=fighter2.id,
+            amount=2.5,
+            odds_at_placement=2.0,
+            status=BetStatus.LOST,
+        ),
+    ]
+    test_db.add_all(bets)
+    await test_db.commit()
+
+    response = await client.get(f"/api/fighters/{fighter1.id}/matches?limit=1")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    row = data[0]
+
+    assert row["side"] == "P1"
+    assert row["total_bet_amount"] == 4.5
+    assert row["bet_amount_p1"] == 2.0
+    assert row["bet_amount_p2"] == 2.5
+    assert row["bet_amount_for_fighter"] == 2.0
+    assert row["bet_amount_for_opponent"] == 2.5

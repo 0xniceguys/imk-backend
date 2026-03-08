@@ -5,6 +5,7 @@ import 'core/constants.dart';
 import 'core/typography.dart';
 import 'router.dart';
 import 'providers/auth_provider.dart';
+import 'providers/match_stream_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/get_started_screen.dart';
@@ -13,6 +14,7 @@ import 'screens/arena_list_screen.dart';
 import 'screens/battle_detail_screen.dart';
 import 'screens/fighter_overview_screen.dart';
 import 'screens/fighter_details_screen.dart';
+import 'screens/fighter_match_history_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/live_match_screen.dart';
 import 'screens/post_match_screen.dart';
@@ -20,11 +22,15 @@ import 'screens/post_match_screen.dart';
 // Auth-flow routes that should replace the nav stack (no back button)
 const _authRoutes = {'/get-started', '/onboarding'};
 
+/// Global route observer — lets screens implement RouteAware to get
+/// immediate callbacks when they are popped or covered by another route.
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 // Tab-level routes: replace instead of push so back doesn't cycle tabs
 const _tabRoutes = {'/arena-list', '/fighter-overview', '/profile'};
 
 // Routes that use right-slide (iOS detail) transition
-const _slideRightRoutes = {'/fighter-details'};
+const _slideRightRoutes = {'/fighter-details', '/fighter-match-history'};
 
 // Routes that get a zoom-scale entrance (feels cinematic)
 const _zoomRoutes = {'/live-match'};
@@ -54,6 +60,9 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
   Widget build(BuildContext context) {
     // Watch auth to rebuild on changes; navigate reactively via listener
     ref.watch(authProvider);
+    // Keep the global HLS preloader alive at all times so the video controller
+    // starts initialising the moment backend signals streaming_state=ready.
+    ref.watch(globalHlsPreloaderProvider);
 
     ref.listen<AuthState>(authProvider, (prev, next) {
       debugPrint('[App] AUTH: ${prev?.status} → ${next.status}');
@@ -80,6 +89,7 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
       navigatorKey: _navKey,
       debugShowCheckedModeBanner: false,
       title: 'Immortal Kombat',
+      navigatorObservers: [routeObserver],
       theme: ThemeData(
         brightness: Brightness.dark,
         fontFamily: kAppFontFamily,
@@ -252,7 +262,12 @@ class _ScreenPage extends StatelessWidget {
 
   void _navigate(BuildContext context, String route) {
     if (_authRoutes.contains(route) || _tabRoutes.contains(route)) {
+      // Auth/tab routes: clear entire stack
       Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
+    } else if (route.startsWith('/post-match')) {
+      // Post-match replaces live-match in the stack so back goes to arena-list,
+      // not back into the dead live-match screen.
+      Navigator.of(context).pushReplacementNamed(route);
     } else {
       Navigator.of(context).pushNamed(route);
     }
@@ -284,6 +299,10 @@ class _ScreenPage extends StatelessWidget {
       ),
       ScreenSlug.fighterOverview => FighterOverviewScreen(onNavigate: onNav),
       ScreenSlug.fighterDetails => FighterDetailsScreen(
+        onNavigate: onNav,
+        fighterId: paramId,
+      ),
+      ScreenSlug.fighterMatchHistory => FighterMatchHistoryScreen(
         onNavigate: onNav,
         fighterId: paramId,
       ),

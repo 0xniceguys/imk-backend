@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/runtime_client_config.dart';
 import 'providers/auth_provider.dart';
 
 void _log(String msg) {
@@ -24,6 +25,9 @@ Future<void> main() async {
       statusBarBrightness: Brightness.dark,
     ),
   );
+
+  // Load runtime chain/contract/Privy config from backend.
+  await RuntimeClientConfig.instance.bootstrap();
 
   final container = ProviderContainer();
 

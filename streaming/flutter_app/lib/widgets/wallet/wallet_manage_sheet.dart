@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../core/palette.dart';
+import '../../core/runtime_client_config.dart';
 import '../../core/typography.dart';
 import '../../providers/match_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -80,13 +82,14 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
     }
 
     // Check sufficient balance
+    final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
     final wallet = ref.read(walletProvider);
     final maxAmount = _token == _WithdrawToken.sol
         ? wallet.solBalance
         : wallet.seekerBalance;
     if (amount > maxAmount) {
       _showError('Insufficient balance. You have ${maxAmount.toStringAsFixed(4)} '
-          '${_token == _WithdrawToken.sol ? 'SOL' : 'SEEKER'}');
+          '${_token == _WithdrawToken.sol ? 'SOL' : tokenSymbol}');
       return;
     }
 
@@ -106,7 +109,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         toAddress: address,
         amount: amount,
       );
-      debugPrint('[Withdraw] Got unsigned tx: ${unsignedTxBase64.substring(0, 50)}...');
+      debugPrint(
+        '[Withdraw] Got unsigned tx: ${unsignedTxBase64.substring(0, 50)}...',
+      );
 
       // Step 2: Sign with Privy embedded wallet
       debugPrint('[Withdraw] Step 2: Signing with Privy wallet...');
@@ -116,7 +121,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       if (signedTxBase64 == null) {
         throw Exception('Failed to sign transaction with Privy wallet');
       }
-      debugPrint('[Withdraw] Transaction signed: ${signedTxBase64.substring(0, 50)}...');
+      debugPrint(
+        '[Withdraw] Transaction signed: ${signedTxBase64.substring(0, 50)}...',
+      );
 
       // Step 3: Broadcast signed transaction
       debugPrint('[Withdraw] Step 3: Broadcasting transaction...');
@@ -125,14 +132,16 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
       );
 
       debugPrint('[Withdraw] Success! TX: $sig');
-      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : 'SEEKER';
+      final tokenName = _token == _WithdrawToken.sol ? 'SOL' : RuntimeClientConfig.instance.tokenSymbol;
       final short = '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}';
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Sent $tokenName! TX: $short'),
-        backgroundColor: Palette.gold,
-        duration: const Duration(seconds: 4),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sent $tokenName! TX: $short'),
+          backgroundColor: Palette.gold,
+          duration: const Duration(seconds: 4),
+        ),
+      );
       _addrCtrl.clear();
       _amountCtrl.clear();
 
@@ -161,11 +170,14 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
     if (raw.contains('Invalid') && raw.contains('address')) {
       return 'Invalid destination address.';
     }
-    if (raw.contains('401') || raw.contains('403') || raw.contains('Unauthorized')) {
+    if (raw.contains('401') ||
+        raw.contains('403') ||
+        raw.contains('Unauthorized')) {
       return 'Session expired. Please close and reopen this page.';
     }
-    if (raw.contains('No SEEKER token account')) {
-      return 'Recipient has no SEEKER token account.';
+    if (raw.contains('token account')) {
+      final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+      return 'Recipient has no $tokenSymbol token account.';
     }
     if (raw.contains('sign')) {
       return 'Failed to sign the transaction. Please try again.';
@@ -178,11 +190,13 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: Palette.red,
-      duration: const Duration(seconds: 4),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Palette.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -197,8 +211,9 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
         ? '${address.substring(0, 6)}...${address.substring(address.length - 4)}'
         : address;
 
-    final seekerLabel = kUseDevnet ? 'USDC' : 'SEEKER';
-    final seekerUnit = kUseDevnet ? 'USDC' : 'SKR';
+    final cfg = RuntimeClientConfig.instance;
+    final seekerLabel = cfg.isDevnet ? '${cfg.tokenSymbol} (devnet)' : cfg.tokenSymbol;
+    final seekerUnit = cfg.tokenSymbol;
     final maxAmount = _token == _WithdrawToken.sol
         ? wallet.solBalance
         : wallet.seekerBalance;
@@ -243,14 +258,22 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.account_balance_wallet_rounded,
-                          size: 20, color: Palette.gold),
+                      SvgPicture.asset(
+                        Assets.moneyIcon,
+                        width: 32,
+                        height: 32,
+                        colorFilter: const ColorFilter.mode(
+                          Palette.gold,
+                          BlendMode.srcIn,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Text('Manage Wallet', style: displayStyle(size: 24)),
                     ],
                   ),
                   Pressable(
-                    onTap: () => ref.read(walletProvider.notifier).refreshBalance(),
+                    onTap: () =>
+                        ref.read(walletProvider.notifier).refreshBalance(),
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -258,8 +281,15 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                         border: Border.all(color: Palette.border),
                         color: Palette.cardBg.withValues(alpha: 0.45),
                       ),
-                      child:
-                          const Icon(Icons.refresh, color: Palette.muted, size: 16),
+                      child: SvgPicture.asset(
+                        Assets.reloadIcon,
+                        width: 16,
+                        height: 16,
+                        colorFilter: const ColorFilter.mode(
+                          Palette.muted,
+                          BlendMode.srcIn,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -268,16 +298,24 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
               if (wallet.errorMessage != null) ...[
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Palette.red.withValues(alpha: 0.1),
-                    border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: Palette.red.withValues(alpha: 0.3),
+                    ),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, size: 16, color: Palette.red),
+                      const Icon(
+                        Icons.error_outline,
+                        size: 16,
+                        color: Palette.red,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -285,105 +323,91 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                           style: bodyStyle(size: 12, color: Palette.red),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Pressable(
-                        onTap: () =>
-                            ref.read(walletProvider.notifier).refreshBalance(),
-                        child: Text(
-                          'Retry',
-                          style: bodyStyle(size: 12, color: Palette.red),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
               ],
-              if (wallet.isLoading) ...[
-                const _GoldLine(),
-                const SizedBox(height: 24),
-                const IKLoader(size: 18),
-                const SizedBox(height: 10),
-                Text(
-                  'Loading wallet...',
-                  style: bodyStyle(size: 13, color: Palette.muted),
+              const SizedBox(height: 8),
+            if (wallet.isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: IKLoader(size: 24),
+              )
+            else ...[
+              _BalanceRow(
+                label: 'SOL',
+                usdValue: wallet.solUsdValue,
+                subLabel: '${wallet.solBalance.toStringAsFixed(4)} SOL',
+              ),
+              const SizedBox(height: 8),
+              _BalanceRow(
+                label: seekerLabel,
+                usdValue: wallet.seekerUsdValue,
+                subLabel: '${wallet.seekerBalance.toStringAsFixed(2)} $seekerUnit',
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            // ── Deposit — copy address ────────────────────────────────────
+            Container(height: 1, color: Palette.border),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Deposit', style: bodyStyle(size: 14, color: Palette.muted)),
+            ),
+            const SizedBox(height: 12),
+            // Address row — tap to copy
+            Pressable(
+              onTap: () {
+                if (address.isEmpty) return;
+                Clipboard.setData(ClipboardData(text: address));
+                HapticFeedback.lightImpact();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Address copied'),
+                  duration: Duration(seconds: 1),
+                ));
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Palette.border),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                const SizedBox(height: 24),
-              ] else ...[
-                _BalanceRow(
-                  label: 'SOL',
-                  usdValue: wallet.solUsdValue,
-                  subLabel: '${wallet.solBalance.toStringAsFixed(4)} SOL',
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(truncated,
+                        style: bodyStyle(size: 14, color: Palette.secondary)),
+                    const Icon(Icons.copy, size: 16, color: Palette.muted),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _BalanceRow(
-                  label: kUseDevnet ? 'USDC (devnet)' : 'SEEKER',
-                  usdValue: wallet.seekerUsdValue,
-                  subLabel: '${wallet.seekerBalance.toStringAsFixed(2)} $seekerUnit',
-                ),
-                const SizedBox(height: 16),
-                const _GoldLine(),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child:
-                      Text('Deposit', style: bodyStyle(size: 13, color: Palette.muted)),
-                ),
-                const SizedBox(height: 10),
-                Pressable(
-                  onTap: () {
-                    if (address.isEmpty) return;
-                    Clipboard.setData(ClipboardData(text: address));
-                    HapticFeedback.lightImpact();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Address copied'),
-                      duration: Duration(seconds: 1),
-                    ));
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 14),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Palette.border),
-                      borderRadius: BorderRadius.circular(2),
-                      color: Palette.cardBg.withValues(alpha: 0.2),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(truncated,
-                            style: bodyStyle(size: 14, color: Palette.secondary)),
-                        const Icon(Icons.copy_rounded,
-                            size: 16, color: Palette.muted),
-                      ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            Container(height: 1, color: Palette.border),
+            const SizedBox(height: 14),
+            Pressable(
+              onTap: () => setState(() => _withdrawExpanded = !_withdrawExpanded),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Withdraw',
+                      style: bodyStyle(size: 13, color: Palette.muted),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const _GoldLine(),
-                const SizedBox(height: 14),
-                Pressable(
-                  onTap: () =>
-                      setState(() => _withdrawExpanded = !_withdrawExpanded),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Withdraw',
-                          style: bodyStyle(size: 13, color: Palette.muted),
-                        ),
-                      ),
-                      Icon(
-                        _withdrawExpanded
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        color: Palette.secondary,
-                        size: 20,
-                      ),
-                    ],
+                  Icon(
+                    _withdrawExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: Palette.secondary,
+                    size: 20,
                   ),
-                ),
+                ],
+              ),
+            ),
                 if (_withdrawExpanded) ...[
                   const SizedBox(height: 10),
                   Row(
@@ -391,13 +415,15 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                       _TokenToggle(
                         label: 'SOL',
                         selected: _token == _WithdrawToken.sol,
-                        onTap: () => setState(() => _token = _WithdrawToken.sol),
+                        onTap: () =>
+                            setState(() => _token = _WithdrawToken.sol),
                       ),
                       const SizedBox(width: 8),
                       _TokenToggle(
                         label: seekerLabel,
                         selected: _token == _WithdrawToken.seeker,
-                        onTap: () => setState(() => _token = _WithdrawToken.seeker),
+                        onTap: () =>
+                            setState(() => _token = _WithdrawToken.seeker),
                       ),
                     ],
                   ),
@@ -413,91 +439,126 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                     keyboardType: TextInputType.text,
                   ),
                   const SizedBox(height: 10),
-                  Text('Amount', style: bodyStyle(size: 12, color: Palette.muted)),
+                  Text(
+                    'Amount',
+                    style: bodyStyle(size: 12, color: Palette.muted),
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
                         child: _InputBox(
                           controller: _amountCtrl,
-                          hint: _token == _WithdrawToken.sol ? 'SOL' : seekerLabel,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(decimal: true),
+                          hint: _token == _WithdrawToken.sol
+                              ? 'SOL'
+                              : seekerLabel,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Pressable(
-                        onTap: () =>
-                            setState(() => _amountCtrl.text = maxAmount.toString()),
+                        onTap: () => setState(
+                          () => _amountCtrl.text = maxAmount.toString(),
+                        ),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             border: Border.all(
-                                color: Palette.gold.withValues(alpha: 0.7)),
+                              color: Palette.gold.withValues(alpha: 0.7),
+                            ),
                             borderRadius: BorderRadius.circular(2),
                             color: Palette.gold.withValues(alpha: 0.08),
                           ),
-                          child: Text('MAX',
-                              style: bodyStyle(size: 12, color: Palette.gold)),
+                          child: Text(
+                            'MAX',
+                            style: bodyStyle(size: 12, color: Palette.gold),
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Builder(builder: (context) {
-                    final wallet = ref.watch(walletProvider);
-                    final solPrice = wallet.solBalance > 0
-                        ? wallet.solUsdValue / wallet.solBalance
-                        : 0.0;
-                    final feeUsd = _networkFeeSol * solPrice;
-                    final typedAmount = double.tryParse(_amountCtrl.text.trim());
-                    final isSol = _token == _WithdrawToken.sol;
+                  Builder(
+                    builder: (context) {
+                      final wallet = ref.watch(walletProvider);
+                      final solPrice = wallet.solBalance > 0
+                          ? wallet.solUsdValue / wallet.solBalance
+                          : 0.0;
+                      final feeUsd = _networkFeeSol * solPrice;
+                      final typedAmount = double.tryParse(
+                        _amountCtrl.text.trim(),
+                      );
+                      final isSol = _token == _WithdrawToken.sol;
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Palette.gold.withValues(alpha: 0.06),
-                        border:
-                            Border.all(color: Palette.gold.withValues(alpha: 0.28)),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Network fee (est.)',
-                                  style:
-                                      bodyStyle(size: 12, color: Palette.muted)),
-                              Text(
-                                '${_networkFeeSol.toStringAsFixed(6)} SOL'
-                                '${solPrice > 0 ? '  ≈ \$${feeUsd.toStringAsFixed(4)}' : ''}',
-                                style:
-                                    bodyStyle(size: 12, color: Palette.secondary),
-                              ),
-                            ],
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Palette.gold.withValues(alpha: 0.06),
+                          border: Border.all(
+                            color: Palette.gold.withValues(alpha: 0.28),
                           ),
-                          if (typedAmount != null && typedAmount > 0 && isSol) ...[
-                            const SizedBox(height: 6),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Column(
+                          children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('You send (incl. fee)',
-                                    style:
-                                        bodyStyle(size: 12, color: Palette.muted)),
                                 Text(
-                                  '${(typedAmount + _networkFeeSol).toStringAsFixed(6)} SOL',
-                                  style: bodyStyle(size: 12, color: Palette.gold),
+                                  'Network fee (est.)',
+                                  style: bodyStyle(
+                                    size: 12,
+                                    color: Palette.muted,
+                                  ),
+                                ),
+                                Text(
+                                  '${_networkFeeSol.toStringAsFixed(6)} SOL'
+                                  '${solPrice > 0 ? '  ≈ \$${feeUsd.toStringAsFixed(4)}' : ''}',
+                                  style: bodyStyle(
+                                    size: 12,
+                                    color: Palette.secondary,
+                                  ),
                                 ),
                               ],
                             ),
+                            if (typedAmount != null &&
+                                typedAmount > 0 &&
+                                isSol) ...[
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'You send (incl. fee)',
+                                    style: bodyStyle(
+                                      size: 12,
+                                      color: Palette.muted,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${(typedAmount + _networkFeeSol).toStringAsFixed(6)} SOL',
+                                    style: bodyStyle(
+                                      size: 12,
+                                      color: Palette.gold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    );
-                  }),
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 16),
                   if (_isSending)
                     const Padding(
@@ -513,30 +574,32 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         decoration: BoxDecoration(
                           border: Border.all(
-                              color: Palette.gold.withValues(alpha: 0.75)),
+                            color: Palette.gold.withValues(alpha: 0.75),
+                          ),
                           borderRadius: BorderRadius.circular(2),
                           gradient: const LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0x33FFC500),
-                              Color(0x11FFC500),
-                            ],
+                            colors: [Color(0x33FFC500), Color(0x11FFC500)],
                           ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.send_rounded,
-                                size: 18, color: Palette.gold),
+                            const Icon(
+                              Icons.send_rounded,
+                              size: 18,
+                              color: Palette.gold,
+                            ),
                             const SizedBox(width: 8),
-                            Text('Send',
-                                style: bodyStyle(size: 14, color: Palette.gold)),
+                            Text(
+                              'Send',
+                              style: bodyStyle(size: 14, color: Palette.gold),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                ],
               ],
               const SizedBox(height: 8),
             ],
@@ -548,26 +611,6 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _GoldLine extends StatelessWidget {
-  const _GoldLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.transparent,
-            Color(0xFFFFC500),
-            Colors.transparent,
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _BalanceRow extends StatelessWidget {
   const _BalanceRow({
@@ -592,12 +635,16 @@ class _BalanceRow extends StatelessWidget {
           children: [
             Text(label, style: bodyStyle(size: 16, color: Palette.muted)),
             if (subLabel != null)
-              Text(subLabel!,
-                  style: bodyStyle(size: 11, color: Palette.statLabel)),
+              Text(
+                subLabel!,
+                style: bodyStyle(size: 11, color: Palette.statLabel),
+              ),
           ],
         ),
-        Text(_usd.format(usdValue),
-            style: displayStyle(size: 18, color: Palette.gold)),
+        Text(
+          _usd.format(usdValue),
+          style: displayStyle(size: 18, color: Palette.gold),
+        ),
       ],
     );
   }
@@ -630,9 +677,13 @@ class _TokenToggle extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(2),
         ),
-        child: Text(label,
-            style: bodyStyle(
-                size: 13, color: selected ? Palette.gold : Palette.muted)),
+        child: Text(
+          label,
+          style: bodyStyle(
+            size: 13,
+            color: selected ? Palette.gold : Palette.muted,
+          ),
+        ),
       ),
     );
   }

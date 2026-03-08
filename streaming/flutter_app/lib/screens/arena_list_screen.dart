@@ -1,20 +1,153 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/constants.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
 import '../router.dart';
 import '../models/match.dart';
+import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
+import '../providers/match_stream_provider.dart';
+import '../providers/global_events_provider.dart';
+import '../services/hls_player_service.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
 import '../widgets/shared/ik_shimmer.dart';
 
-class ArenaListScreen extends ConsumerWidget {
+class ArenaListScreen extends ConsumerStatefulWidget {
   const ArenaListScreen({super.key, required this.onNavigate});
   final void Function(String) onNavigate;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ArenaListScreen> createState() => _ArenaListScreenState();
+}
+
+class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
+  bool _autoNavigating = false;
+  String? _preconnectedMatchId; // guard: only preconnect once per match
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForLiveMatches();
+    // Start watching match list for a live match immediately
+    _watchMatchListForPreconnect();
+  }
+
+  /// As soon as the match list loads and a LIVE match is found, immediately
+  /// connect the WS and kick off HLS preloading in the background.
+  /// By the time the user taps, VideoPlayerController.initialize() has already
+  /// been running — so playback starts instantly on navigation.
+  void _watchMatchListForPreconnect() {
+    // Watch for live match in the match list
+    ref.listenManual<MatchState>(
+      matchProvider,
+      (_, next) {
+        try {
+          final liveMatch = next.matches.cast<Match?>().firstWhere(
+            (m) => m?.status == MatchStatus.live,
+            orElse: () => null,
+          );
+          if (liveMatch != null) {
+            _preconnectForLiveMatch(liveMatch.id);
+          }
+        } catch (e) {
+          debugPrint('[ArenaList] Error in match preconnect listener: $e');
+        }
+      },
+      fireImmediately: true,
+    );
+
+    // NOTE: we intentionally do NOT reset _preconnectedMatchId when match ends.
+    // If we did, the stale matchProvider state (still showing status=live for
+    // the just-ended match) fires immediately after and triggers a re-preconnect
+    // to a dead stream → 404. Keeping the ended matchId in place blocks that
+    // stale re-connect. A new match has a different UUID and bypasses the guard.
+  }
+
+  /// Connects the WS and triggers HLS preloading for [matchId].
+  /// Safe to call multiple times — no-ops if already preconnected for this match.
+  void _preconnectForLiveMatch(String matchId) {
+    if (_preconnectedMatchId == matchId) return; // already done for this instance
+    _preconnectedMatchId = matchId;
+    debugPrint('[ArenaList] Pre-connecting WS for live match: $matchId');
+    try {
+      // 1. Connect WS → backend will send streaming_state: ready
+      ref.read(matchStreamServiceProvider).connect(matchId);
+
+      // 2. Only preload HLS if the user hasn't intentionally left the live screen.
+      //    state=stopped is set by live_match_screen.dispose() — if it's stopped,
+      //    skip preload since restarting audio in the background is not desired.
+      //    Audio will restart only when the user navigates back to the live screen.
+      final hlsSvc = ref.read(hlsPlayerServiceProvider);
+      if (hlsSvc.state == HlsPreloadState.stopped) {
+        debugPrint('[ArenaList] HLS state=stopped (user left live screen) — skipping preload restart');
+        return;
+      }
+
+      final hlsUrl = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
+      hlsSvc.preload(matchId, hlsUrl);
+      debugPrint('[ArenaList] ✅ Pre-connect + HLS preload started for $matchId');
+    } catch (e) {
+      debugPrint('[ArenaList] ❌ Pre-connect error for $matchId: $e');
+    }
+  }
+
+
+  void _listenForLiveMatches() {
+    ref.listenManual<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (previous, next) {
+        next.whenData((event) {
+          // Check if a match just went live
+          if (event['type'] == 'match_status_changed' &&
+              event['status'] == 'live' &&
+              !_autoNavigating) {
+            final matchId = event['match_id'] as String?;
+            if (matchId != null) {
+              // Pre-connect immediately when we learn the match just went live,
+              // before the navigation delay — gives us ~500ms of head start.
+              _preconnectForLiveMatch(matchId);
+
+              _autoNavigating = true;
+              debugPrint('[ArenaList] Auto-navigating to live match: $matchId');
+
+              if (mounted && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Match is starting! Redirecting to live stream...',
+                      style: bodyStyle(size: 14, color: Palette.white),
+                    ),
+                    backgroundColor: Palette.gold.withValues(alpha: 0.9),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                );
+              }
+
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) {
+                  widget.onNavigate('/live-match/$matchId');
+                  Future.delayed(const Duration(seconds: 2), () {
+                    if (mounted) _autoNavigating = false;
+                  });
+                }
+              });
+            }
+          }
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(clockTickProvider);
     final matchState = ref.watch(matchProvider);
     final allMatches = matchState.matches;
     final feed = _sortedFeed(allMatches);
@@ -22,7 +155,7 @@ class ArenaListScreen extends ConsumerWidget {
     return AppShell(
       activeTab: NavTab.arena,
       scrollable: false,
-      onNavigate: (slug) => onNavigate(routeFor(slug)),
+      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -30,6 +163,7 @@ class ArenaListScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
+              
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,7 +172,7 @@ class ArenaListScreen extends ConsumerWidget {
                         'ARENA',
                         style: displayStyle(size: 24, color: Palette.gold),
                       ),
-                      // const SizedBox(height: 2),
+                      // const SizedBox(height: 2),r
                       // Text(
                       //   'One s2tream. Next fights in queue.',
                       //   style: bodyStyle(size: 13, color: Palette.muted),
@@ -73,13 +207,14 @@ class ArenaListScreen extends ConsumerWidget {
               emptyLabel: 'No matches available',
               onTap: (m) {
                 if (m.status == MatchStatus.live) {
-                  onNavigate('/live-match/${m.id}');
+                  widget.onNavigate('/live-match/${m.id}');
                 } else {
-                  onNavigate('/battle-detail/${m.id}');
+                  widget.onNavigate('/battle-detail/${m.id}');
                 }
               },
             ),
           ),
+          SizedBox(height: 102)
         ],
       ),
     );
@@ -93,6 +228,14 @@ class ArenaListScreen extends ConsumerWidget {
         )
         .toList();
     sorted.sort((a, b) {
+      final aQueue = a.queuePosition;
+      final bQueue = b.queuePosition;
+      if (aQueue != null && bQueue != null && aQueue != bQueue) {
+        return aQueue.compareTo(bQueue);
+      }
+      if (aQueue != null && bQueue == null) return -1;
+      if (aQueue == null && bQueue != null) return 1;
+
       final aRank = _statusRank(a.status);
       final bRank = _statusRank(b.status);
       if (aRank != bRank) return aRank.compareTo(bRank);
@@ -129,7 +272,7 @@ class _MatchList extends StatelessWidget {
     // Still loading
     if (!allLoaded) {
       return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 32, 16, 20),
         itemCount: 3,
         separatorBuilder: (context, i) => const SizedBox(height: 18),
         itemBuilder: (_, i) => TweenAnimationBuilder<double>(
@@ -154,7 +297,7 @@ class _MatchList extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
       itemCount: matches.length,
       separatorBuilder: (context, idx) => const SizedBox(height: 18),
       itemBuilder: (_, i) => TweenAnimationBuilder<double>(

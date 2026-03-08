@@ -62,4 +62,39 @@
     </div>
   </form>
 </div>
+
+<script>
+  (function () {
+    const fighters = {{ fighters | tojson | safe }};
+    const map = {};
+    for (const f of fighters) map[f.id] = f;
+
+    const p1 = document.getElementById('fighter1_id');
+    const p2 = document.getElementById('fighter2_id');
+    const p1Name = document.getElementById('p1_preview_name');
+    const p1Meta = document.getElementById('p1_preview_meta');
+    const p2Name = document.getElementById('p2_preview_name');
+    const p2Meta = document.getElementById('p2_preview_meta');
+
+    function paint(sel, nameNode, metaNode) {
+      const f = map[sel.value];
+      if (!f) {
+        nameNode.textContent = '—';
+        metaNode.textContent = '—';
+        return;
+      }
+      nameNode.textContent = f.name;
+      metaNode.textContent = `${f.llm_model} / ${f.style}`;
+    }
+
+    function refresh() {
+      paint(p1, p1Name, p1Meta);
+      paint(p2, p2Name, p2Meta);
+    }
+
+    p1.addEventListener('change', refresh);
+    p2.addEventListener('change', refresh);
+    refresh();
+  })();
+</script>
 {% endblock %}

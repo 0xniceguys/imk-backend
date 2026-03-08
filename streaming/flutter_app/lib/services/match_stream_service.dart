@@ -7,65 +7,76 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../core/constants.dart';
 import '../models/game_state.dart';
 
-void _log(String msg) {
-  // ignore: avoid_print
-  if (kDebugMode) print('[WS] $msg');
-}
-
 /// Manages a WebSocket connection to a live match.
 ///
-/// Receives two types of messages from the backend:
-/// - JSON text: game state updates, viewer count, round end, match end
-/// - Binary: JPEG frame bytes from the emulator (60fps)
+/// Since video+audio is now served via HLS, the WebSocket carries only:
+///   - JSON text: game_state, viewer_count, round_end, match_ended, connected, pong
+///
+/// Binary messages are ignored (they may arrive from old backend versions).
 class MatchStreamService {
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _pingTimer;
   String? _matchId;
+  bool _isTerminal = false;
+  bool _isDisposed = false;
+  bool _isConnecting = false;
+  bool _hasConnectedEvent = false;
+  DateTime _lastReconnectScheduleAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Stream controllers for different message types
   final _gameStateCtrl = StreamController<GameState>.broadcast();
-  final _frameCtrl = StreamController<Uint8List>.broadcast();
   final _viewerCountCtrl = StreamController<int>.broadcast();
   final _matchEndCtrl = StreamController<void>.broadcast();
   final _roundEndCtrl = StreamController<Map<String, dynamic>>.broadcast();
+  final _streamingStateCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionCtrl = StreamController<bool>.broadcast();
 
   Stream<GameState> get gameStateStream => _gameStateCtrl.stream;
-  Stream<Uint8List> get frameStream => _frameCtrl.stream;
   Stream<int> get viewerCountStream => _viewerCountCtrl.stream;
   Stream<void> get matchEndStream => _matchEndCtrl.stream;
   Stream<Map<String, dynamic>> get roundEndStream => _roundEndCtrl.stream;
+  Stream<Map<String, dynamic>> get streamingStateStream => _streamingStateCtrl.stream;
   Stream<bool> get connectionStream => _connectionCtrl.stream;
 
-  bool get isConnected => _channel != null;
+  bool get isConnected => _hasConnectedEvent && _channel != null && _sub != null;
+  bool get isConnecting => _isConnecting;
   bool get hasGivenUp => _reconnectAttempts >= _maxReconnects;
   String? get matchId => _matchId;
 
   void connect(String matchId) {
     if (_matchId == matchId && _channel != null) return;
     disconnect();
-    _reconnectAttempts = 0; // Reset counter on fresh connect
+    _reconnectAttempts = 0;
+    _upcoming4004Count = 0;
+    _msgCount = 0;
+    _statsTimer?.cancel();
+    _statsTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      debugPrint('[Stream] Stats | match=$matchId msgs=${_msgCount}/5s');
+      _msgCount = 0;
+    });
 
     _matchId = matchId;
+    _isConnecting = true;
+    _hasConnectedEvent = false;
     final url = '$kWsBaseUrl/ws/match/$matchId';
-    _log('Connecting to $url');
+    debugPrint('[Stream] Connecting → $url');
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       _connectionCtrl.add(true);
+      debugPrint('[Stream] WebSocket channel created for match $matchId');
 
       _sub = _channel!.stream.listen(
         _onMessage,
         onError: (error) {
-          _log('WebSocket error: $error');
+          debugPrint('[Stream] ❌ WebSocket error: $error');
           _connectionCtrl.add(false);
           _scheduleReconnect(matchId);
         },
         onDone: () {
-          // Read close code BEFORE nulling channel
           final code = _channel?.closeCode;
-          _log('WebSocket closed (code=$code)');
+          debugPrint('[Stream] WebSocket closed (code=$code) for match $matchId');
           _connectionCtrl.add(false);
           _scheduleReconnect(matchId, closeCode: code);
         },
@@ -74,22 +85,23 @@ class MatchStreamService {
 
       // Keepalive ping every 15s to prevent idle disconnects
       _pingTimer?.cancel();
-      _pingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-        sendPing();
-      });
-    } catch (e) {
-      _log('Connect failed: $e');
+      _pingTimer = Timer.periodic(const Duration(seconds: 15), (_) => sendPing());
+    } catch (e, st) {
+      debugPrint('[Stream] ❌ Connect failed: $e\n$st');
       _connectionCtrl.add(false);
       _scheduleReconnect(matchId);
     }
   }
 
+  int _msgCount = 0;
+  Timer? _statsTimer;
+
   void _onMessage(dynamic message) {
+    _msgCount++;
     if (message is String) {
       _handleText(message);
-    } else if (message is List<int>) {
-      _frameCtrl.add(Uint8List.fromList(message));
     }
+    // Binary messages ignored — video+audio served via HLS
   }
 
   void _handleText(String text) {
@@ -99,11 +111,38 @@ class MatchStreamService {
 
       switch (type) {
         case 'connected':
-          _log('Connected to match $_matchId (viewers: ${json['viewer_count']})');
-          _viewerCountCtrl.add(json['viewer_count'] as int? ?? 0);
-          final gs = json['game_state'] as Map<String, dynamic>?;
-          if (gs != null) {
-            _gameStateCtrl.add(GameState.fromJson(gs));
+          try {
+            debugPrint('[Stream] ✅ Connected to match $_matchId viewers=${json['viewer_count']}');
+            _viewerCountCtrl.add(json['viewer_count'] as int? ?? 0);
+
+            final gs = json['game_state'] as Map<String, dynamic>?;
+            if (gs != null) {
+              try {
+                _gameStateCtrl.add(GameState.fromJson(gs));
+              } catch (e) {
+                debugPrint('[Stream] ⚠️ Failed to parse game_state in connected msg: $e');
+              }
+            }
+
+            // Forward streaming state so globalHlsPreloaderProvider fires on
+            // cold opens / reconnects (the backend includes this in the
+            // connected handshake when a stream is already ready).
+            final streamingState = json['streaming_state'] as String?;
+            if (streamingState != null) {
+              debugPrint('[Stream] 📺 Initial streaming state from connected: $streamingState');
+              if (streamingState == 'ready' && _matchId != null) {
+                // Build a canonical hls_url so the preloader has everything it needs.
+                final hlsUrlHint = '/stream/$_matchId/stream.m3u8';
+                _streamingStateCtrl.add({
+                  'state': streamingState,
+                  'hls_url': hlsUrlHint,
+                });
+              } else if (streamingState == 'initializing' || streamingState == 'error') {
+                _streamingStateCtrl.add({'state': streamingState});
+              }
+            }
+          } catch (e, st) {
+            debugPrint('[Stream] ❌ Error handling connected message: $e\n$st');
           }
 
         case 'game_state':
@@ -112,47 +151,91 @@ class MatchStreamService {
         case 'viewer_count':
           _viewerCountCtrl.add(json['count'] as int? ?? 0);
 
+        case 'streaming_state':
+          final state = json['state'] as String?;
+          final hlsUrl = json['hls_url'] as String?;
+          final error = json['error'] as String?;
+          debugPrint('[Stream] 📺 Streaming state: $state ${hlsUrl != null ? "($hlsUrl)" : ""}${error != null ? " ERROR: $error" : ""}');
+          _streamingStateCtrl.add(json);
+
         case 'round_end':
-          _log('Round ended: ${json['p1_won'] == true ? "P1" : "P2"} won');
+          debugPrint(
+            '[Stream] 🥊 Round ended: ${json['p1_won'] == true ? "P1" : "P2"} won',
+          );
           _roundEndCtrl.add(json);
 
         case 'match_ended':
-          _log('Match ended');
+          debugPrint('[Stream] 🏁 Match ended');
           _matchEndCtrl.add(null);
 
         case 'pong':
           break;
 
         default:
-          _log('Unknown message type: $type');
+          debugPrint('[Stream] Unknown message type: $type');
       }
-    } catch (e) {
-      _log('Failed to parse text message: $e');
+    } catch (e, st) {
+      debugPrint('[Stream] ❌ Failed to parse: $e\n$st');
     }
   }
 
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
-  static const _maxReconnects = 5;
+  static const _maxReconnects = 10;
+
+  // How long to keep retrying a "no runner yet" (4004) situation.
+  // A match can take up to 90s from upcoming → live (60s countdown + startup).
+  // We retry every 5s for up to 18 attempts = 90s of patience.
+  static const _upcomingRetrySeconds = 5;
+  static const _maxUpcomingRetries = 18;
+  int _upcoming4004Count = 0;
 
   void _scheduleReconnect(String matchId, {int? closeCode}) {
-    // 4004 = no active runner — the match is over. Emit matchEnd so the
-    // screen navigates to post-match rather than showing "Connecting..." forever.
+    _reconnectTimer?.cancel();
+
     if (closeCode == 4004) {
-      _log('Match $matchId has no active runner (4004) — emitting matchEnd');
+      // 4004 = "no active runner for this match right now"
+      // This happens when:
+      //   (A) match is upcoming and the runner hasn't started yet → retry
+      //   (B) match has ended → eventually emit matchEnd after N retries
+      _upcoming4004Count++;
+      if (_upcoming4004Count <= _maxUpcomingRetries) {
+        debugPrint(
+          '[Stream] 4004 — waiting for runner '
+          '(attempt $_upcoming4004Count/$_maxUpcomingRetries, '
+          'retry in ${_upcomingRetrySeconds}s)...',
+        );
+        _reconnectTimer = Timer(const Duration(seconds: _upcomingRetrySeconds), () {
+          if (_matchId == matchId) {
+            _channel = null;
+            _sub?.cancel();
+            _sub = null;
+            connect(matchId);
+          }
+        });
+        return;
+      }
+      // After N retries with 4004 — runner never started, treat as ended
+      debugPrint(
+        '[Stream] 4004 after $_upcoming4004Count attempts — '
+        'runner never started, treating as match ended',
+      );
       _matchEndCtrl.add(null);
       return;
     }
+
+    // Any other close code: exponential backoff reconnect
     if (_reconnectAttempts >= _maxReconnects) {
-      _log('Max reconnect attempts ($_maxReconnects) reached for $matchId');
+      debugPrint('[Stream] ⛔ Max reconnects ($_maxReconnects) reached for $matchId — giving up');
       return;
     }
 
-    // Exponential backoff: 3s, 6s, 12s, 24s, 48s
     final delaySeconds = 3 * (1 << _reconnectAttempts.clamp(0, 4));
     _reconnectAttempts++;
-    _reconnectTimer?.cancel();
-    _log('Reconnecting to $matchId in ${delaySeconds}s (attempt $_reconnectAttempts)...');
+    debugPrint(
+      '[Stream] Reconnecting in ${delaySeconds}s '
+      '(attempt $_reconnectAttempts/$_maxReconnects)...',
+    );
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
       if (_matchId == matchId) {
         _channel = null;
@@ -167,15 +250,17 @@ class MatchStreamService {
     _channel?.sink.add(jsonEncode({'type': 'ping'}));
   }
 
-  /// Resets the reconnect counter and retries the connection manually.
-  /// Call this when the UI shows a "tap to retry" button.
+  /// Resets reconnect counter and retries connection — use for "tap to retry" UI.
   void resetAndReconnect(String matchId) {
     _reconnectAttempts = 0;
-    _matchId = null; // force re-connect even if same matchId
+    _upcoming4004Count = 0;
+    _matchId = null;
     connect(matchId);
   }
 
   void disconnect() {
+    _statsTimer?.cancel();
+    _statsTimer = null;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _pingTimer?.cancel();
@@ -186,15 +271,18 @@ class MatchStreamService {
     _channel = null;
     _matchId = null;
     _reconnectAttempts = 0;
+    _upcoming4004Count = 0;
+    debugPrint('[Stream] Disconnected');
   }
 
   void dispose() {
+    _isDisposed = true;
     disconnect();
     _gameStateCtrl.close();
-    _frameCtrl.close();
     _viewerCountCtrl.close();
     _matchEndCtrl.close();
     _roundEndCtrl.close();
+    _streamingStateCtrl.close();
     _connectionCtrl.close();
   }
 }

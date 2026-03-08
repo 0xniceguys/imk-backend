@@ -1,13 +1,21 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:privy_flutter/privy_flutter.dart';
-import '../core/constants.dart';
-
-const _appUrlScheme = 'privy-$kPrivyAppId';
+import '../core/runtime_client_config.dart';
 
 void _log(String msg) {
   // ignore: avoid_print
   if (kDebugMode) print('[Privy] $msg');
+}
+
+SolanaCluster _clusterFromRuntime() {
+  switch (RuntimeClientConfig.instance.cluster) {
+    case 'devnet':
+      return SolanaCluster.devnet;
+    case 'testnet':
+      return SolanaCluster.testnet;
+    default:
+      return SolanaCluster.mainnet;
+  }
 }
 
 class PrivyService {
@@ -37,11 +45,15 @@ class PrivyService {
   }
 
   Future<void> initialize() async {
+    final runtime = RuntimeClientConfig.instance;
+    final appId = runtime.privyAppId;
+    final clientId = runtime.privyClientId;
+
     _log('=== initialize START ===');
-    _log('appId=$kPrivyAppId, clientId=$kPrivyClientId');
+    _log('appId=$appId, clientId=$clientId, cluster=${runtime.cluster}');
     final config = PrivyConfig(
-      appId: kPrivyAppId,
-      appClientId: kPrivyClientId,
+      appId: appId,
+      appClientId: clientId,
       logLevel: PrivyLogLevel.verbose,
     );
     _privy = Privy.init(config: config);
@@ -53,7 +65,9 @@ class PrivyService {
       _log('Auth state: ${authState.runtimeType}');
       if (authState is Authenticated) {
         _user = authState.user;
-        _log('Already authenticated: email=${email ?? "none"}, wallet=${walletAddress ?? "none"}');
+        _log(
+          'Already authenticated: email=${email ?? "none"}, wallet=${walletAddress ?? "none"}',
+        );
         _log('User id: ${_user?.id}');
         _log('Linked accounts: ${_user?.linkedAccounts.length}');
       } else {
@@ -105,12 +119,13 @@ class PrivyService {
   // ── OAuth ──
 
   Future<bool> loginWithGoogle() async {
-    _log('loginWithGoogle: appUrlScheme=$_appUrlScheme');
+    final appUrlScheme = 'privy-${RuntimeClientConfig.instance.privyAppId}';
+    _log('loginWithGoogle: appUrlScheme=$appUrlScheme');
     lastError = null;
     try {
       final result = await _privy.oAuth.login(
         provider: OAuthProvider.google,
-        appUrlScheme: _appUrlScheme,
+        appUrlScheme: appUrlScheme,
       );
       result.fold(
         onSuccess: (user) {
@@ -131,12 +146,13 @@ class PrivyService {
   }
 
   Future<bool> loginWithApple() async {
-    _log('loginWithApple: appUrlScheme=$_appUrlScheme');
+    final appUrlScheme = 'privy-${RuntimeClientConfig.instance.privyAppId}';
+    _log('loginWithApple: appUrlScheme=$appUrlScheme');
     lastError = null;
     try {
       final result = await _privy.oAuth.login(
         provider: OAuthProvider.apple,
-        appUrlScheme: _appUrlScheme,
+        appUrlScheme: appUrlScheme,
       );
       result.fold(
         onSuccess: (user) {
@@ -188,19 +204,21 @@ class PrivyService {
   Future<String?> generateSiwsMessage(String walletAddr) async {
     _log('=== generateSiwsMessage START ===');
     _log('walletAddress: $walletAddr');
-    _log('appDomain: immortalkombat.mercle.ai');
-    _log('appUri: https://immortalkombat.mercle.ai');
+    _log('appDomain: immortalkombat.timesnap.xyz');
+    _log('appUri: https://immortalkombat.timesnap.xyz');
     lastError = null;
     try {
       final params = SiwsMessageParams(
-        appDomain: 'immortalkombat.mercle.ai',
-        appUri: 'https://immortalkombat.mercle.ai',
+        appDomain: 'immortalkombat.timesnap.xyz',
+        appUri: 'https://immortalkombat.timesnap.xyz',
         walletAddress: walletAddr,
       );
       _log('Calling _privy.siws.generateMessage...');
       final sw = Stopwatch()..start();
       final result = await _privy.siws.generateMessage(params);
-      _log('generateMessage returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}');
+      _log(
+        'generateMessage returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}',
+      );
       String? message;
       result.fold(
         onSuccess: (msg) {
@@ -213,7 +231,9 @@ class PrivyService {
           lastError = e.message;
         },
       );
-      _log('=== generateSiwsMessage END (message=${message != null ? "OK" : "NULL"}) ===');
+      _log(
+        '=== generateSiwsMessage END (message=${message != null ? "OK" : "NULL"}) ===',
+      );
       return message;
     } catch (e, st) {
       _log('generateSiwsMessage EXCEPTION: $e');
@@ -224,22 +244,25 @@ class PrivyService {
   }
 
   Future<bool> loginWithSiws(
-      String message, String signature, String walletAddr) async {
+    String message,
+    String signature,
+    String walletAddr,
+  ) async {
     _log('=== loginWithSiws START ===');
     _log('walletAddr: $walletAddr');
     _log('message length: ${message.length}');
     _log('message FULL:\n$message');
     _log('signature: $signature');
     _log('signature length: ${signature.length}');
-    _log('appDomain: immortalkombat.mercle.ai');
-    _log('appUri: https://immortalkombat.mercle.ai');
+    _log('appDomain: immortalkombat.timesnap.xyz');
+    _log('appUri: https://immortalkombat.timesnap.xyz');
     _log('walletClientType: other');
     _log('connectorType: solana_wallet');
     lastError = null;
     try {
       final params = SiwsMessageParams(
-        appDomain: 'immortalkombat.mercle.ai',
-        appUri: 'https://immortalkombat.mercle.ai',
+        appDomain: 'immortalkombat.timesnap.xyz',
+        appUri: 'https://immortalkombat.timesnap.xyz',
         walletAddress: walletAddr,
       );
       _log('Calling _privy.siws.login...');
@@ -253,7 +276,9 @@ class PrivyService {
           connectorType: 'solana_wallet',
         ),
       );
-      _log('siws.login returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}');
+      _log(
+        'siws.login returned in ${sw.elapsedMilliseconds}ms, type=${result.runtimeType}',
+      );
       result.fold(
         onSuccess: (user) {
           _user = user;
@@ -340,8 +365,9 @@ class PrivyService {
     }
     try {
       _log('Signing tx with wallet: ${solWallets.first.address}');
-      final result =
-          await solWallets.first.provider.signTransaction(transactionBytes);
+      final result = await solWallets.first.provider.signTransaction(
+        transactionBytes,
+      );
       _log('signTransaction result: ${result.runtimeType}');
       if (result is Success<String>) {
         _log('signTransaction SUCCESS');
@@ -374,11 +400,10 @@ class PrivyService {
     }
     try {
       _log('Sign+send with wallet: ${solWallets.first.address}');
-      final result =
-          await solWallets.first.provider.signAndSendTransaction(
+      final result = await solWallets.first.provider.signAndSendTransaction(
         transaction: transactionBytes,
-        cluster: cluster,
-        rpcUrl: rpcUrl,
+        cluster: cluster ?? _clusterFromRuntime(),
+        rpcUrl: rpcUrl ?? RuntimeClientConfig.instance.rpcHttp,
       );
       _log('signAndSendTransaction result: ${result.runtimeType}');
       if (result is Success<String>) {
@@ -409,6 +434,58 @@ class PrivyService {
       return null;
     } catch (e) {
       _log('getAccessToken error: $e');
+      return null;
+    }
+  }
+
+  /// Get the current Privy ID token for server-side wallet signing.
+  /// The Privy Flutter SDK exposes this as `identityToken` on PrivyUser.
+  ///
+  /// By default this is strict and returns `null` if an identity token
+  /// is unavailable, so we don't accidentally send an access token to
+  /// Privy signer endpoints (which often fails with 400).
+  Future<String?> getIdToken({bool allowAccessTokenFallback = false}) async {
+    if (_user == null) return null;
+    try {
+      // 1. Try identity token first (required by Privy server-side signing)
+      final token = _user!.identityToken;
+      if (token != null && token.isNotEmpty) {
+        _log('Privy: Got identity token (${token.length} chars)');
+        return token;
+      }
+
+      // 2. Refresh user and try again
+      _log('getIdToken: identityToken is null/empty, refreshing user...');
+      await _user!.refresh();
+      final refreshedToken = _user!.identityToken;
+      if (refreshedToken != null && refreshedToken.isNotEmpty) {
+        _log(
+          'Privy: Got identity token after refresh (${refreshedToken.length} chars)',
+        );
+        return refreshedToken;
+      }
+
+      // 3. Optional fallback to access token (not recommended for signer calls)
+      if (allowAccessTokenFallback) {
+        _log(
+          'WARNING: identityToken still null; falling back to access token by request.',
+        );
+        final accessResult = await _user!.getAccessToken();
+        if (accessResult is Success<String>) {
+          _log(
+            'Privy: fallback access token (${accessResult.value.length} chars)',
+          );
+          return accessResult.value;
+        }
+      }
+
+      _log(
+        'getIdToken: identity token unavailable (no fallback). '
+        'User should re-authenticate.',
+      );
+      return null;
+    } catch (e) {
+      _log('getIdToken error: $e');
       return null;
     }
   }

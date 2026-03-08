@@ -1,11 +1,20 @@
 """Test /api/admin endpoints."""
 
+import uuid
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Bet, BetStatus, Fighter, Match, MatchStatus, User
+from app.db.models import Agent, Bet, BetStatus, Fighter, Match, MatchStatus, User
+
+
+def _error_text(resp) -> str:
+    data = resp.json()
+    if "detail" in data:
+        return str(data["detail"])
+    return str(data.get("error", {}).get("message", ""))
 
 
 @pytest.mark.asyncio
@@ -53,6 +62,104 @@ async def test_create_match(
 
 
 @pytest.mark.asyncio
+async def test_create_match_uses_fighter_assigned_custom_agents(
+    admin_client: AsyncClient,
+    fighters: tuple[Fighter, Fighter],
+    db: AsyncSession,
+    tmp_path,
+    cleanup,
+):
+    """Match agent fields are derived from fighters, not raw payload agent IDs."""
+    f1, f2 = fighters
+
+    ckpt1 = tmp_path / "f1.onnx"
+    ckpt2 = tmp_path / "f2.onnx"
+    ckpt1.write_bytes(b"onnx")
+    ckpt2.write_bytes(b"onnx")
+
+    agent1 = Agent(
+        name=f"Agent One {uuid.uuid4().hex[:8]}",
+        slug=f"agent-one-{uuid.uuid4().hex[:8]}",
+        architecture="disc_rssm",
+        checkpoint_path=str(ckpt1),
+        file_size_bytes=4,
+    )
+    agent2 = Agent(
+        name=f"Agent Two {uuid.uuid4().hex[:8]}",
+        slug=f"agent-two-{uuid.uuid4().hex[:8]}",
+        architecture="transformer",
+        checkpoint_path=str(ckpt2),
+        file_size_bytes=4,
+    )
+    db.add_all([agent1, agent2])
+    await db.flush()
+
+    f1_db = (await db.execute(select(Fighter).where(Fighter.id == f1.id))).scalar_one()
+    f2_db = (await db.execute(select(Fighter).where(Fighter.id == f2.id))).scalar_one()
+    f1_db.agent_id = agent1.id
+    f1_db.agent_architecture = None
+    f2_db.agent_id = agent2.id
+    f2_db.agent_architecture = None
+    await db.commit()
+
+    resp = await admin_client.post(
+        "/api/admin/matches",
+        json={
+            "fighter1_id": str(f1.id),
+            "fighter2_id": str(f2.id),
+            "scheduled_at": "2026-03-01T12:00:00Z",
+            "label": "Fixed Policy Match",
+            "p1_agent": "random",
+            "p2_agent": "cpu",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    match_id = uuid.UUID(resp.json()["id"])
+    match = (await db.execute(select(Match).where(Match.id == match_id))).scalar_one()
+    assert match.p1_agent == f"custom_{agent1.slug}"
+    assert match.p2_agent == f"custom_{agent2.slug}"
+
+
+@pytest.mark.asyncio
+async def test_create_match_rejects_missing_custom_checkpoint(
+    admin_client: AsyncClient,
+    fighters: tuple[Fighter, Fighter],
+    db: AsyncSession,
+    cleanup,
+):
+    """Match creation fails fast when fighter's custom checkpoint path is invalid."""
+    f1, f2 = fighters
+    missing_ckpt = "/tmp/does-not-exist-imk-checkpoint.onnx"
+    agent = Agent(
+        name=f"Broken Agent {uuid.uuid4().hex[:8]}",
+        slug=f"broken-agent-{uuid.uuid4().hex[:8]}",
+        architecture="lstm",
+        checkpoint_path=missing_ckpt,
+        file_size_bytes=123,
+    )
+    db.add(agent)
+    await db.flush()
+
+    f1_db = (await db.execute(select(Fighter).where(Fighter.id == f1.id))).scalar_one()
+    f1_db.agent_id = agent.id
+    f1_db.agent_architecture = None
+    await db.commit()
+
+    create_resp = await admin_client.post(
+        "/api/admin/matches",
+        json={
+            "fighter1_id": str(f1.id),
+            "fighter2_id": str(f2.id),
+            "scheduled_at": "2026-03-01T12:00:00Z",
+            "label": "Missing Checkpoint",
+            "savestate_path": "/tmp/ok.savestate",
+        },
+    )
+    assert create_resp.status_code == 400
+    assert "checkpoint not found" in _error_text(create_resp).lower()
+
+@pytest.mark.asyncio
 async def test_create_match_same_fighter_rejected(
     admin_client: AsyncClient,
     fighters: tuple[Fighter, Fighter],
@@ -66,7 +173,7 @@ async def test_create_match_same_fighter_rejected(
         "scheduled_at": "2026-03-01T12:00:00Z",
     })
     assert resp.status_code == 400
-    assert "different" in resp.json()["detail"].lower()
+    assert "different" in _error_text(resp).lower()
 
 
 @pytest.mark.asyncio
@@ -103,23 +210,28 @@ async def test_cancel_match(
 @pytest.mark.asyncio
 async def test_cancel_match_cancels_bets(
     admin_client: AsyncClient,
-    client: AsyncClient,
     match_with_stream: Match,
     fighters: tuple[Fighter, Fighter],
     db: AsyncSession,
+    test_user: User,
     cleanup,
 ):
     """Cancelling a match cancels all active bets."""
     f1, _ = fighters
 
-    # Place a bet first (using regular user client)
-    bet_resp = await client.post("/api/bets/", json={
-        "match_id": str(match_with_stream.id),
-        "fighter_id": str(f1.id),
-        "amount": 5.0,
-    })
-    assert bet_resp.status_code == 200
-    bet_id = bet_resp.json()["id"]
+    # Insert an active bet directly (no auth/client override contention in this test).
+    bet = Bet(
+        user_id=test_user.id,
+        match_id=match_with_stream.id,
+        fighter_id=f1.id,
+        amount=5.0,
+        odds_at_placement=1.5,
+        status=BetStatus.ACTIVE,
+    )
+    db.add(bet)
+    await db.commit()
+    await db.refresh(bet)
+    bet_id = bet.id
 
     # Cancel the match (as admin)
     cancel_resp = await admin_client.post(
@@ -128,9 +240,74 @@ async def test_cancel_match_cancels_bets(
     assert cancel_resp.status_code == 200
 
     # Verify the bet is cancelled
+    db.expire_all()
     result = await db.execute(select(Bet).where(Bet.id == bet_id))
     bet = result.scalar_one()
     assert bet.status == BetStatus.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_cancel_match_calls_on_chain_when_pda_present(
+    admin_client: AsyncClient,
+    match_with_stream: Match,
+    db: AsyncSession,
+    cleanup,
+    monkeypatch,
+):
+    """Cancelling a match with on-chain PDA must call cancel_match_on_chain first."""
+    tx_sig = "test-cancel-tx-sig"
+
+    async def _fake_cancel_match_on_chain(match_pda: str) -> str:
+        assert match_pda == "FakeMatchPda11111111111111111111111111111111111"
+        return tx_sig
+
+    monkeypatch.setattr(
+        "app.services.on_chain_match.cancel_match_on_chain",
+        _fake_cancel_match_on_chain,
+    )
+
+    result = await db.execute(select(Match).where(Match.id == match_with_stream.id))
+    match = result.scalar_one()
+    match.on_chain_match_pda = "FakeMatchPda11111111111111111111111111111111111"
+    await db.commit()
+
+    resp = await admin_client.post(f"/api/admin/matches/{match_with_stream.id}/cancel")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["status"] == "cancelled"
+    assert data["on_chain_tx"] == tx_sig
+
+
+@pytest.mark.asyncio
+async def test_cancel_match_fails_when_on_chain_cancel_fails(
+    admin_client: AsyncClient,
+    match_with_stream: Match,
+    db: AsyncSession,
+    cleanup,
+    monkeypatch,
+):
+    """If on-chain cancel fails, endpoint must fail and not mark DB as cancelled."""
+
+    async def _fake_cancel_match_on_chain(_match_pda: str) -> str:
+        raise RuntimeError("simulated on-chain cancel failure")
+
+    monkeypatch.setattr(
+        "app.services.on_chain_match.cancel_match_on_chain",
+        _fake_cancel_match_on_chain,
+    )
+
+    result = await db.execute(select(Match).where(Match.id == match_with_stream.id))
+    match = result.scalar_one()
+    match.on_chain_match_pda = "FakeMatchPda11111111111111111111111111111111111"
+    await db.commit()
+
+    resp = await admin_client.post(f"/api/admin/matches/{match_with_stream.id}/cancel")
+    assert resp.status_code == 502, resp.text
+
+    db.expire_all()
+    result = await db.execute(select(Match).where(Match.id == match_with_stream.id))
+    refreshed = result.scalar_one()
+    assert refreshed.status == MatchStatus.UPCOMING
 
 
 @pytest.mark.asyncio
@@ -171,14 +348,15 @@ async def test_settle_match(
     # Expire cached state so we see fresh data from the settle endpoint's commit
     db.expire_all()
 
-    # Verify f1 bettor won with correct payout (15/10 * 10 = 15)
+    # Verify f1 bettor won with contract fee math:
+    # pool=15, fee=5%=0.75, payout_pool=14.25, winner_pool=10 => payout=14.25
     result = await db.execute(
         select(Bet)
         .where(Bet.match_id == live_match.id, Bet.fighter_id == f1.id)
     )
     won_bet = result.scalar_one()
     assert won_bet.status == BetStatus.WON
-    assert float(won_bet.payout) == 15.0  # 10 * (15/10)
+    assert float(won_bet.payout) == 14.25
 
     # Verify f2 bettor lost
     result = await db.execute(
@@ -232,7 +410,7 @@ async def test_settle_wrong_winner(
         params={"winner_id": "00000000-0000-0000-0000-000000000000"},
     )
     assert resp.status_code == 400
-    assert "winner" in resp.json()["detail"].lower()
+    assert "winner" in _error_text(resp).lower()
 
 
 @pytest.mark.asyncio
@@ -249,7 +427,7 @@ async def test_settle_not_live_match(
         params={"winner_id": str(f1.id)},
     )
     assert resp.status_code == 400
-    assert "upcoming" in resp.json()["detail"].lower()
+    assert "upcoming" in _error_text(resp).lower()
 
 
 @pytest.mark.asyncio

@@ -8,6 +8,7 @@ import '../core/constants.dart';
 import '../models/match.dart';
 import '../models/fighter.dart';
 import '../models/bet.dart';
+import '../models/match_bet_feed_item.dart';
 
 void _log(String msg) {
   // ignore: avoid_print
@@ -42,15 +43,16 @@ class ApiService {
   }
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-      };
+    'Content-Type': 'application/json',
+    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+  };
 
   // ── Matches ──
 
   Future<List<Match>> fetchMatches({String? status}) async {
-    final uri = Uri.parse('$kApiBaseUrl/matches/').replace(
-        queryParameters: status != null ? {'status': status} : null);
+    final uri = Uri.parse(
+      '$kApiBaseUrl/matches/',
+    ).replace(queryParameters: status != null ? {'status': status} : null);
     _log('GET $uri');
     try {
       final resp = await _client.get(uri, headers: _headers);
@@ -79,6 +81,28 @@ class ApiService {
     } catch (e) {
       _log('fetchMatch error: $e');
       return null;
+    }
+  }
+
+  Future<List<MatchBetFeedItem>> fetchMatchBetFeed(
+    String matchId, {
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse(
+      '$kApiBaseUrl/matches/$matchId/bet-feed',
+    ).replace(queryParameters: {'limit': '$limit'});
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return [];
+      final list = jsonDecode(resp.body) as List;
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((j) => MatchBetFeedItem.fromJson(j))
+          .toList();
+    } catch (e) {
+      _log('fetchMatchBetFeed error: $e');
+      return [];
     }
   }
 
@@ -115,9 +139,12 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> fetchFighterMatches(
-      String fighterId, {int limit = 10}) async {
-    final uri = Uri.parse('$kApiBaseUrl/fighters/$fighterId/matches')
-        .replace(queryParameters: {'limit': '$limit'});
+    String fighterId, {
+    int limit = 10,
+  }) async {
+    final uri = Uri.parse(
+      '$kApiBaseUrl/fighters/$fighterId/matches',
+    ).replace(queryParameters: {'limit': '$limit'});
     _log('GET $uri');
     try {
       final resp = await _client.get(uri, headers: _headers);
@@ -131,9 +158,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> fetchFighterVs(
-      String fighterId, String opponentId) async {
-    final uri =
-        Uri.parse('$kApiBaseUrl/fighters/$fighterId/vs/$opponentId');
+    String fighterId,
+    String opponentId,
+  ) async {
+    final uri = Uri.parse('$kApiBaseUrl/fighters/$fighterId/vs/$opponentId');
     _log('GET $uri');
     try {
       final resp = await _client.get(uri, headers: _headers);
@@ -144,8 +172,6 @@ class ApiService {
       return null;
     }
   }
-
-
 
   Future<List<Bet>> fetchMyBets() async {
     final uri = Uri.parse('$kApiBaseUrl/bets/mine');
@@ -168,23 +194,25 @@ class ApiService {
     required String matchId,
     required String fighterId,
     required double amount,
-    required String side,       // "A" or "B"
-    required String privyJwt,   // Privy access token for server-side signing
+    required String side, // "A" or "B"
+    required String privyJwt, // legacy server-signing flow
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/bets/');
     _log('POST $uri matchId=$matchId side=$side');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({
-          'match_id': matchId,
-          'fighter_id': fighterId,
-          'amount': amount,
-          'side': side,
-          'privy_jwt': privyJwt,
-        }),
-      ).timeout(const Duration(seconds: 45));  // longer for on-chain tx
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'match_id': matchId,
+              'fighter_id': fighterId,
+              'amount': amount,
+              'side': side,
+              'privy_jwt': privyJwt,
+            }),
+          )
+          .timeout(const Duration(seconds: 45)); // longer for on-chain tx
 
       if (resp.statusCode != 200 && resp.statusCode != 201) {
         _handleError(resp, 'placeBet');
@@ -202,6 +230,90 @@ class ApiService {
     }
   }
 
+  /// Step 1: Prepare an unsigned bet transaction for client-side signing.
+  Future<String> prepareBet({
+    required String matchId,
+    required String fighterId,
+    required double amount,
+    required String side, // "A" or "B"
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/prepare');
+    _log('POST $uri matchId=$matchId side=$side');
+    try {
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'match_id': matchId,
+              'fighter_id': fighterId,
+              'amount': amount,
+              'side': side,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'prepareBet');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final tx = data['transaction_base64'] as String?;
+      if (tx == null || tx.isEmpty) {
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing transaction_base64',
+          statusCode: resp.statusCode,
+        );
+      }
+      return tx;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('prepareBet error: $e');
+      throw ApiException.unexpected('Failed to prepare bet transaction: $e');
+    }
+  }
+
+  /// Step 3: Broadcast a signed bet transaction and persist DB state.
+  Future<Bet> broadcastBet({
+    required String matchId,
+    required String signedTransactionBase64,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/broadcast');
+    _log('POST $uri matchId=$matchId');
+    try {
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'match_id': matchId,
+              'signed_transaction_base64': signedTransactionBase64,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'broadcastBet');
+      }
+      return Bet.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('broadcastBet error: $e');
+      throw ApiException.unexpected('Failed to broadcast bet transaction: $e');
+    }
+  }
+
   /// Claim a won bet's SKR payout on-chain via Privy.
   /// Returns the Solana transaction signature.
   Future<String> claimBet({
@@ -211,11 +323,13 @@ class ApiService {
     final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim');
     _log('POST $uri betId=$betId');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'privy_jwt': privyJwt}),
-      ).timeout(const Duration(seconds: 45));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({'privy_jwt': privyJwt}),
+          )
+          .timeout(const Duration(seconds: 45));
 
       if (resp.statusCode != 200 && resp.statusCode != 201) {
         _handleError(resp, 'claimBet');
@@ -223,7 +337,11 @@ class ApiService {
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final sig = data['tx_signature'] as String?;
       if (sig == null) {
-        throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing tx_signature',
+          statusCode: resp.statusCode,
+        );
       }
       return sig;
     } on SocketException {
@@ -238,11 +356,93 @@ class ApiService {
     }
   }
 
+  /// Step 1: Prepare an unsigned claim transaction for client-side signing.
+  Future<String> prepareClaim({required String betId}) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim/prepare');
+    _log('POST $uri');
+    try {
+      final resp = await _client
+          .post(uri, headers: _headers)
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'prepareClaim');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final tx = data['transaction_base64'] as String?;
+      if (tx == null || tx.isEmpty) {
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing transaction_base64',
+          statusCode: resp.statusCode,
+        );
+      }
+      return tx;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('prepareClaim error: $e');
+      throw ApiException.unexpected('Failed to prepare claim transaction: $e');
+    }
+  }
+
+  /// Step 3: Broadcast a signed claim transaction.
+  Future<String> broadcastClaim({
+    required String betId,
+    required String signedTransactionBase64,
+  }) async {
+    final uri = Uri.parse('$kApiBaseUrl/bets/$betId/claim/broadcast');
+    _log('POST $uri');
+    try {
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'signed_transaction_base64': signedTransactionBase64,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        _handleError(resp, 'broadcastClaim');
+      }
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final sig = data['tx_signature'] as String?;
+      if (sig == null || sig.isEmpty) {
+        throw ApiException(
+          code: 'MissingField',
+          message: 'Server response missing tx_signature',
+          statusCode: resp.statusCode,
+        );
+      }
+      return sig;
+    } on SocketException {
+      throw ApiException.networkError();
+    } on TimeoutException {
+      throw ApiException.timeout();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      _log('broadcastClaim error: $e');
+      throw ApiException.unexpected(
+        'Failed to broadcast claim transaction: $e',
+      );
+    }
+  }
 
   // ── Auth ──
 
-  Future<Map<String, dynamic>?> login(String privyToken,
-      {String? walletAddress, String? email}) async {
+  Future<Map<String, dynamic>?> login(
+    String privyToken, {
+    String? walletAddress,
+    String? email,
+  }) async {
     final uri = Uri.parse('$kApiBaseUrl/auth/login');
     _log('POST $uri walletAddress=$walletAddress email=$email');
     try {
@@ -251,7 +451,9 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'token': privyToken,
+          // ignore: use_null_aware_elements
           if (walletAddress != null) 'walletAddress': walletAddress,
+          // ignore: use_null_aware_elements
           if (email != null) 'email': email,
         }),
       );
@@ -297,6 +499,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchClientConfig() async {
+    final uri = Uri.parse('$kApiBaseUrl/client-config');
+    _log('GET $uri');
+    try {
+      final resp = await _client.get(uri, headers: _headers);
+      if (resp.statusCode != 200) return null;
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return null;
+    } catch (e) {
+      _log('fetchClientConfig error: $e');
+      return null;
+    }
+  }
+
   // ── Stream (HTTP polling fallback) ──
 
   Future<List<Map<String, dynamic>>> fetchLiveStreams() async {
@@ -316,18 +533,24 @@ class ApiService {
 
   /// Step 1: Get unsigned transaction from backend
   Future<String> prepareWithdraw({
-    required String token,    // "sol" or "seeker"
+    required String token, // "sol" or "seeker"
     required String toAddress,
     required double amount,
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw/prepare');
     _log('POST $uri token=$token amount=$amount');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
-      ).timeout(const Duration(seconds: 30));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'token': token,
+              'to_address': toAddress,
+              'amount': amount,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       _log('POST $uri → ${resp.statusCode}');
 
@@ -335,7 +558,11 @@ class ApiService {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final tx = data['transaction_base64'] as String?;
         if (tx == null) {
-          throw ApiException(code: 'MissingField', message: 'Server response missing transaction_base64', statusCode: resp.statusCode);
+          throw ApiException(
+            code: 'MissingField',
+            message: 'Server response missing transaction_base64',
+            statusCode: resp.statusCode,
+          );
         }
         return tx;
       }
@@ -360,11 +587,15 @@ class ApiService {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw/broadcast');
     _log('POST $uri (broadcasting signed tx)');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'signed_transaction_base64': signedTransactionBase64}),
-      ).timeout(const Duration(seconds: 30));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'signed_transaction_base64': signedTransactionBase64,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       _log('POST $uri → ${resp.statusCode}');
 
@@ -372,7 +603,11 @@ class ApiService {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final sig = data['tx_signature'] as String?;
         if (sig == null) {
-          throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+          throw ApiException(
+            code: 'MissingField',
+            message: 'Server response missing tx_signature',
+            statusCode: resp.statusCode,
+          );
         }
         return sig;
       }
@@ -394,18 +629,24 @@ class ApiService {
   /// DEPRECATED: Use prepareWithdraw + sign + broadcastWithdraw instead
   @Deprecated('Use prepareWithdraw, sign with Privy, then broadcastWithdraw')
   Future<String> withdrawFunds({
-    required String token,    // "sol" or "seeker"
+    required String token, // "sol" or "seeker"
     required String toAddress,
     required double amount,
   }) async {
     final uri = Uri.parse('$kApiBaseUrl/wallet/withdraw');
     _log('POST $uri token=$token amount=$amount');
     try {
-      final resp = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({'token': token, 'to_address': toAddress, 'amount': amount}),
-      ).timeout(const Duration(seconds: 30));
+      final resp = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'token': token,
+              'to_address': toAddress,
+              'amount': amount,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       _log('POST $uri → ${resp.statusCode} ${resp.body}');
 
@@ -413,7 +654,11 @@ class ApiService {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final sig = data['tx_signature'] as String?;
         if (sig == null) {
-          throw ApiException(code: 'MissingField', message: 'Server response missing tx_signature', statusCode: resp.statusCode);
+          throw ApiException(
+            code: 'MissingField',
+            message: 'Server response missing tx_signature',
+            statusCode: resp.statusCode,
+          );
         }
         return sig;
       }

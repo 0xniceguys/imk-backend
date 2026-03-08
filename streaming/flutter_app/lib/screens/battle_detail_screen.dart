@@ -1,17 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants.dart';
 import '../core/palette.dart';
+import '../core/runtime_client_config.dart';
 import '../core/typography.dart';
 import '../models/match.dart';
+import '../models/match_bet_feed_item.dart';
+import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
+import '../providers/match_stream_provider.dart';
+import '../providers/global_events_provider.dart';
 import '../router.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
 import '../widgets/fighter/fighter_image.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/gold_gradient_divider.dart';
 import '../widgets/shared/ik_loader.dart';
-import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/pressable.dart';
 
 class BattleDetailScreen extends ConsumerStatefulWidget {
@@ -25,12 +31,120 @@ class BattleDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
-  int _selectedFighter = 0;
+  ProviderSubscription<MatchState>? _matchStateSub;
+  int? _selectedFighter;
+  Future<List<MatchBetFeedItem>>? _betFeedFuture;
+  String? _betFeedMatchId;
+  bool _navigatedToLive = false;
+
+  // Pre-connect WebSocket when match is #1 in queue so HLS starts
+  // loading in the background before the user navigates to the live screen.
+  String? _preConnectedMatchId;
+  DateTime _lastGoLiveRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void initState() {
+    super.initState();
+    // Wire match-state changes (REST poll) → go-live redirect
+    _matchStateSub = ref.listenManual<MatchState>(
+      matchProvider,
+      (prev, next) => _onMatchStateChanged(prev, next),
+      fireImmediately: false,
+    );
+    // Wire global WS events → instant go-live redirect (no poll delay)
+    ref.listenManual<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (_, next) {
+        next.whenData((event) {
+          if (_navigatedToLive || !mounted) return;
+          if (event['type'] != 'match_status_changed') return;
+          if (event['status'] != 'live') return;
+          final eventMatchId = event['match_id'] as String?;
+          final ourMatchId = widget.matchId ?? _resolveMatch(
+            ref.read(matchProvider).matches,
+          )?.id;
+          if (eventMatchId == null || eventMatchId != ourMatchId) return;
+          _navigatedToLive = true;
+          debugPrint('[BattleDetail] Global event: match $eventMatchId went live — instant redirect');
+          widget.onNavigate('/live-match/$eventMatchId');
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _matchStateSub?.close();
+    super.dispose();
+  }
+  void _maybePreConnect(Match match) {
+    if (match.status != MatchStatus.upcoming) return;
+    if (match.queuePosition != 1) return;
+    if (_preConnectedMatchId == match.id) return;
+    _preConnectedMatchId = match.id;
+    debugPrint('[BattleDetail] Pre-connecting WS for match ${match.id} (queue #1)');
+    ref.read(matchStreamServiceProvider).connect(match.id);
+  }
+
+  void _ensureBetFeedFuture(String matchId) {
+    if (_betFeedFuture == null || _betFeedMatchId != matchId) {
+      _betFeedMatchId = matchId;
+      _betFeedFuture = ref
+          .read(apiServiceProvider)
+          .fetchMatchBetFeed(matchId, limit: 20);
+    }
+  }
+
+  void _refreshBetFeed(String matchId) {
+    setState(() {
+      _betFeedMatchId = matchId;
+      _betFeedFuture = ref
+          .read(apiServiceProvider)
+          .fetchMatchBetFeed(matchId, limit: 20);
+    });
+  }
+
+  void _onMatchStateChanged(MatchState? prev, MatchState next) {
+    if (!mounted) return;
+    final match = _resolveMatch(next.matches);
+    if (match == null || match.status != MatchStatus.live) return;
+
+    final streamSvc = ref.read(matchStreamServiceProvider);
+    if (streamSvc.matchId != match.id) {
+      streamSvc.connect(match.id);
+    } else if (!streamSvc.isConnected && !streamSvc.isConnecting) {
+      streamSvc.connect(match.id);
+    }
+
+    if (_navigatedToLive) return;
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
+    if (!isCurrentRoute) return;
+
+    _navigatedToLive = true;
+    Future.microtask(() => widget.onNavigate('/live-match/${match.id}'));
+  }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(clockTickProvider);
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
+    final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+
+    // Auto-navigate to live screen when this upcoming match becomes live
+    ref.listen<MatchState>(matchProvider, (prev, next) {
+      if (_navigatedToLive || !mounted) return;
+      if (widget.matchId == null) return;
+      final updated = next.matches.cast<Match?>().firstWhere(
+        (m) => m?.id == widget.matchId,
+        orElse: () => null,
+      );
+      if (updated != null && updated.status == MatchStatus.live) {
+        _navigatedToLive = true;
+        debugPrint('[BattleDetail] Match ${widget.matchId} went live — auto-navigating');
+        widget.onNavigate('/live-match/${widget.matchId}');
+      }
+    });
 
     if (!matchState.hasLoaded) {
       return const Scaffold(
@@ -51,38 +165,42 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
       );
     }
 
-    final match = widget.matchId != null
-        ? matches.firstWhere(
-            (m) => m.id == widget.matchId,
-            orElse: () => matches.first,
-          )
-        : matches.first;
+    final match = _resolveMatch(matches);
+    if (match == null) {
+      return const Scaffold(
+        backgroundColor: Palette.black,
+        body: Center(
+          child: Text(
+            'No matches available',
+            style: TextStyle(color: Palette.muted, fontSize: 16),
+          ),
+        ),
+      );
+    }
 
-    final selectedName = _selectedFighter == 0
-        ? (match.fighter1?.name ?? 'Fighter 1')
-        : (match.fighter2?.name ?? 'Fighter 2');
-    final selectedOdds = _selectedFighter == 0
-        ? match.odds.fighter1Odds
-        : match.odds.fighter2Odds;
+    _maybeRefreshAroundGoLive(match);
+
+    _ensureBetFeedFuture(match.id);
+    _maybePreConnect(match);
+
+    final totalPool = match.totalPool;
+    final sideAPool = match.odds.fighter1Pool > 0
+        ? match.odds.fighter1Pool
+        : totalPool * match.odds.fighter1PoolPct;
+    final sideBPool = match.odds.fighter2Pool > 0
+        ? match.odds.fighter2Pool
+        : totalPool * match.odds.fighter2PoolPct;
+    final sideAPct = totalPool > 0 ? sideAPool / totalPool : 0.0;
+    final sideBPct = totalPool > 0 ? sideBPool / totalPool : 0.0;
 
     return AppShell(
       activeTab: NavTab.arena,
       scrollable: true,
-      contentBottomPadding: 180,
+      contentBottomPadding: 140,
       onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TopRow(
-            match: match,
-            onBack: () {
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              } else {
-                widget.onNavigate('/arena-list');
-              }
-            },
-          ),
           const SizedBox(height: 6),
           Center(
             child: Text(
@@ -90,11 +208,17 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
               style: bodyStyle(size: 14, color: Palette.secondary),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Center(
             child: Text(
-              _subhead(match),
-              style: bodyStyle(size: 12, color: Palette.muted),
+              _queueLabel(match),
+              style: displayStyle(
+                size: 15,
+                color: match.status == MatchStatus.live
+                    ? Palette.green
+                    : Palette.gold,
+                letterSpacing: 0.8,
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -161,199 +285,140 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
               ),
             ],
           ),
+
           const GoldGradientDivider(
-            margin: EdgeInsets.fromLTRB(18, 12, 18, 12),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'WINNER MARKET',
-              style: displayStyle(size: 20, color: Palette.gold),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
-            child: Text(
-              'Tap odds to pick your side. Bet slip opens with this selection.',
-              style: bodyStyle(size: 12, color: Palette.muted),
-            ),
+            margin: EdgeInsets.fromLTRB(18, 24, 18, 24),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 Expanded(
-                  child: _OddsPick(
+                  child: _BetActionCard(
                     selected: _selectedFighter == 0,
-                    sideLabel: 'A',
                     name: match.fighter1?.name ?? 'Fighter 1',
-                    odds: match.odds.fighter1Odds,
-                    onTap: () => setState(() => _selectedFighter = 0),
+                    onTap: () => _pickSideAndOpenBet(0, match),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _OddsPick(
+                  child: _BetActionCard(
                     selected: _selectedFighter == 1,
-                    sideLabel: 'B',
                     name: match.fighter2?.name ?? 'Fighter 2',
-                    odds: match.odds.fighter2Odds,
-                    onTap: () => setState(() => _selectedFighter = 1),
+                    onTap: () => _pickSideAndOpenBet(1, match),
                   ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Row(
-              children: [
-                Text(
-                  'Potential return: ',
-                  style: bodyStyle(size: 12, color: Palette.muted),
-                ),
-                Text(
-                  '1 SKR → ${selectedOdds.toStringAsFixed(2)} SKR',
-                  style: bodyStyle(size: 12, color: Palette.green),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
-            child: Text(
-              'Odds can update until bet placement.',
-              style: bodyStyle(size: 11, color: Palette.statLabel),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 22,
-              runSpacing: 10,
-              children: [
-                _MetaText(
-                  label: 'Total Volume',
-                  value: '\$${match.totalPool.toStringAsFixed(1)}',
-                ),
-                _MetaText(label: 'Active Bets', value: '${match.activeBets}'),
-                _MetaText(
-                  label: 'ROI Range',
-                  value:
-                      '${match.odds.fighter1Odds.toStringAsFixed(1)}-${match.odds.fighter2Odds.toStringAsFixed(1)}x',
-                ),
-                _MetaText(label: 'Best Of', value: '${match.bestOf}'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          if (match.status == MatchStatus.live)
-            OrnateButton(
-              label: 'Watch Live',
-              color: Palette.red,
-              onTap: () => widget.onNavigate('/live-match/${match.id}'),
-            ),
-          if (match.status == MatchStatus.live) const SizedBox(height: 10),
-          if (match.bettingOpen)
-            OrnateButton(
-              label: 'Bet $selectedName  ${selectedOdds.toStringAsFixed(1)}x',
-              color: Palette.gold,
-              onTap: () => _openBetSheet(match),
-            )
-          else
+          if (!match.bettingOpen) ...[
+            const SizedBox(height: 10),
             Center(
               child: Text(
                 'Betting closed',
-                style: bodyStyle(size: 15, color: Palette.muted),
+                style: bodyStyle(size: 13, color: Palette.muted),
               ),
             ),
+          ],
           const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _MarketPanel(
+              totalPool: totalPool,
+              sideAPool: sideAPool,
+              sideBPool: sideBPool,
+              sideAPct: sideAPct,
+              sideBPct: sideBPct,
+              sideAName: match.fighter1?.name ?? 'Fighter 1',
+              sideBName: match.fighter2?.name ?? 'Fighter 2',
+              activeBets: match.activeBets,
+              tokenSymbol: tokenSymbol,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _RecentBetsPanel(
+              tokenSymbol: tokenSymbol,
+              future: _betFeedFuture,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const GoldGradientDivider(margin: EdgeInsets.fromLTRB(18, 14, 18, 0)),
+          const SizedBox(height: 60),
         ],
       ),
     );
   }
 
-  void _openBetSheet(Match match) {
-    showModalBottomSheet<void>(
+  Match? _resolveMatch(List<Match> matches) {
+    if (matches.isEmpty) return null;
+    if (widget.matchId == null) return matches.first;
+    return matches.cast<Match?>().firstWhere(
+          (m) => m?.id == widget.matchId,
+          orElse: () => matches.first,
+        ) ??
+        matches.first;
+  }
+
+  void _maybeRefreshAroundGoLive(Match match) {
+    if (match.status != MatchStatus.upcoming || match.queuePosition != 1) {
+      return;
+    }
+    final startsAt = match.queueStartsAt;
+    if (startsAt == null) return;
+    final remain = startsAt.difference(DateTime.now()).inSeconds;
+    if (remain > 2) return;
+
+    final now = DateTime.now();
+    if (now.difference(_lastGoLiveRefreshAt) < const Duration(seconds: 1)) {
+      return;
+    }
+    _lastGoLiveRefreshAt = now;
+    unawaited(ref.read(matchProvider.notifier).refresh());
+  }
+
+  Future<void> _pickSideAndOpenBet(int side, Match match) async {
+    setState(() => _selectedFighter = side);
+    if (!match.bettingOpen) return;
+    await _openBetSheet(match);
+  }
+
+  Future<void> _openBetSheet(Match match) async {
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => BetBottomSheet(
         match: match,
-        initialSelectedFighter: _selectedFighter,
+        initialSelectedFighter: _selectedFighter ?? 0,
       ),
     );
+    if (!mounted) return;
+    await ref.read(matchProvider.notifier).refresh();
+    _refreshBetFeed(match.id);
   }
 
-  static String _subhead(Match match) {
-    final when = match.scheduledAt.toLocal();
-    final hh = when.hour.toString().padLeft(2, '0');
-    final mm = when.minute.toString().padLeft(2, '0');
-    final status = switch (match.status) {
-      MatchStatus.live => 'LIVE NOW',
-      MatchStatus.upcoming => 'COMING',
-      MatchStatus.completed => 'COMPLETED',
-      MatchStatus.cancelled => 'CANCELLED',
-    };
-    return '$status • ${when.day}/${when.month} $hh:$mm';
-  }
-}
-
-class _TopRow extends StatelessWidget {
-  const _TopRow({required this.match, required this.onBack});
-
-  final Match match;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Pressable(
-            onTap: onBack,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.arrow_back_ios,
-                  size: 14,
-                  color: Palette.muted,
-                ),
-                const SizedBox(width: 4),
-                Text('Back', style: bodyStyle(size: 14, color: Palette.muted)),
-              ],
-            ),
-          ),
-          _MatchStatusTag(status: match.status),
-        ],
-      ),
-    );
-  }
-}
-
-class _MatchStatusTag extends StatelessWidget {
-  const _MatchStatusTag({required this.status});
-
-  final MatchStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final isLive = status == MatchStatus.live;
-    final text = switch (status) {
-      MatchStatus.live => 'LIVE',
-      MatchStatus.upcoming => 'COMING',
-      MatchStatus.completed => 'FINAL',
-      MatchStatus.cancelled => 'CANCELLED',
-    };
-    final color = isLive ? Palette.green : Palette.gold;
-    return Text(
-      text,
-      style: displayStyle(size: 14, color: color, letterSpacing: 0.8),
-    );
+  String _queueLabel(Match match) {
+    if (match.status == MatchStatus.live) {
+      return 'LIVE';
+    }
+    if (match.status == MatchStatus.upcoming) {
+      final q = match.queuePosition;
+      if (q == 1) {
+        final startsAt = match.queueStartsAt;
+        if (startsAt == null) return 'NEXT MATCH';
+        final remain = startsAt.difference(DateTime.now()).inSeconds;
+        if (remain <= 0) return 'NEXT MATCH';
+        final mm = (remain ~/ 60).toString().padLeft(2, '0');
+        final ss = (remain % 60).toString().padLeft(2, '0');
+        return 'NEXT MATCH  $mm:$ss';
+      }
+      if (q != null && q >= 2) return '#$q IN-QUEUE';
+      return 'IN-QUEUE';
+    }
+    if (match.status == MatchStatus.completed) return 'COMPLETED';
+    return 'CANCELLED';
   }
 }
 
@@ -421,19 +486,15 @@ class _FighterLabel extends StatelessWidget {
   }
 }
 
-class _OddsPick extends StatelessWidget {
-  const _OddsPick({
+class _BetActionCard extends StatelessWidget {
+  const _BetActionCard({
     required this.selected,
-    required this.sideLabel,
     required this.name,
-    required this.odds,
     required this.onTap,
   });
 
   final bool selected;
-  final String sideLabel;
   final String name;
-  final double odds;
   final VoidCallback onTap;
 
   @override
@@ -445,7 +506,7 @@ class _OddsPick extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
         decoration: BoxDecoration(
           border: Border.all(
             color: selected ? Palette.gold : Palette.border,
@@ -456,59 +517,340 @@ class _OddsPick extends StatelessWidget {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'SIDE $sideLabel',
-              style: bodyStyle(
-                size: 10,
-                color: selected ? Palette.gold : Palette.muted,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              name.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: displayStyle(
-                size: 15,
-                color: selected ? Palette.gold : Palette.white,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '${odds.toStringAsFixed(2)}x',
-              style: bodyStyle(
-                size: 16,
-                color: selected ? Palette.green : Palette.secondary,
-                weight: FontWeight.w600,
-              ),
-            ),
-          ],
+        child: Text(
+          'BET ON ${name.toUpperCase()}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: bodyStyle(
+            size: 13,
+            color: selected ? Palette.gold : Palette.white,
+            weight: FontWeight.w700,
+          ),
         ),
       ),
     );
   }
 }
 
-class _MetaText extends StatelessWidget {
-  const _MetaText({required this.label, required this.value});
+class _MarketPanel extends StatelessWidget {
+  const _MarketPanel({
+    required this.totalPool,
+    required this.sideAPool,
+    required this.sideBPool,
+    required this.sideAPct,
+    required this.sideBPct,
+    required this.sideAName,
+    required this.sideBName,
+    required this.activeBets,
+    required this.tokenSymbol,
+  });
 
-  final String label;
-  final String value;
+  final double totalPool;
+  final double sideAPool;
+  final double sideBPool;
+  final double sideAPct;
+  final double sideBPct;
+  final String sideAName;
+  final String sideBName;
+  final int activeBets;
+  final String tokenSymbol;
+
+  String _fmt(double value) {
+    final s = value.toStringAsFixed(2);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 148,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        // border: Border.all(color: Palette.border),
+        borderRadius: BorderRadius.circular(6),
+        // color: Palette.sheetBg.withValues(alpha: 0.3),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: bodyStyle(size: 12, color: Palette.statLabel)),
+          const GoldGradientDivider(
+            margin: EdgeInsets.fromLTRB(18, 12, 18, 12),
+          ),
+          Center(
+            child: Text(
+              'BET POOLS',
+              style: bodyStyle(
+                size: 13,
+                color: Palette.gold,
+                weight: FontWeight.w700,
+                letterSpacing: 0.9,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _MarketRow(
+            label: 'Total SKR in Pool',
+            value: '${_fmt(totalPool)} $tokenSymbol',
+            valueColor: Palette.white,
+          ),
+          const SizedBox(height: 4),
+          _MarketRow(
+            label: 'Active Bets',
+            value: '$activeBets',
+            valueColor: Palette.secondary,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _PoolCard(
+                  side: 'A',
+                  fighterName: sideAName,
+                  amount: sideAPool,
+                  pct: sideAPct,
+                  tokenSymbol: tokenSymbol,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _PoolCard(
+                  side: 'B',
+                  fighterName: sideBName,
+                  amount: sideBPool,
+                  pct: sideBPct,
+                  tokenSymbol: tokenSymbol,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PoolCard extends StatelessWidget {
+  const _PoolCard({
+    required this.side,
+    required this.fighterName,
+    required this.amount,
+    required this.pct,
+    required this.tokenSymbol,
+  });
+
+  final String side;
+  final String fighterName;
+  final double amount;
+  final double pct;
+  final String tokenSymbol;
+
+  String _fmt(double value) {
+    final s = value.toStringAsFixed(2);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      // padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      decoration: BoxDecoration(
+        // border: Border.all(color: Palette.border.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SIDE $side',
+            style: bodyStyle(
+              size: 11,
+              color: Palette.muted,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            fighterName.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: bodyStyle(
+              size: 12,
+              color: Palette.secondary,
+              weight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: bodyStyle(size: 18, color: Palette.white)),
+          Text(
+            '${_fmt(amount)} $tokenSymbol',
+            style: bodyStyle(
+              size: 16,
+              color: Palette.white,
+              weight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            '${(pct * 100).toStringAsFixed(1)}%',
+            style: bodyStyle(
+              size: 12,
+              color: Palette.gold,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketRow extends StatelessWidget {
+  const _MarketRow({
+    required this.label,
+    required this.value,
+    this.valueColor = Palette.secondary,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: bodyStyle(size: 13, color: Palette.muted)),
+        Text(
+          value,
+          style: bodyStyle(
+            size: 13,
+            color: valueColor,
+            weight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecentBetsPanel extends StatelessWidget {
+  const _RecentBetsPanel({required this.tokenSymbol, required this.future});
+
+  final String tokenSymbol;
+  final Future<List<MatchBetFeedItem>>? future;
+
+  String _fmt(double value) {
+    final s = value.toStringAsFixed(2);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (future == null) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        // border: Border.all(color: Palette.border),
+        borderRadius: BorderRadius.circular(6),
+        // color: Palette.sheetBg.withValues(alpha: 0.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const GoldGradientDivider(
+            margin: EdgeInsets.fromLTRB(18, 24, 18, 24),
+          ),
+          Center(
+            child: Text(
+              'BET HISTORY',
+              style: bodyStyle(
+                size: 13,
+                color: Palette.gold,
+                weight: FontWeight.w700,
+                letterSpacing: 0.9,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<MatchBetFeedItem>>(
+            future: future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    'Loading recent bets...',
+                    textAlign: TextAlign.center,
+                    style: bodyStyle(size: 13, color: Palette.muted),
+                  ),
+                );
+              }
+              final items = snapshot.data ?? const <MatchBetFeedItem>[];
+              if (items.isEmpty) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    'No bets placed yet for this match.',
+                    textAlign: TextAlign.center,
+                    style: bodyStyle(size: 13, color: Palette.muted),
+                  ),
+                );
+              }
+              final visible = items.take(8).toList();
+              return Column(
+                children: [
+                  for (final item in visible)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Palette.border),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              item.side,
+                              style: bodyStyle(
+                                size: 11,
+                                color: Palette.gold,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${item.walletMasked} • ${item.fighterName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: bodyStyle(
+                                size: 13,
+                                color: Palette.secondary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_fmt(item.amount)} $tokenSymbol',
+                            style: bodyStyle(
+                              size: 13,
+                              color: Palette.white,
+                              weight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );

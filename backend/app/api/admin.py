@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,63 @@ from app.services.match_config import (
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+_VALID_BUILTIN_AGENT_IDS = frozenset(
+    {"random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"}
+)
+
+
+def _resolve_fighter_agent(
+    fighter: Fighter | None,
+    fallback_agent_id: str | None,
+    slot: str,
+) -> tuple[str, str | None, str | None]:
+    """
+    Resolve the runtime agent for a fighter slot.
+
+    Priority:
+    1) fighter.custom agent (agent_id + agent relation)
+    2) fighter.agent_architecture (built-in)
+    3) fallback agent from match payload/state (built-in only)
+    """
+    agent_id = fallback_agent_id or "random"
+
+    if fighter is None:
+        if agent_id not in _VALID_BUILTIN_AGENT_IDS:
+            return "random", None, None
+        return agent_id, None, None
+
+    if fighter.agent_id is not None:
+        if fighter.agent is None:
+            raise ValidationError(
+                f"{slot} fighter '{fighter.name}' has agent_id but missing linked Agent record"
+            )
+        checkpoint = fighter.agent.checkpoint_path
+        if not checkpoint:
+            raise ValidationError(
+                f"{slot} fighter '{fighter.name}' custom agent has no checkpoint_path"
+            )
+        if not Path(checkpoint).is_file():
+            raise ValidationError(
+                f"{slot} fighter '{fighter.name}' checkpoint not found on server: {checkpoint}"
+            )
+        return f"custom_{fighter.agent.slug}", checkpoint, fighter.agent.architecture
+
+    arch = fighter.agent_architecture
+    if arch in _VALID_BUILTIN_AGENT_IDS:
+        return arch, None, None
+    if arch:
+        logger.warning(
+            "%s fighter '%s' has invalid built-in architecture '%s'; using random",
+            slot,
+            fighter.name,
+            arch,
+        )
+        return "random", None, None
+
+    if agent_id not in _VALID_BUILTIN_AGENT_IDS:
+        return "random", None, None
+    return agent_id, None, None
 
 
 @router.post("/matches", response_model=MatchOut)
@@ -87,110 +145,17 @@ async def create_match(
         p1_agent=p1_agent_id,
         p2_agent=p2_agent_id,
         best_of=body.best_of,
+        on_chain_match_id=on_chain_id,
+        on_chain_match_pda=on_chain_pda,
     )
     db.add(match)
-    await db.flush()  # generate match.id before creating stream
+    await db.flush()
 
-    # Create associated stream record
     stream = Stream(match_id=match.id)
     db.add(stream)
 
     await db.commit()
     await db.refresh(match, attribute_names=["fighter1", "fighter2", "bets", "stream"])
-
-    # ── Create match on-chain ─────────────────────────────────────────────────
-    # Fire-and-forget background task so the HTTP response isn't blocked by RPC.
-    async def _create_on_chain(match_id_str: str, fighter1_name: str, fighter2_name: str) -> None:
-        from solders.pubkey import Pubkey
-        from app.config import settings
-        from app.services import solana_tx
-        from app.services.admin_keypair import get_admin_keypair
-        from app.db.engine import async_session
-        import hashlib
-
-        try:
-            admin_kp = get_admin_keypair()
-        except ValueError as exc:
-            logger.warning("Admin keypair not set — skipping on-chain create_match: %s", exc)
-            return
-
-        rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
-
-        # Derive model hashes from fighter names (deterministic, auditable)
-        model_a_hash = hashlib.sha256(fighter1_name.encode()).digest()
-        model_b_hash = hashlib.sha256(fighter2_name.encode()).digest()
-
-        try:
-            # Need current match_counter from on-chain config to derive correct PDA,
-            # but we call create_match which increments it atomically.
-            # We derive the PDA optimistically from the current counter read from DB-recorded id,
-            # then confirm after the tx.
-            blockhash = await solana_tx.get_recent_blockhash(rpc)
-            prog_pk = Pubkey.from_string(settings.betting_program_id)
-            config_pda = solana_tx.derive_config_pda(prog_pk)
-
-            # Fetch current match_counter from on-chain config
-            payload = {
-                "jsonrpc": "2.0", "id": 1,
-                "method": "getAccountInfo",
-                "params": [str(config_pda), {"encoding": "base64"}],
-            }
-            import httpx
-            async with httpx.AsyncClient(timeout=10) as hclient:
-                resp = await hclient.post(rpc, json=payload)
-            data = resp.json()
-            config_data_b64 = data.get("result", {}).get("value", {}).get("data", [None])[0]
-            if not config_data_b64:
-                logger.error("Could not fetch config account — aborting on-chain create_match")
-                return
-
-            import base64, struct
-            raw = base64.b64decode(config_data_b64)
-            # Config layout after discriminator (8 bytes):
-            # admin(32) + skr_mint(32) + treasury_wallet(32) + fee_bps(2) + min_bet(8) + max_bet(8) + match_counter(8) + paused(1)
-            match_counter = struct.unpack_from("<Q", raw, 8 + 32 + 32 + 32 + 2 + 8 + 8)[0]
-            logger.info("On-chain match_counter before create: %d", match_counter)
-
-            tx = solana_tx.build_create_match_ix(
-                admin_keypair=admin_kp,
-                skr_mint_str=settings.skr_mint,
-                match_counter=match_counter,
-                model_a_hash=model_a_hash,
-                model_b_hash=model_b_hash,
-                blockhash=blockhash,
-                program_id_str=settings.betting_program_id,
-            )
-            sig = await solana_tx.send_transaction(tx, rpc)
-            logger.info("create_match on-chain tx: %s (counter=%d)", sig, match_counter)
-
-            # Derive the match PDA that was created
-            prog_pk = Pubkey.from_string(settings.betting_program_id)
-            match_pda = solana_tx.derive_match_pda(match_counter, prog_pk)
-            match_pda_str = str(match_pda)
-
-            # Store on-chain IDs in DB
-            async with async_session() as fresh_db:
-                from sqlalchemy import select as _sel
-                res = await fresh_db.execute(_sel(Match).where(Match.id == match_id_str))
-                m = res.scalar_one_or_none()
-                if m:
-                    m.on_chain_match_id  = match_counter
-                    m.on_chain_match_pda = match_pda_str
-                    await fresh_db.commit()
-                    logger.info(
-                        "Match %s linked to on-chain PDA %s (id=%d)",
-                        match_id_str, match_pda_str, match_counter,
-                    )
-
-        except Exception as exc:
-            logger.error("on-chain create_match failed for %s: %s", match_id_str, exc, exc_info=True)
-
-    import asyncio as _asyncio
-    _asyncio.create_task(_create_on_chain(
-        str(match.id),
-        match.fighter1.name if match.fighter1 else "fighter1",
-        match.fighter2.name if match.fighter2 else "fighter2",
-    ))
 
     from app.api.matches import _match_to_out
     return _match_to_out(match)
@@ -251,7 +216,6 @@ async def start_match(
     # this HTTP response can return immediately.
     async def _launch_in_background() -> None:
         from app.services.match_runner import start_match as runner_start
-        from app.db.engine import async_session
 
         try:
             await runner_start(
@@ -267,18 +231,20 @@ async def start_match(
             )
         except Exception as e:
             logger.error("Failed to start emulator for match %s: %s", match_id_str, e)
-            # Roll back DB status on launch failure using a fresh session
-            async with async_session() as fresh_db:
-                res = await fresh_db.execute(
-                    select(Match).where(Match.id == match_id).options(selectinload(Match.stream))
+            # Contract-first rollback: cancel on-chain so users can refund.
+            from app.services.match_cancel import cancel_match_by_id_contract_first
+
+            try:
+                await cancel_match_by_id_contract_first(
+                    match_id,
+                    stream_status=StreamStatus.ERROR,
+                    reason="runner_start_failed",
                 )
-                m = res.scalar_one_or_none()
-                if m:
-                    m.status = MatchStatus.UPCOMING
-                    m.started_at = None
-                    if m.stream:
-                        m.stream.status = StreamStatus.IDLE
-                    await fresh_db.commit()
+            except Exception:
+                logger.exception(
+                    "Failed to auto-cancel match %s after runner startup failure",
+                    match_id_str,
+                )
             return
 
         # Update emulator instance ID in a fresh session
@@ -346,17 +312,24 @@ async def cancel_match(
     from app.services.match_runner import stop_match as runner_stop
     await runner_stop(str(match_id))
 
-    match.status = MatchStatus.CANCELLED
-    if match.stream:
-        match.stream.status = StreamStatus.STOPPED
+    from app.services.match_cancel import cancel_match_contract_first
 
-    # Refund all active bets
-    for bet in match.bets:
-        if bet.status == BetStatus.ACTIVE:
-            bet.status = BetStatus.CANCELLED
+    try:
+        result = await cancel_match_contract_first(
+            db,
+            match,
+            stream_status=StreamStatus.STOPPED,
+            reason="admin_api_cancel",
+        )
+    except Exception as exc:
+        logger.error("On-chain cancel_match failed for %s: %s", match_id, exc, exc_info=True)
+        raise HTTPException(502, f"On-chain cancel failed: {exc}")
 
-    await db.commit()
-    return {"status": "cancelled", "match_id": str(match_id)}
+    return {
+        "status": "cancelled",
+        "match_id": str(match_id),
+        "on_chain_tx": result.on_chain_tx,
+    }
 
 
 @router.post("/matches/{match_id}/settle")
@@ -391,8 +364,11 @@ async def settle_match_endpoint(
     winner_player = 1 if winner_id == match.fighter1_id else 2
 
     # Use shared settlement service (reads round counters BEFORE stopping runner)
-    from app.services.settlement import settle_match
-    await settle_match(str(match_id), winner_player)
+    from app.services.settlement import OnChainSettlementError, settle_match
+    try:
+        await settle_match(str(match_id), winner_player)
+    except OnChainSettlementError as exc:
+        raise HTTPException(502, f"On-chain settlement failed: {exc}")
 
     # Stop runner after settlement (settlement.py reads round data from it)
     from app.services.match_runner import stop_match as runner_stop

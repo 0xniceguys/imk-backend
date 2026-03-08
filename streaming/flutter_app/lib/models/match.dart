@@ -5,8 +5,8 @@ enum MatchStatus { upcoming, live, completed, cancelled }
 
 class Match {
   final String id;
-  final Fighter? fighter1;  // null if fighter was deleted
-  final Fighter? fighter2;  // null if fighter was deleted
+  final Fighter? fighter1; // null if fighter was deleted
+  final Fighter? fighter2; // null if fighter was deleted
   final MatchStatus status;
   final String? streamUrl;
   final DateTime scheduledAt;
@@ -21,6 +21,9 @@ class Match {
   final int roundsWonP1;
   final int roundsWonP2;
   final bool bettingOpen;
+  final int? queuePosition;
+  final DateTime? queueStartsAt;
+  final int? queueCountdownSeconds;
 
   const Match({
     required this.id,
@@ -40,6 +43,9 @@ class Match {
     this.roundsWonP1 = 0,
     this.roundsWonP2 = 0,
     this.bettingOpen = false,
+    this.queuePosition,
+    this.queueStartsAt,
+    this.queueCountdownSeconds,
   });
 
   factory Match.fromJson(Map<String, dynamic> json) {
@@ -56,15 +62,15 @@ class Match {
           : null,
       status: _parseStatus(json['status'] as String? ?? 'upcoming'),
       streamUrl: json['stream_url'] as String?,
-      scheduledAt: DateTime.tryParse(json['scheduled_at'] as String? ?? '') ?? DateTime.now(),
+      scheduledAt:
+          DateTime.tryParse(json['scheduled_at'] as String? ?? '') ??
+          DateTime.now(),
       completedAt: json['completed_at'] != null
           ? DateTime.parse(json['completed_at'] as String)
           : null,
       winnerId: json['winner_id'] as String?,
-      totalPool: (odds.fighter1PoolPct + odds.fighter2PoolPct) > 0
-          ? (oddsJson?['total_pool'] as num?)?.toDouble() ?? 0.0
-          : 0.0,
-      activeBets: (oddsJson?['active_bets'] as int?) ?? 0,
+      totalPool: odds.totalPool,
+      activeBets: odds.activeBets,
       odds: odds,
       label: json['label'] as String? ?? 'MK4-Classic',
       bestOf: json['best_of'] as int? ?? 3,
@@ -72,7 +78,20 @@ class Match {
       roundsWonP1: json['rounds_won_p1'] as int? ?? 0,
       roundsWonP2: json['rounds_won_p2'] as int? ?? 0,
       bettingOpen: json['betting_open'] as bool? ?? false,
+      queuePosition: _parseQueuePosition(json['queue_position']),
+      queueStartsAt: json['queue_starts_at'] != null
+          ? DateTime.tryParse(json['queue_starts_at'] as String)
+          : null,
+      queueCountdownSeconds: _parseQueuePosition(json['queue_countdown_seconds']),
     );
+  }
+
+  static int? _parseQueuePosition(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   static MatchStatus _parseStatus(String s) {

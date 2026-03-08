@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/palette.dart';
+import '../../core/runtime_client_config.dart';
 import '../../core/typography.dart';
-import '../../core/constants.dart';
 import '../../models/match.dart';
 import '../fighter/fighter_image.dart';
 import 'gold_gradient_divider.dart';
@@ -15,7 +15,11 @@ class ArenaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLive = match.status == MatchStatus.live;
-    final statusText = _statusText(match.status);
+    final queueLabel = _queueText(match);
+    final fighterVs =
+        '${match.fighter1?.name ?? '?'} VS ${match.fighter2?.name ?? '?'}';
+    final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -37,7 +41,7 @@ class ArenaCard extends StatelessWidget {
             children: [
               const GoldGradientDivider(),
               Container(
-                height: 30,
+                height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -51,20 +55,25 @@ class ArenaCard extends StatelessWidget {
                 child: Row(
                   children: [
                     if (isLive)
-                      _StatusPill(label: statusText, live: true)
+                      const _StatusPill(label: 'LIVE', live: true)
                     else
                       Text(
-                        statusText,
+                        queueLabel,
                         style: displayStyle(
-                          size: 14,
+                          size: 13,
                           color: Palette.gold,
-                          letterSpacing: 0.8,
+                          letterSpacing: 0.6,
                         ),
                       ),
-                    const Spacer(),
-                    Text(
-                      _timeLabel(match.scheduledAt),
-                      style: bodyStyle(size: 11, color: Palette.secondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        fighterVs,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: bodyStyle(size: 11, color: Palette.secondary),
+                      ),
                     ),
                   ],
                 ),
@@ -74,11 +83,9 @@ class ArenaCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
+                    SizedBox(
                       width: 140,
                       height: 98,
-                      clipBehavior: Clip.hardEdge,
-                      decoration: const BoxDecoration(),
                       child: match.fighter1 != null && match.fighter2 != null
                           ? Row(
                               children: [
@@ -98,51 +105,36 @@ class ArenaCard extends StatelessWidget {
                                 ),
                               ],
                             )
-                          : Stack(
-                              children: [
-                                Positioned(
-                                  left: -28.55,
-                                  top: 0,
-                                  child: Image.asset(
-                                    Assets.arenaTile,
-                                    width: 208.811,
-                                    height: 117.456,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                Positioned(
-                                  left: -0.94,
-                                  top: -2.06,
-                                  child: Image.asset(
-                                    Assets.arenaTileAlt,
-                                    width: 145,
-                                    height: 98,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          : const SizedBox.shrink(),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _StatCell(
-                            label: 'Volume',
-                            value: '\$${match.totalPool.toStringAsFixed(0)}',
-                          ),
-                          _StatCell(
-                            label: 'Bets',
-                            value: '${match.activeBets}',
-                          ),
-                          _StatCell(
-                            label: 'ROI',
+                            label: 'Total Pool',
                             value:
-                                '${match.odds.fighter1Odds.toStringAsFixed(1)}-${match.odds.fighter2Odds.toStringAsFixed(1)}x',
+                                '${match.totalPool.toStringAsFixed(2)} $tokenSymbol',
                           ),
-                          _StatCell(label: 'Best Of', value: '${match.bestOf}'),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StatCell(
+                                  label: 'Active Bets',
+                                  value: '${match.activeBets}',
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _StatCell(
+                                  label: 'Best Of',
+                                  value: '${match.bestOf}',
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -152,25 +144,7 @@ class ArenaCard extends StatelessWidget {
               const GoldGradientDivider(
                 margin: EdgeInsets.symmetric(horizontal: 10),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${match.fighter1?.character ?? '?'} VS ${match.fighter2?.character ?? '?'}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: bodyStyle(size: 13, color: Palette.white),
-                      ),
-                    ),
-                    Text(
-                      '[${match.label}]',
-                      style: bodyStyle(size: 11, color: Palette.secondary),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -178,20 +152,27 @@ class ArenaCard extends StatelessWidget {
     );
   }
 
-  static String _timeLabel(DateTime at) {
-    final local = at.toLocal();
-    final hh = local.hour.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    return '${local.day}/${local.month} $hh:$mm';
-  }
-
-  static String _statusText(MatchStatus status) {
-    return switch (status) {
-      MatchStatus.live => 'LIVE',
-      MatchStatus.upcoming => 'COMING',
-      MatchStatus.completed => 'COMPLETED',
-      MatchStatus.cancelled => 'CANCELLED',
-    };
+  static String _queueText(Match match) {
+    if (match.status == MatchStatus.live) {
+      return 'LIVE';
+    }
+    if (match.status == MatchStatus.upcoming) {
+      final q = match.queuePosition;
+      if (q == 1) {
+        final startsAt = match.queueStartsAt;
+        if (startsAt == null) return 'NEXT MATCH';
+        final remain = startsAt.difference(DateTime.now()).inSeconds;
+        if (remain <= 0) return 'NEXT MATCH';
+        final safe = remain;
+        final mm = (safe ~/ 60).toString().padLeft(2, '0');
+        final ss = (safe % 60).toString().padLeft(2, '0');
+        return 'NEXT MATCH  $mm:$ss';
+      }
+      if (q != null && q >= 2) return '#$q IN-QUEUE';
+      return 'IN-QUEUE';
+    }
+    if (match.status == MatchStatus.completed) return 'COMPLETED';
+    return 'CANCELLED';
   }
 }
 
@@ -233,21 +214,18 @@ class _StatCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: bodyStyle(size: 11, color: Palette.statLabel)),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: bodyStyle(size: 14, color: Palette.white),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: bodyStyle(size: 11, color: Palette.statLabel)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: bodyStyle(size: 14, color: Palette.white),
+        ),
+      ],
     );
   }
 }

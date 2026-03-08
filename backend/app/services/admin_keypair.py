@@ -4,7 +4,6 @@ Admin keypair helper — loads and caches the Solana admin Keypair from settings
 
 from __future__ import annotations
 
-import base58
 import logging
 
 from solders.keypair import Keypair
@@ -20,18 +19,7 @@ def get_admin_keypair() -> Keypair:
     """
     Load the admin keypair from ADMIN_KEYPAIR_B58 env var.
 
-    The env var should contain the base58-encoded 64-byte secret key
-    (as output by `solana-keygen new` and cat of the JSON array, then
-    base58-encoded), OR the raw 64-byte JSON array format from Solana CLI
-    (the array directly as a list of ints decoded from base58).
-
-    For easy key generation:
-        solana-keygen new --outfile /tmp/admin.json --no-bip39-passphrase
-        python3 -c "
-        import json, base58
-        with open('/tmp/admin.json') as f: arr = json.load(f)
-        print(base58.b58encode(bytes(arr)).decode())
-        "
+    The env var should contain the base58-encoded 64-byte secret key.
     """
     global _admin_keypair
     if _admin_keypair is not None:
@@ -45,11 +33,7 @@ def get_admin_keypair() -> Keypair:
         )
 
     try:
-        key_bytes = base58.b58decode(raw)
-        if len(key_bytes) == 64:
-            _admin_keypair = Keypair.from_bytes(key_bytes)
-        else:
-            raise ValueError(f"Expected 64 bytes, got {len(key_bytes)}")
+        _admin_keypair = Keypair.from_base58_string(raw)
     except Exception as exc:
         raise ValueError(f"Invalid ADMIN_KEYPAIR_B58: {exc}") from exc
 
