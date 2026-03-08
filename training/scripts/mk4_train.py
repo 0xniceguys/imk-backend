@@ -4,21 +4,25 @@ mk4_train.py — MK4 Training Loop
 ──────────────────────────────────────────────────────────
 Runs RL training episodes against the MK4 CPU or in self-play.
 
-Agent sees a 14-float observation per frame, stacked × 4 = 56 inputs:
+Agent sees a 14-float observation per frame (stacked × 4 = 56 inputs):
   [p1_hp, p2_hp, timer, p1_x, p2_x, dist, facing,
    p1_action, p2_action, p1_y_vel, p2_airborne,
    p1_hitstun, p2_hitstun, p1_airborne]
 
-Reward: Mk4ShapedRewardExtractor
-  - health delta (asymmetric: taking damage hurts 1.5×)
-  - approach/distance signals
-  - win bonus / loss penalty
-  - anti-air, punish, reckless-jump bonuses (RAM-verified signals)
-  - survival per step, anti-spam
+With --coach enabled, 4 extra dims are appended (per frame, before stacking):
+  [coach_attack, coach_advance, coach_defend, coach_freshness]
+  → stacked obs: 18 × 4 = 72 floats
+
+LLM Coaching (two tiers):
+  Episode Coach  — fires every --coach-every episodes, reviews stats, patches
+                   RewardConfig weights (aggression, idle_penalty, etc.)
+  Micro Coach    — fires every --micro-interval steps inside each episode via
+                   a daemon thread; output is 4 hint floats appended to obs.
 
 Usage:
     python3 training/scripts/mk4_train.py --episodes 50 --agent random
-    python3 training/scripts/mk4_train.py --episodes 1000 --agent lstm
+    python3 training/scripts/mk4_train.py --episodes 1000 --agent lstm \\
+        --coach openai --coach-model gpt-4o-mini --coach-every 10
 """
 from __future__ import annotations
 
@@ -154,7 +158,9 @@ def write_ctrl(ctrl_state: ControllerState, path: str = P1_CTRL) -> None:
 
 # ── Observation builder ───────────────────────────────────────────────────────
 # Observation size constants (update these if adding more RAM signals)
-RAW_OBS_DIM = 14    # single-frame; 7 position/health + 7 verified RAM signals
+RAW_OBS_DIM   = 14    # single-frame base; 7 position/health + 7 verified RAM signals
+COACH_OBS_DIM = 4     # micro-coach hint dims appended when --coach is set
+                       # [attack_w, advance_w, defend_w, freshness]
 
 def build_obs(state) -> list[float]:
     """
@@ -199,6 +205,19 @@ def build_obs(state) -> list[float]:
         float(ex.get('p2_hitstun', 0.0) > 0),            # [12] P2 attack/hitbox active
         float(ex.get('p1_airborne', 0.0)),                # [13] P1 airborne
     ]
+
+
+def build_obs_with_coach(state, micro_coach=None) -> list[float]:
+    """
+    Extended observation that appends 4 micro-coach hint floats.
+    Falls back to neutral hint [1/3, 1/3, 1/3, 0.0] when coach is None.
+    """
+    base = build_obs(state)
+    if micro_coach is not None:
+        hint = micro_coach.latest_hint()  # [attack, advance, defend, freshness]
+    else:
+        hint = [1/3, 1/3, 1/3, 0.0]
+    return base + hint
 
 
 # ── Agent factory ─────────────────────────────────────────────────────────────
@@ -251,7 +270,7 @@ def run_training(args) -> None:
     print(f'[train] Agent        : {args.agent}')
     print(f'[train] Addresses    : {"REAL" if ADDRESSES_CONFIRMED else "STUB"}')
     print(f'[train] Episodes     : {args.episodes}')
-    print(f'[train] Obs dims     : {RAW_OBS_DIM}×4 frames = {RAW_OBS_DIM*4} stacked floats')
+    print(f'[train] Obs dims     : {RAW_OBS_DIM}×4 frames = {RAW_OBS_DIM*4} base stacked floats')
     print(f'[train] Actions      : {len(MacroAction)}')
     print(f'[train] Log          : {TRAIN_LOG}')
     print()
@@ -261,6 +280,35 @@ def run_training(args) -> None:
     reward_extractor = Mk4ShapedRewardExtractor()
     save_every = getattr(args, 'save_every', 10)
     is_learning = hasattr(agent, 'learn')  # True for MLP, False for random
+
+    # ── LLM Coaches ───────────────────────────────────────────────────────────
+    coach_provider = getattr(args, 'coach', None)       # e.g. 'openai'
+    coach_model    = getattr(args, 'coach_model', 'gpt-4o-mini')
+    coach_every    = getattr(args, 'coach_every', 10)
+    micro_interval = getattr(args, 'micro_interval', 90)
+    llm_coach      = None
+    micro_coach    = None
+    if coach_provider:
+        from n64train.runtime.llm_coach import LlmCoach, MicroCoach
+        llm_coach = LlmCoach(
+            provider=coach_provider,
+            model=coach_model,
+            coach_every=coach_every,
+            fighter_name=getattr(args, 'fighter_name', 'Fighter'),
+            fighter_style=getattr(args, 'fighter_style', 'balanced'),
+        )
+        micro_coach = MicroCoach(
+            provider=coach_provider,
+            model=coach_model,
+            interval_steps=micro_interval,
+        )
+        print(f'[coach] LLM coaching ENABLED — provider={coach_provider} model={coach_model}')
+        print(f'[coach] Episode review every {coach_every} eps | Micro every {micro_interval} steps')
+    else:
+        print('[coach] LLM coaching disabled (use --coach openai|anthropic|gemini to enable)')
+
+    # Obs dim: 14 base + 4 coach hint dims when coaching is active
+    obs_dim = RAW_OBS_DIM + (COACH_OBS_DIM if coach_provider else 0)
 
     total_reward = 0.0
     wins = 0
@@ -288,11 +336,13 @@ def run_training(args) -> None:
             prev_state = None
 
             action_history: deque[str] = deque(maxlen=20)
-            frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=4)  # 4×14 = 56 floats
+            frame_stack = FrameStack(obs_dim=obs_dim, n_frames=4)
 
-            # Reset LSTM hidden state at episode start
+            # Reset LSTM hidden state and micro-coach at episode start
             if hasattr(agent, 'reset_episode'):
                 agent.reset_episode()
+            if micro_coach:
+                micro_coach.reset()
 
             # Reward term accumulators for this episode
             acc = dict(dealt=0.0, taken=0.0, approach=0.0,
@@ -301,13 +351,28 @@ def run_training(args) -> None:
             while time.time() - ep_start < MAX_EPISODE_SECS:
                 # Agent decides action from previous observation
                 if prev_state is not None:
-                    obs = build_obs(prev_state)
-                    stacked_obs = frame_stack.push(obs)  # 4×14 = 56-float stacked vector
-                    action_macro = agent(stacked_obs)    # feed stacked obs to agent
+                    obs = build_obs_with_coach(prev_state, micro_coach)
+                    stacked_obs = frame_stack.push(obs)
+                    action_macro = agent(stacked_obs)
                     action_history.append(action_macro.value)
                     write_ctrl(macro_to_ctrl_state(action_macro))
+
+                    # Tick micro coach with current game state (non-blocking)
+                    if micro_coach:
+                        from n64train.runtime.llm_coach import MicroCoachState
+                        ex = prev_state.extras if hasattr(prev_state, 'extras') and prev_state.extras else {}
+                        micro_coach.tick(MicroCoachState(
+                            p1_hp=float(prev_state.p1_health or 160),
+                            p2_hp=float(prev_state.p2_health or 160),
+                            timer=int(prev_state.timer or 99),
+                            distance=abs((prev_state.p2_x or 0) - (prev_state.p1_x or 0)),
+                            p2_airborne=float(ex.get('p2_airborne', 0)) > 0.5,
+                            p2_attacking=float(ex.get('p2_hitstun', 0)) > 0,
+                            p1_airborne=float(ex.get('p1_airborne', 0)) > 0.5,
+                            last_actions=list(action_history),
+                        ))
                 else:
-                    frame_stack.push([0.0] * RAW_OBS_DIM)     # warm up with 14-wide zero obs
+                    frame_stack.push([0.0] * obs_dim)
                     write_ctrl(ControllerState())
 
                 time.sleep(STEP_SECS)
@@ -351,11 +416,33 @@ def run_training(args) -> None:
             ep_frames = int((time.time() - ep_start) * 60)
             won = (tracer.p1_won(prev_state) if prev_state else False)
 
-            # ── MLP: learn from this episode ───────────────────────────────────
+            # ── Episode-level LLM coach review ────────────────────────────────
+            if llm_coach:
+                action_mix = {}
+                for a in action_history:
+                    action_mix[a] = action_mix.get(a, 0) + 1
+                llm_coach.record_episode({
+                    'won':       won,
+                    'reward':    ep_reward,
+                    'r_dealt':   acc['dealt'],
+                    'r_taken':   acc['taken'],
+                    'r_approach': acc['approach'],
+                    'r_spam':    acc['spam'],
+                    'action_mix': action_mix,
+                })
+                if ep_num % llm_coach.coach_every == 0:
+                    print(f'  [coach] Running episode review after ep {ep_num}...')
+                    patch = llm_coach.review(reward_extractor)
+                    if patch:
+                        note = patch.get('coach_note', '')
+                        print(f'  [coach] Patch applied: {list(k for k in patch if k != "coach_note")}')
+                        if note:
+                            print(f'  [coach] Note: {note}')
+
+            # ── MLP: learn from this episode ──────────────────────────────────
             ml_metrics: dict | None = None
             if is_learning:
                 ml_metrics = agent.learn()
-                # Save checkpoint every N episodes
                 if ep_num % save_every == 0:
                     agent.save()
                     print(f'  [ckpt] saved at ep {agent.episode}')
@@ -431,18 +518,30 @@ def main() -> None:
     _ALL_AGENTS = ['random', 'mlp', 'lstm',
                    'gru', 'cont_rssm', 'disc_rssm',
                    'transformer', 'obj_belief', 'latent_planner',
-                   # full arch-id aliases
                    'cnn_rnn_reactive_baseline', 'continuous_rssm_hier_ac',
                    'discrete_rssm_hier_ac', 'transformer_wm_hier_ac',
                    'mk4_object_belief_hier_wm', 'latent_planner_mpc_prior']
     parser.add_argument('--agent', default='random', metavar='AGENT',
                         help=f'Architecture to train. Options: {_ALL_AGENTS}')
-
-
     parser.add_argument('--savestate', default='',
                         help='Filter to savestates containing this string, e.g. "sonya"')
     parser.add_argument('--save-every', type=int, default=10, dest='save_every',
                         help='Save MLP checkpoint every N episodes (default: 10)')
+
+    # ── LLM Coach flags ───────────────────────────────────────────────────────
+    parser.add_argument('--coach', default=None, metavar='PROVIDER',
+                        help='Enable LLM coaching. Provider: openai | anthropic | gemini')
+    parser.add_argument('--coach-model', default='gpt-4o-mini', dest='coach_model',
+                        help='LLM model name (default: gpt-4o-mini)')
+    parser.add_argument('--coach-every', type=int, default=10, dest='coach_every',
+                        help='Run episode-level coach review every N episodes (default: 10)')
+    parser.add_argument('--micro-interval', type=int, default=90, dest='micro_interval',
+                        help='Micro-coach fires every N steps inside episode (default: 90 ≈ 3s)')
+    parser.add_argument('--fighter-name', default='Fighter', dest='fighter_name',
+                        help='Fighter display name passed to LLM coach')
+    parser.add_argument('--fighter-style', default='balanced', dest='fighter_style',
+                        help='Fighter style hint for LLM coach (e.g. aggressive, defensive)')
+
     args = parser.parse_args()
     run_training(args)
 
