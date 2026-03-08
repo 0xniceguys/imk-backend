@@ -35,25 +35,17 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   Future<List<MatchBetFeedItem>>? _betFeedFuture;
   String? _betFeedMatchId;
   bool _navigatedToLive = false;
-  DateTime _lastGoLiveRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  @override
-  void initState() {
-    super.initState();
-    ref.read(matchProvider.notifier).startFastPolling();
-    _matchStateSub = ref.listenManual<MatchState>(
-      matchProvider,
-      _onMatchStateChanged,
-      fireImmediately: true,
-    );
-  }
-
-  @override
-  void dispose() {
-    _matchStateSub?.close();
-    _matchStateSub = null;
-    ref.read(matchProvider.notifier).stopFastPolling();
-    super.dispose();
+  // Pre-connect WebSocket when match is #1 in queue so HLS starts
+  // loading in the background before the user navigates to the live screen.
+  String? _preConnectedMatchId;
+  void _maybePreConnect(Match match) {
+    if (match.status != MatchStatus.upcoming) return;
+    if (match.queuePosition != 1) return;
+    if (_preConnectedMatchId == match.id) return;
+    _preConnectedMatchId = match.id;
+    debugPrint('[BattleDetail] Pre-connecting WS for match ${match.id} (queue #1)');
+    ref.read(matchStreamServiceProvider).connect(match.id);
   }
 
   void _ensureBetFeedFuture(String matchId) {
@@ -101,6 +93,21 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     final matches = matchState.matches;
     final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
 
+    // Auto-navigate to live screen when this upcoming match becomes live
+    ref.listen<MatchState>(matchProvider, (prev, next) {
+      if (_navigatedToLive || !mounted) return;
+      if (widget.matchId == null) return;
+      final updated = next.matches.cast<Match?>().firstWhere(
+        (m) => m?.id == widget.matchId,
+        orElse: () => null,
+      );
+      if (updated != null && updated.status == MatchStatus.live) {
+        _navigatedToLive = true;
+        debugPrint('[BattleDetail] Match ${widget.matchId} went live — auto-navigating');
+        widget.onNavigate('/live-match/${widget.matchId}');
+      }
+    });
+
     if (!matchState.hasLoaded) {
       return const Scaffold(
         backgroundColor: Palette.black,
@@ -136,6 +143,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     _maybeRefreshAroundGoLive(match);
 
     _ensureBetFeedFuture(match.id);
+    _maybePreConnect(match);
 
     final totalPool = match.totalPool;
     final sideAPool = match.odds.fighter1Pool > 0

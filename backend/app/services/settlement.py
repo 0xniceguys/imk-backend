@@ -93,22 +93,29 @@ async def settle_match(match_id: str, winner_player: int) -> None:
     if on_chain_match_pda:
         from app.services import solana_tx
 
+        logger.info("Attempting on-chain settlement for match %s (PDA: %s)", match_id, on_chain_match_pda)
         rpc = solana_tx.DEVNET_RPC if settings.use_devnet else solana_tx.MAINNET_RPC
         try:
             cfg = await solana_tx.fetch_config(settings.betting_program_id, rpc)
         except Exception as exc:
+            logger.error("Failed to fetch on-chain config for match %s: %s", match_id, exc)
             raise OnChainSettlementError(f"Failed to fetch on-chain config: {exc}") from exc
         fee_bps = int(cfg["fee_bps"])
 
-        await _resolve_on_chain(
-            match_id=match_id,
-            match_pda=on_chain_match_pda,
-            winner_side=winner_side,
-            losing_wallets=losing_wallets,
-            treasury_wallet=cfg["treasury_wallet"],
-            config_admin_pubkey=cfg["admin"],
-            require_full_loser_cleanup=not winner_has_bets,
-        )
+        try:
+            await _resolve_on_chain(
+                match_id=match_id,
+                match_pda=on_chain_match_pda,
+                winner_side=winner_side,
+                losing_wallets=losing_wallets,
+                treasury_wallet=cfg["treasury_wallet"],
+                config_admin_pubkey=cfg["admin"],
+                require_full_loser_cleanup=not winner_has_bets,
+            )
+            logger.info("On-chain settlement successful for match %s", match_id)
+        except Exception as exc:
+            logger.error("On-chain settlement failed for match %s: %s", match_id, exc)
+            raise
     else:
         logger.info(
             "Match %s has no on_chain_match_pda — proceeding with DB-only settlement",

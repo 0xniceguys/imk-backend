@@ -4,8 +4,11 @@ FFmpeg-based audio capture for live match audio streaming.
 Captures from the PulseAudio null-sink monitor (where mupen64plus sends audio)
 and writes HLS segments (.ts + .m3u8) to /tmp/hls/{match_id}/.
 
-The HLS playlist is then served by the backend so both the admin viewer
-(hls.js) and the Flutter app (video_player) can play it.
+The HLS playlist is served by the backend so both the admin viewer
+and the Flutter app (video_player) can play it.
+
+Segments are 1s each (down from 2s) with 3 segments kept — approximately
+2–3s of end-to-end latency, down from the previous 4–6s.
 """
 
 from __future__ import annotations
@@ -24,9 +27,9 @@ PULSE_MONITOR_SOURCE = "auto_null.monitor"
 # Where HLS segments are written per match
 HLS_BASE_DIR = Path("/tmp/hls")
 
-# HLS tuning
-HLS_SEGMENT_DURATION = 2   # seconds per .ts segment
-HLS_LIST_SIZE = 5          # keep last N segments in the playlist
+# HLS tuning — 1s segments for lower latency
+HLS_SEGMENT_DURATION = 1   # seconds per .ts segment
+HLS_LIST_SIZE = 3          # keep last N segments in the playlist
 
 
 def hls_dir(match_id: str) -> Path:
@@ -61,19 +64,27 @@ class FFmpegAudioCapture:
         playlist = str(self._playlist)
         return [
             "ffmpeg", "-y",
-            # PulseAudio input
+            # PulseAudio input — game audio arrives at 44100Hz from the null-sink
             "-f", "pulse",
             "-i", PULSE_MONITOR_SOURCE,
-            # AAC audio codec
+            # AAC audio — use strict baseline profile for max ExoPlayer compat
             "-c:a", "aac",
+            "-profile:a", "aac_low",  # LC profile — universally supported
             "-b:a", "128k",
             "-ar", "44100",
             "-ac", "2",
-            # HLS output
+            # MPEG-TS muxer flags to produce clean PES packets:
+            #   resend_headers  — resend PAT/PMT at each segment start
+            #   latm            — NOT used (causes PesReader confusion on Android)
+            "-mpegts_flags", "resend_headers",
+            "-muxrate", "0",         # CBR off — let muxer adapt to audio bitrate
+            "-pcr_period", "20",     # PCR every 20ms — reduces ExoPlayer pipeline stalls
+            # HLS output — 1s segments for lower latency
             "-f", "hls",
             "-hls_time", str(HLS_SEGMENT_DURATION),
             "-hls_list_size", str(HLS_LIST_SIZE),
-            "-hls_flags", "delete_segments+append_list",
+            "-hls_flags", "delete_segments+append_list+discont_start",
+            "-hls_segment_type", "mpegts",   # explicit — avoids any fmp4 fallback
             "-hls_segment_filename", out_pattern,
             playlist,
         ]
@@ -87,14 +98,14 @@ class FFmpegAudioCapture:
 
         self._dir.mkdir(parents=True, exist_ok=True)
         cmd = self._build_cmd()
-        logger.info("Starting audio capture for match %s: %s", self.match_id, " ".join(cmd))
+        logger.info(
+            "Starting audio capture for match %s: %s",
+            self.match_id, " ".join(cmd),
+        )
 
         try:
-            # Ensure the subprocess can find PulseAudio regardless of
-            # how the service was started (env may not have PULSE_SERVER).
-            import os as _os
-            env = dict(_os.environ)
-            uid = _os.getuid()
+            env = dict(os.environ)
+            uid = os.getuid()
             env.setdefault(
                 "PULSE_SERVER",
                 f"unix:/run/user/{uid}/pulse/native",
@@ -110,9 +121,15 @@ class FFmpegAudioCapture:
             self._stderr_task = asyncio.create_task(
                 self._log_stderr(), name=f"audio-stderr-{self.match_id}"
             )
-            logger.info("Audio capture started (pid=%s) for match %s", self._process.pid, self.match_id)
+            logger.info(
+                "Audio capture started (pid=%s) for match %s",
+                self._process.pid, self.match_id,
+            )
         except Exception as exc:
-            logger.warning("Failed to start audio capture for match %s: %s", self.match_id, exc)
+            logger.warning(
+                "Failed to start audio capture for match %s: %s",
+                self.match_id, exc,
+            )
 
     async def _log_stderr(self) -> None:
         if not self._process or not self._process.stderr:
@@ -121,7 +138,6 @@ class FFmpegAudioCapture:
             async for line in self._process.stderr:
                 txt = line.decode(errors="replace").rstrip()
                 if txt and self._running:
-                    # Log at WARNING so PulseAudio/FFmpeg errors are visible in journalctl
                     logger.warning("FFmpegAudio[%s]: %s", self.match_id, txt)
         except Exception:
             pass
@@ -135,6 +151,7 @@ class FFmpegAudioCapture:
                 await self._stderr_task
             except asyncio.CancelledError:
                 pass
+        self._stderr_task = None
 
         if self._process:
             try:

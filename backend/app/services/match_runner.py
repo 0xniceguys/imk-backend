@@ -34,15 +34,10 @@ from app.services.actions import (
 from app.services.bridge import EmulatorBridge
 from app.services.ctrl_writer import write_ctrl
 from app.services.emulator import EmulatorSession, LaunchOptions
-from app.services.ffmpeg_capture import FFmpegCapture, ffmpeg_available, is_linux
-from app.services.game_state import (
-    FightState,
-    is_round_over,
-    p1_won,
-    read_fight_state,
-)
-from app.services.ffmpeg_audio_capture import FFmpegAudioCapture
+from app.services.ffmpeg_capture import ffmpeg_available, is_linux
+from app.services.ffmpeg_combined_hls import FFmpegCombinedHls
 from app.services.ram_debug import RamDebugRecorder
+from app.services.game_state import FightState, is_round_over, p1_won, read_fight_state
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
@@ -79,6 +74,16 @@ class RunnerState(str, Enum):
     COMPLETED = "completed"
     ERROR = "error"
     STOPPED = "stopped"
+
+
+class StreamingState(str, Enum):
+    """HLS streaming lifecycle state."""
+    NOT_STARTED = "not_started"
+    INITIALIZING = "initializing"
+    READY = "ready"
+    PLAYING = "playing"
+    STOPPED = "stopped"
+    ERROR = "error"
 
 
 @dataclass
@@ -161,7 +166,7 @@ class MatchRunner:
     reloads the savestate and continues until a player wins enough rounds.
 
     The emulator runs freely at native speed on all platforms.
-    FFmpeg captures the display at 60fps (x11grab on Linux, avfoundation on macOS).
+    FFmpeg captures the display at 30fps (x11grab on Linux, avfoundation on macOS).
     The agent brain runs independently at ~10Hz reading RAM and writing inputs.
     """
 
@@ -179,6 +184,7 @@ class MatchRunner:
         self.savestate_path = savestate_path
         self.instance_id = instance_id or f"match-{uuid.uuid4().hex[:8]}"
         self.state = RunnerState.IDLE
+        self.streaming_state = StreamingState.NOT_STARTED
         self.latest_snapshot: GameSnapshot = GameSnapshot(best_of=best_of)
         self.latest_frame: bytes | None = None
 
@@ -198,8 +204,8 @@ class MatchRunner:
         self._ctrl_p1_path: str | None = None
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
-        self._frame_capture: FFmpegCapture | None = None
-        self._audio_capture = FFmpegAudioCapture(match_id=self.match_id)
+        # Combined HLS capture: one FFmpeg for video + audio
+        self._hls_capture = FFmpegCombinedHls(match_id=self.match_id)
         self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
         self._manual_overrides: dict[int, ManualOverrideState] = {
             1: ManualOverrideState(),
@@ -207,6 +213,10 @@ class MatchRunner:
         }
         self._bridge_lock = asyncio.Lock()
         self._round_context_reset_requested = False
+        # Game state broadcast throttle: cap at 5Hz to avoid spamming clients
+        self._last_state_broadcast: float = 0.0
+        # Streaming state monitoring
+        self._stream_monitor_task: asyncio.Task | None = None
 
     @property
     def rounds_to_win(self) -> int:
@@ -432,6 +442,14 @@ class MatchRunner:
 
             self.state = RunnerState.RUNNING
 
+            # Broadcast global event that match is going live
+            await ws_manager.broadcast_global_event({
+                "type": "match_status_changed",
+                "match_id": self.match_id,
+                "status": "live",
+                "timestamp": time.time(),
+            })
+
             # Clear any stale Redis cache from previous runs of this match
             try:
                 from app.services.redis_client import clear_match_cache
@@ -439,7 +457,7 @@ class MatchRunner:
             except Exception:
                 pass
 
-            # Let emulator run freely, FFmpeg captures display at 60fps
+            # Let emulator run freely, FFmpeg captures display at 30fps
             await self._start_free_running()
 
             self._agent_loop_task = asyncio.create_task(self._match_loop())
@@ -456,59 +474,80 @@ class MatchRunner:
             raise
 
     async def _start_free_running(self) -> None:
-        """Let the emulator run freely and start FFmpeg frame capture.
+        """Let the emulator run freely and start combined H.264+AAC HLS capture.
 
-        The emulator runs at native 60fps for smooth video output.
-        RAM reads use a brief pause→read→run cycle per iteration so reads are
-        always taken from a deterministic (paused) state, not mid-execution.
+        Video and audio are both captured by a single FFmpeg process and muxed
+        into HLS segments. Flutter's VideoPlayer plays stream.m3u8 directly,
+        giving perfect A/V sync with no extra pipeline complexity.
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._bridge.debugger_command, "run")
         logger.info("Emulator set to free-running mode")
 
-        # Give the video plugin time to render the first frame
+        # Give the video plugin time to render the first frame before FFmpeg starts
         await asyncio.sleep(1.5)
 
-        if is_linux():
-            display = self._session.display if self._session else ":99"
-            self._frame_capture = FFmpegCapture(
-                display=display,
-                width=640,
-                height=480,
-                framerate=30,
-                quality=15,
-            )
-            logger.info("FFmpeg capture: x11grab on display %s", display)
-        else:
-            self._frame_capture = FFmpegCapture(
-                screen_index="2",
-                width=320,
-                height=240,
-                framerate=60,
-                quality=5,
-            )
-            logger.info("FFmpeg capture: avfoundation screen 0 (macOS)")
+        # Update streaming state and notify clients
+        self.streaming_state = StreamingState.INITIALIZING
+        await ws_manager.broadcast_json(self.match_id, {
+            "type": "streaming_state",
+            "state": self.streaming_state.value,
+        })
 
-        await self._frame_capture.start(self._on_ffmpeg_frame)
-        await self._audio_capture.start()
-        fps = 30 if is_linux() else 60
-        logger.info("FFmpeg capture started at %dfps", fps)
+        await self._hls_capture.start()
+        logger.info("Combined HLS capture started for match %s", self.match_id)
 
-    async def _on_ffmpeg_frame(self, jpeg_bytes: bytes) -> None:
-        """Callback: FFmpeg delivered a JPEG frame — broadcast it."""
-        self.latest_frame = jpeg_bytes
-        await ws_manager.broadcast_bytes(self.match_id, jpeg_bytes)
+        # Start monitoring for HLS playlist ready
+        self._stream_monitor_task = asyncio.create_task(
+            self._monitor_hls_ready(), name=f"hls-monitor-{self.match_id}"
+        )
+
+    async def _monitor_hls_ready(self) -> None:
+        """Poll until HLS playlist is ready, then notify clients."""
+        max_wait = 20  # seconds
+        poll_interval = 0.5
+        elapsed = 0.0
+
+        while elapsed < max_wait:
+            if self._hls_capture.ready_for_playback():
+                self.streaming_state = StreamingState.READY
+                logger.info("HLS stream ready for match %s", self.match_id)
+                await ws_manager.broadcast_json(self.match_id, {
+                    "type": "streaming_state",
+                    "state": self.streaming_state.value,
+                    "hls_url": f"/stream/{self.match_id}/stream.m3u8",
+                })
+                return
+
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        # Timeout — stream failed to initialize
+        self.streaming_state = StreamingState.ERROR
+        logger.error("HLS stream failed to initialize for match %s", self.match_id)
+        await ws_manager.broadcast_json(self.match_id, {
+            "type": "streaming_state",
+            "state": self.streaming_state.value,
+            "error": "Stream initialization timeout",
+        })
+
 
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
         logger.info("Stopping match runner %s", self.match_id)
         self.state = RunnerState.STOPPED
+        self.streaming_state = StreamingState.STOPPED
 
-        # Stop FFmpeg capture (video + audio)
-        if self._frame_capture:
-            await self._frame_capture.stop()
-            self._frame_capture = None
-        await self._audio_capture.stop()
+        # Stop HLS monitor
+        if self._stream_monitor_task and not self._stream_monitor_task.done():
+            self._stream_monitor_task.cancel()
+            try:
+                await self._stream_monitor_task
+            except asyncio.CancelledError:
+                pass
+
+        # Stop combined HLS capture (video + audio)
+        await self._hls_capture.stop()
 
         # Cancel background task
         if self._agent_loop_task and not self._agent_loop_task.done():
@@ -743,9 +782,10 @@ class MatchRunner:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, self._bridge.debugger_command, "pause")
 
-                if self._frame_capture:
-                    await self._frame_capture.stop()
-                    self._frame_capture = None
+                # Between rounds: stop HLS capture so there's no stale stream
+                # through the round transition. It will be restarted by
+                # _start_free_running after the savestate reload.
+                await self._hls_capture.stop()
 
                 await asyncio.sleep(2.0)  # KO animation visible
 
@@ -771,7 +811,7 @@ class MatchRunner:
         """Single round: agent brain loop at ~10Hz.
 
         The emulator runs freely at native speed.
-        FFmpeg captures frames independently at 60fps.
+        FFmpeg captures frames independently at 30fps.
         This loop ONLY reads RAM and writes agent inputs.
 
         Returns True if P1 won the round, False if P2 won.
@@ -931,10 +971,15 @@ class MatchRunner:
                     }
                 )
 
-                await ws_manager.broadcast_json(
-                    self.match_id,
-                    self.latest_snapshot.to_dict(),
-                )
+                # Throttle game state broadcast to 5Hz — clients only need
+                # ~3-5 updates/sec for smooth health bar UI.
+                _now = time.monotonic()
+                if _now - self._last_state_broadcast >= 0.2:
+                    await ws_manager.broadcast_json(
+                        self.match_id,
+                        self.latest_snapshot.to_dict(),
+                    )
+                    self._last_state_broadcast = _now
 
                 # Cache latest state in Redis for late joiners
                 try:
@@ -982,8 +1027,51 @@ class MatchRunner:
         try:
             from app.services.settlement import settle_match
             await settle_match(self.match_id, winner_player)
+            logger.info("Successfully settled match %s with winner player %d", self.match_id, winner_player)
+        except Exception as e:
+            logger.exception("Auto-settle failed for match %s: %s", self.match_id, str(e))
+            # Even if settlement fails, we should still mark the match as completed
+            # to prevent it from being stuck in LIVE status
+            await self._mark_match_completed_fallback(winner_player)
+
+    async def _mark_match_completed_fallback(self, winner_player: int) -> None:
+        """Fallback to mark match as completed in DB when settlement fails."""
+        try:
+            from datetime import datetime, timezone
+            from uuid import UUID
+            from app.db.engine import async_session
+            from app.db.models import Match, MatchStatus, StreamStatus
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Match)
+                    .where(Match.id == UUID(self.match_id))
+                    .options(selectinload(Match.stream))
+                )
+                match = result.scalar_one_or_none()
+                if not match:
+                    logger.error("Fallback: match %s not found", self.match_id)
+                    return
+
+                if match.status != MatchStatus.LIVE:
+                    logger.warning("Fallback: match %s not LIVE (status=%s), skipping",
+                                 self.match_id, match.status.value)
+                    return
+
+                winner_id = match.fighter1_id if winner_player == 1 else match.fighter2_id
+                match.status = MatchStatus.COMPLETED
+                match.winner_id = winner_id
+                match.completed_at = datetime.now(timezone.utc)
+                if match.stream:
+                    match.stream.status = StreamStatus.STOPPED
+
+                await db.commit()
+                logger.warning("Fallback: Marked match %s as COMPLETED (winner=%s) without full settlement",
+                             self.match_id, winner_id)
         except Exception:
-            logger.exception("Auto-settle failed for match %s", self.match_id)
+            logger.exception("Fallback failed to mark match %s as completed", self.match_id)
 
     async def _mark_match_errored(self) -> None:
         """Cancel the match contract-first when runner fails."""
@@ -1007,10 +1095,8 @@ class MatchRunner:
 
     async def _cleanup_emulator(self) -> None:
         """Clean up emulator resources after match ends."""
-        if self._frame_capture:
-            await self._frame_capture.stop()
-            self._frame_capture = None
-        await self._audio_capture.stop()
+        # Stop combined HLS capture if still running
+        await self._hls_capture.stop()
         if self._bridge:
             try:
                 self._bridge.close()
