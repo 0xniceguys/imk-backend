@@ -68,7 +68,9 @@ class HlsPlayerService {
         return;
       }
 
-      await ctrl.setVolume(1.0);
+      // Pre-load muted — audio only starts when user opens the live screen.
+      // This prevents background audio leaking while user is browsing other tabs.
+      await ctrl.setVolume(0.0);
       await ctrl.play();
 
       if (_disposed || _initToken != token) {
@@ -154,6 +156,15 @@ class HlsPlayerService {
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _stuckTicks = 0;
+  }
+
+  /// Unmutes the active controller — called when user enters the live screen.
+  void unmute() {
+    try {
+      controllerNotifier.value?.setVolume(1.0);
+    } catch (e) {
+      debugPrint('[HlsPlayerService] unmute error: $e');
+    }
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
