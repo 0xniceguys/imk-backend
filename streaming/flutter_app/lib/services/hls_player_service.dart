@@ -18,6 +18,9 @@ class HlsPlayerService {
   bool _initializing = false;
   int _initToken = 0;
 
+  // When true, unmute after init completes (live screen is in the foreground).
+  bool _wantsAudio = false;
+
   // ── Stuck watchdog ────────────────────────────────────────────────────────
   Timer? _watchdogTimer;
   Duration _lastPosition = Duration.zero;
@@ -82,7 +85,13 @@ class HlsPlayerService {
       controllerNotifier.value = ctrl;
       _setState(HlsPreloadState.playing);
       _startWatchdog(matchId, hlsUrl);
-      debugPrint('[HlsPlayerService] ✅ Playing $matchId');
+      // If live screen entered while we were still initializing, unmute now.
+      if (_wantsAudio) {
+        await ctrl.setVolume(1.0);
+        debugPrint('[HlsPlayerService] ✅ Playing $matchId (with audio — wantsAudio=true)');
+      } else {
+        debugPrint('[HlsPlayerService] ✅ Playing $matchId (muted — live screen not open)');
+      }
     } on TimeoutException {
       debugPrint('[HlsPlayerService] ⏰ Timeout initializing HLS $matchId');
       await _safeDispose(ctrl);
@@ -158,24 +167,43 @@ class HlsPlayerService {
     _stuckTicks = 0;
   }
 
-  /// Unmutes the active controller — called when user enters the live screen.
-  void unmute() {
+  /// Unmutes — called when user enters the live screen.
+  /// If init is still in progress, sets wantsAudio=true so preload() will
+  /// unmute automatically once the controller is ready.
+  void requestAudio() {
+    _wantsAudio = true;
     try {
       controllerNotifier.value?.setVolume(1.0);
     } catch (e) {
-      debugPrint('[HlsPlayerService] unmute error: $e');
+      debugPrint('[HlsPlayerService] requestAudio error: $e');
     }
   }
+
+  /// Mutes and clears the wantsAudio flag — called when user leaves the live screen.
+  void silenceAndReset() {
+    _wantsAudio = false;
+    try {
+      controllerNotifier.value?.setVolume(0.0);
+    } catch (e) {
+      debugPrint('[HlsPlayerService] silenceAndReset error: $e');
+    }
+  }
+
+  /// Legacy alias kept for call sites that already use unmute().
+  void unmute() => requestAudio();
+
+  /// Legacy alias kept for call sites that already use mute().
+  void mute() => silenceAndReset();
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   Future<void> stop() async {
     debugPrint('[HlsPlayerService] stop() — match ${activeMatchIdNotifier.value}');
+    _wantsAudio = false; // clear flag so restart doesn't unmute in background
     _stopWatchdog();
     await _teardown();
     // Use 'stopped' (not 'idle') so globalHlsPreloaderProvider knows the user
     // intentionally left and should NOT restart the preload automatically.
-    // The preload only restarts when the arena list explicitly calls preload().
     _setState(HlsPreloadState.stopped);
   }
 

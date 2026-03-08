@@ -9,6 +9,7 @@ import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
+import '../services/hls_player_service.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
 import '../widgets/shared/ik_shimmer.dart';
@@ -67,27 +68,31 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
   /// Connects the WS and triggers HLS preloading for [matchId].
   /// Safe to call multiple times — no-ops if already preconnected for this match.
   void _preconnectForLiveMatch(String matchId) {
-    if (_preconnectedMatchId == matchId) return; // already done
+    if (_preconnectedMatchId == matchId) return; // already done for this instance
     _preconnectedMatchId = matchId;
     debugPrint('[ArenaList] Pre-connecting WS for live match: $matchId');
     try {
       // 1. Connect WS → backend will send streaming_state: ready
-      //    → globalHlsPreloaderProvider fires → VideoPlayerController.initialize()
       ref.read(matchStreamServiceProvider).connect(matchId);
 
-      // 2. Also kick HLS preload directly using the canonical URL so we don't
-      //    have to wait for the streaming_state: ready message to arrive.
-      //    HlsPlayerService handles the "stream not ready" 404 case gracefully
-      //    (fast fail → error state) and globalHlsPreloaderProvider will retry
-      //    when streaming_state: ready arrives from the WS.
-      final hlsUrl = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
-      ref.read(hlsPlayerServiceProvider).preload(matchId, hlsUrl);
+      // 2. Only preload HLS if the user hasn't intentionally left the live screen.
+      //    state=stopped is set by live_match_screen.dispose() — if it's stopped,
+      //    skip preload since restarting audio in the background is not desired.
+      //    Audio will restart only when the user navigates back to the live screen.
+      final hlsSvc = ref.read(hlsPlayerServiceProvider);
+      if (hlsSvc.state == HlsPreloadState.stopped) {
+        debugPrint('[ArenaList] HLS state=stopped (user left live screen) — skipping preload restart');
+        return;
+      }
 
+      final hlsUrl = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
+      hlsSvc.preload(matchId, hlsUrl);
       debugPrint('[ArenaList] ✅ Pre-connect + HLS preload started for $matchId');
     } catch (e) {
       debugPrint('[ArenaList] ❌ Pre-connect error for $matchId: $e');
     }
   }
+
 
   void _listenForLiveMatches() {
     ref.listenManual<AsyncValue<Map<String, dynamic>>>(
