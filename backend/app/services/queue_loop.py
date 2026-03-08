@@ -330,10 +330,16 @@ class QueueLoopManager:
             )
             pair_match = latest_pair.scalar_one_or_none()
             if pair_match:
-                return (
-                    int(pair_match.best_of or 3),
-                    pair_match.savestate_path,
-                )
+                # Validate the path actually exists on disk — don't inherit a
+                # bad path that would cause the match to be cancelled.
+                sp = pair_match.savestate_path
+                if sp and Path(sp).exists():
+                    return (int(pair_match.best_of or 3), sp)
+                elif sp:
+                    logger.warning(
+                        "Ignoring savestate_path '%s' from previous match %s — file not found on disk",
+                        sp, pair_match.id,
+                    )
 
             latest_any = await db.execute(
                 select(Match)
@@ -343,10 +349,14 @@ class QueueLoopManager:
             )
             any_match = latest_any.scalar_one_or_none()
             if any_match:
-                return (
-                    3,
-                    any_match.savestate_path,
-                )
+                sp = any_match.savestate_path
+                if sp and Path(sp).exists():
+                    return (3, sp)
+                elif sp:
+                    logger.warning(
+                        "Ignoring savestate_path '%s' from match %s — file not found on disk",
+                        sp, any_match.id,
+                    )
 
         return (3, None)
 
