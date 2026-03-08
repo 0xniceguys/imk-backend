@@ -173,7 +173,10 @@ class HlsPlayerService {
     debugPrint('[HlsPlayerService] stop() — match ${activeMatchIdNotifier.value}');
     _stopWatchdog();
     await _teardown();
-    _setState(HlsPreloadState.idle);
+    // Use 'stopped' (not 'idle') so globalHlsPreloaderProvider knows the user
+    // intentionally left and should NOT restart the preload automatically.
+    // The preload only restarts when the arena list explicitly calls preload().
+    _setState(HlsPreloadState.stopped);
   }
 
   Future<void> _teardown() async {
@@ -210,4 +213,6 @@ class HlsPlayerService {
   }
 }
 
-enum HlsPreloadState { idle, initializing, playing, error }
+/// `stopped` = user intentionally left the live screen; globalHlsPreloader
+/// will not auto-restart until the arena list calls preload() again.
+enum HlsPreloadState { idle, initializing, playing, error, stopped }
