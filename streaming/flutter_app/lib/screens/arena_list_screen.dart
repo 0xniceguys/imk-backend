@@ -57,21 +57,11 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
       fireImmediately: true,
     );
 
-    // Reset guard when match ends so a same-matchId restart gets fresh preconnect
-    ref.listenManual<AsyncValue<void>>(
-      matchEndProvider,
-      (_, __) {
-        debugPrint('[ArenaList] Match ended — resetting preconnect guard');
-        _preconnectedMatchId = null;
-      },
-    );
-
-    // If HLS preload errored (stream not ready at first attempt), retry as soon
-    // as the WS delivers streaming_state: ready via globalHlsPreloaderProvider.
-    // That provider's streamingStateSub already handles the retry — we just
-    // need to ensure _preconnectedMatchId doesn't block a later attempt if the
-    // match changes. Nothing extra needed here: HlsPlayerService.preload() when
-    // state==error will teardown and reinit correctly.
+    // NOTE: we intentionally do NOT reset _preconnectedMatchId when match ends.
+    // If we did, the stale matchProvider state (still showing status=live for
+    // the just-ended match) fires immediately after and triggers a re-preconnect
+    // to a dead stream → 404. Keeping the ended matchId in place blocks that
+    // stale re-connect. A new match has a different UUID and bypasses the guard.
   }
 
   /// Connects the WS and triggers HLS preloading for [matchId].

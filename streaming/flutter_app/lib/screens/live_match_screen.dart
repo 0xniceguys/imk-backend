@@ -31,11 +31,6 @@ enum LiveStreamClientState {
   error,
 }
 
-class _ScheduledHudState {
-  const _ScheduledHudState(this.state, this.dueAtMs);
-  final GameState state;
-  final int dueAtMs;
-}
 
 class LiveMatchScreen extends ConsumerStatefulWidget {
   const LiveMatchScreen({super.key, required this.onNavigate, this.matchId});
@@ -49,34 +44,18 @@ class LiveMatchScreen extends ConsumerStatefulWidget {
 class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseCtrl;
-  static const _hlsFallbackDelay = Duration(seconds: 8);
-  static const _hlsRetryBackoff = <Duration>[
-    Duration(seconds: 1),
-    Duration(seconds: 2),
-    Duration(seconds: 4),
-  ];
-  static const _maxHlsInitAttempts = 4;
 
+  // ignore: unused_field
+  // Subscription references kept to prevent premature GC of listenManual subs.
   ProviderSubscription<MatchState>? _matchStateSub;
+  // ignore: unused_field
   ProviderSubscription<AsyncValue<void>>? _matchEndSub;
+  // ignore: unused_field
   ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _streamingStateSub;
+  // ignore: unused_field
   ProviderSubscription<AsyncValue<GameState>>? _gameStateSub;
+  // ignore: unused_field
   ProviderSubscription<AsyncValue<bool>>? _wsConnectedSub;
-
-  String? _activeMatchId;
-  LiveStreamClientState _streamState = LiveStreamClientState.idle;
-
-  VideoPlayerController? _videoController;
-  String? _videoMatchId;
-  String? _lastHlsUrl;
-  int _hlsInitAttempts = 0;
-  int _hlsInitToken = 0;
-  bool _playerInitializing = false;
-  bool _lastIsBuffering = false;
-  int _rebufferCount = 0;
-  int _playerInitCount = 0;
-  int _playerDisposeCount = 0;
-  Future<void> _pendingControllerDispose = Future<void>.value();
 
   String? _lastConnectedMatchId;
   bool _navigatedToPostMatch = false;
@@ -147,18 +126,22 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         if (state != 'ready' && state != 'playing') return;
         if (_activeMatchId == null) return;
 
-        // Defer to HlsPlayerService if it already has a controller for this match
-        // (globalHlsPreloaderProvider may have already handled this event).
-        // Only fall back to the local _startHls() if the service isn't active.
+        // Always route through HlsPlayerService — never create a local controller.
+        // This eliminates the dual-controller bug where two ExoPlayer instances
+        // could be active simultaneously with conflicting audio.
         final hlsSvc = ref.read(hlsPlayerServiceProvider);
         final svcHasThisMatch = hlsSvc.activeMatchId == _activeMatchId &&
             (hlsSvc.state == HlsPreloadState.playing ||
              hlsSvc.state == HlsPreloadState.initializing);
         if (svcHasThisMatch) {
-          debugPrint('[LiveMatch] HlsPlayerService already handling $_activeMatchId — skipping local _startHls');
+          // Already handled by global preloader — just ensure it's unmuted
+          hlsSvc.unmute();
           return;
         }
-        _startHls(_activeMatchId!);
+        // Global service not active for this match — trigger it directly
+        final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
+        debugPrint('[LiveMatch] Triggering hlsService.preload() via streaming_state=ready');
+        hlsSvc.preload(_activeMatchId!, url).then((_) => hlsSvc.unmute());
       },
     );
     _gameStateSub = ref.listenManual<AsyncValue<GameState>>(gameStateProvider, (
@@ -253,15 +236,22 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   void _checkEarlyStreamReady() {
     final matchId = widget.matchId ?? _findLiveMatchId();
     if (matchId == null) return;
-    if (_hlsMatchId == matchId) return; // already running for this match
     final currentState = ref.read(streamingStateProvider);
     currentState.whenData((data) {
       final state = data['state'] as String?;
-      final hlsUrl = data['hls_url'] as String?;
-      if (state == 'ready' && hlsUrl != null) {
-        debugPrint('[LiveMatch] Early HLS start — stream was already ready on screen entry');
-        _startHls(matchId);
+      if (state != 'ready') return;
+      // Always route through HlsPlayerService to avoid dual-controller conflict
+      final hlsSvc = ref.read(hlsPlayerServiceProvider);
+      if (hlsSvc.activeMatchId == matchId &&
+          (hlsSvc.state == HlsPreloadState.playing ||
+           hlsSvc.state == HlsPreloadState.initializing)) {
+        // Already handled — just unmute
+        hlsSvc.unmute();
+        return;
       }
+      final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
+      debugPrint('[LiveMatch] Early HLS start via hlsService (stream was ready on entry)');
+      hlsSvc.preload(matchId, url).then((_) => hlsSvc.unmute());
     });
   }
 
@@ -374,6 +364,11 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _hlsController = null;
     ctrl?.removeListener(_onPlayerUpdate);
     ctrl?.dispose();
+    // Also stop the global service to ensure full cleanup regardless of
+    // which path triggered the stop (match end event, navigation, etc.)
+    try {
+      ref.read(hlsPlayerServiceProvider).stop();
+    } catch (_) {}
   }
 
   @override
@@ -435,25 +430,21 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       );
     }
 
-    final isHlsReady = _hlsController != null &&
-        _hlsController!.value.isInitialized;
-    final isHlsLoading = _hlsInitializing && !isHlsReady;
     final gameStateAsync = ref.watch(gameStateProvider);
     final gameState = gameStateAsync.valueOrNull;
     final viewerAsync = ref.watch(viewerCountProvider);
     final streamingStateAsync = ref.watch(streamingStateProvider);
 
-    // Reactive: rebuilds automatically when pre-loaded controller appears or changes
+    // Reactive: rebuilds when pre-loaded global controller appears or changes
     final hlsCtrlAsync = ref.watch(hlsControllerProvider);
     final hlsStateAsync = ref.watch(hlsPreloadStateProvider);
     final preloadedCtrl = hlsCtrlAsync.valueOrNull;
-    // Prefer pre-loaded global controller; fall back to screen-local one
+    // Exclusively use global controller — no local fallback
     final hlsCtrl = (preloadedCtrl != null && preloadedCtrl.value.isInitialized)
         ? preloadedCtrl
-        : (_hlsController != null && _hlsController!.value.isInitialized ? _hlsController : null);
+        : null;
     final isGlobalHlsReady = hlsCtrl != null;
-    final isAnyHlsLoading = _hlsInitializing ||
-        hlsStateAsync.valueOrNull == HlsPreloadState.initializing;
+    final isAnyHlsLoading = hlsStateAsync.valueOrNull == HlsPreloadState.initializing;
 
     // Determine what message to show when stream isn't playing
     String streamStatusMessage = 'Stream starting...';

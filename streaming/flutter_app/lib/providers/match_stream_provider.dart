@@ -146,6 +146,12 @@ final globalHlsPreloaderProvider = Provider<void>((ref) {
 
       final hlsUrl = _resolveHlsUrl(matchId, rawUrl);
       debugPrint('[GlobalHlsPreloader] → preloading match=$matchId url=$hlsUrl');
+      // Skip if user explicitly stopped (left live screen). Arena list will
+      // restart preload via _preconnectForLiveMatch() when user browses back.
+      if (hlsService.state == HlsPreloadState.stopped) {
+        debugPrint('[GlobalHlsPreloader] state=stopped — skipping auto-restart for $matchId');
+        return;
+      }
       hlsService.preload(matchId, hlsUrl);
     } catch (e, st) {
       debugPrint('[GlobalHlsPreloader] Error in streaming state handler: $e\n$st');
