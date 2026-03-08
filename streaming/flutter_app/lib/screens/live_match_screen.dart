@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -285,7 +286,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   void dispose() {
     _fastPollTimer?.cancel();
     _pulseCtrl.dispose();
-    _stopHls();
+    _stopHls(); // stops local _hlsController
+
+    // Fully stop the global HlsPlayerService controller so audio/video
+    // dies immediately when the user navigates away.
+    // stop() disposes the VideoPlayerController (kills ExoPlayer audio track).
+    // Fire-and-forget is fine — dispose() cannot await.
+    try {
+      ref.read(hlsPlayerServiceProvider).stop();
+    } catch (_) {
+      // ref may be invalidated on hot restart — ignore
+    }
+
     super.dispose();
   }
 
@@ -609,32 +621,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           ),
           const SizedBox(height: 8),
 
-          // Health bars + timer from game state
-          if (gameState != null)
-            _HealthOverlay(
-              gameState: gameState,
-              fighter1Name: match.fighter1?.name ?? 'Fighter 1',
-              fighter2Name: match.fighter2?.name ?? 'Fighter 2',
-            )
-          else
-            const SizedBox(height: 40),
-          const SizedBox(height: 8),
-
           // Round score dots
-          if (gameState != null)
-            gameState.bestOf > 1
-                ? _RoundDots(
-                    bestOf: gameState.bestOf,
-                    roundsWonP1: gameState.roundsWonP1,
-                    roundsWonP2: gameState.roundsWonP2,
-                    currentRound: gameState.currentRound,
-                  )
-                : const SizedBox.shrink()
-          else
-            const SizedBox.shrink(),
+          if (gameState != null && gameState.bestOf > 1)
+            _RoundDots(
+              bestOf: gameState.bestOf,
+              roundsWonP1: gameState.roundsWonP1,
+              roundsWonP2: gameState.roundsWonP2,
+              currentRound: gameState.currentRound,
+            ),
           const SizedBox(height: 6),
 
           // Fighter names
+
           Text(
             '${match.fighter1?.name ?? '---'} V/S ${match.fighter2?.name ?? '---'}',
             style: displayStyle(size: 22, color: Palette.gold),
