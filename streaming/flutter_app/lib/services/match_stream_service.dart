@@ -111,14 +111,38 @@ class MatchStreamService {
 
       switch (type) {
         case 'connected':
-          debugPrint('[Stream] ✅ Connected to match $_matchId viewers=${json['viewer_count']}');
-          _viewerCountCtrl.add(json['viewer_count'] as int? ?? 0);
-          final gs = json['game_state'] as Map<String, dynamic>?;
-          if (gs != null) _gameStateCtrl.add(GameState.fromJson(gs));
-          // Check if streaming state is included in connected message
-          final streamingState = json['streaming_state'] as String?;
-          if (streamingState != null) {
-            debugPrint('[Stream] Initial streaming state: $streamingState');
+          try {
+            debugPrint('[Stream] ✅ Connected to match $_matchId viewers=${json['viewer_count']}');
+            _viewerCountCtrl.add(json['viewer_count'] as int? ?? 0);
+
+            final gs = json['game_state'] as Map<String, dynamic>?;
+            if (gs != null) {
+              try {
+                _gameStateCtrl.add(GameState.fromJson(gs));
+              } catch (e) {
+                debugPrint('[Stream] ⚠️ Failed to parse game_state in connected msg: $e');
+              }
+            }
+
+            // Forward streaming state so globalHlsPreloaderProvider fires on
+            // cold opens / reconnects (the backend includes this in the
+            // connected handshake when a stream is already ready).
+            final streamingState = json['streaming_state'] as String?;
+            if (streamingState != null) {
+              debugPrint('[Stream] 📺 Initial streaming state from connected: $streamingState');
+              if (streamingState == 'ready' && _matchId != null) {
+                // Build a canonical hls_url so the preloader has everything it needs.
+                final hlsUrlHint = '/stream/$_matchId/stream.m3u8';
+                _streamingStateCtrl.add({
+                  'state': streamingState,
+                  'hls_url': hlsUrlHint,
+                });
+              } else if (streamingState == 'initializing' || streamingState == 'error') {
+                _streamingStateCtrl.add({'state': streamingState});
+              }
+            }
+          } catch (e, st) {
+            debugPrint('[Stream] ❌ Error handling connected message: $e\n$st');
           }
 
         case 'game_state':

@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +13,7 @@ import '../providers/bet_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
+import '../services/hls_player_service.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
@@ -135,10 +134,21 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         final data = next.valueOrNull;
         if (data == null) return;
         final state = data['state'] as String?;
-        final hlsUrl = data['hls_url'] as String?;
-        if (state == 'ready' && hlsUrl != null && _activeMatchId != null) {
-          _startHls(_activeMatchId!);
+        if (state != 'ready' && state != 'playing') return;
+        if (_activeMatchId == null) return;
+
+        // Defer to HlsPlayerService if it already has a controller for this match
+        // (globalHlsPreloaderProvider may have already handled this event).
+        // Only fall back to the local _startHls() if the service isn't active.
+        final hlsSvc = ref.read(hlsPlayerServiceProvider);
+        final svcHasThisMatch = hlsSvc.activeMatchId == _activeMatchId &&
+            (hlsSvc.state == HlsPreloadState.playing ||
+             hlsSvc.state == HlsPreloadState.initializing);
+        if (svcHasThisMatch) {
+          debugPrint('[LiveMatch] HlsPlayerService already handling $_activeMatchId — skipping local _startHls');
+          return;
         }
+        _startHls(_activeMatchId!);
       },
     );
     _gameStateSub = ref.listenManual<AsyncValue<GameState>>(gameStateProvider, (
@@ -412,6 +422,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final viewerAsync = ref.watch(viewerCountProvider);
     final streamingStateAsync = ref.watch(streamingStateProvider);
 
+    // Reactive: rebuilds automatically when pre-loaded controller appears or changes
+    final hlsCtrlAsync = ref.watch(hlsControllerProvider);
+    final hlsStateAsync = ref.watch(hlsPreloadStateProvider);
+    final preloadedCtrl = hlsCtrlAsync.valueOrNull;
+    // Prefer pre-loaded global controller; fall back to screen-local one
+    final hlsCtrl = (preloadedCtrl != null && preloadedCtrl.value.isInitialized)
+        ? preloadedCtrl
+        : (_hlsController != null && _hlsController!.value.isInitialized ? _hlsController : null);
+    final isGlobalHlsReady = hlsCtrl != null;
+    final isAnyHlsLoading = _hlsInitializing ||
+        hlsStateAsync.valueOrNull == HlsPreloadState.initializing;
+
     // Determine what message to show when stream isn't playing
     String streamStatusMessage = 'Stream starting...';
     streamingStateAsync.whenData((data) {
@@ -493,18 +515,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                 aspectRatio: 4 / 3,
                 child: Container(
                   color: Palette.black,
-                  child: isHlsReady
-                      ? VideoPlayer(_hlsController!)
+                  child: isGlobalHlsReady
+                      ? VideoPlayer(hlsCtrl!)
                       : Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (isHlsLoading) const IKLoader(size: 44)
+                              if (isAnyHlsLoading) const IKLoader(size: 44)
                               else const Icon(Icons.videocam_off,
                                   color: Palette.muted, size: 36),
                               const SizedBox(height: 12),
                               Text(
-                                isHlsLoading
+                                isAnyHlsLoading
                                     ? streamStatusMessage
                                     : 'Stream unavailable',
                                 style: const TextStyle(

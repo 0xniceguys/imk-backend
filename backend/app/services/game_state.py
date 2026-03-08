@@ -48,6 +48,56 @@ def _decode_health_word(word: int) -> int:
     return int(round(_clamp01(float(word) / float(HEALTH_FP_ONE)) * HEALTH_MAX))
 
 
+# Maximum credible health drop in a single state read (~10 Hz sampling).
+# MK4 combo damage caps at roughly 30 HP; anything larger almost certainly
+# indicates a read-tear (RAM mid-write) rather than real gameplay.
+_MAX_HEALTH_DROP_PER_READ = 32
+
+
+def _sanitize_health(
+    raw: int,
+    previous: int | None,
+    *,
+    health_max: int = HEALTH_MAX,
+) -> int:
+    """Return a validated health value, discarding likely read-tearing artefacts.
+
+    Edge cases handled:
+    - ``raw`` outside [0, health_max]  → always a tear; use previous or full.
+    - ``raw`` > ``previous``           → health never increases mid-round; use previous.
+    - Drop > _MAX_HEALTH_DROP_PER_READ and result is exactly 0 or health_max →
+      classic tear signature (mid-write u32 produces 0x00000000 or large word
+      clamped to max); use previous.
+    - ``previous`` is None (first read) → accept any in-range value as-is.
+    - Any unexpected exception           → fall back to previous or full health.
+
+    Returns an int guaranteed to be in [0, health_max].
+    """
+    try:
+        v = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        return previous if previous is not None else health_max
+
+    # Hard out-of-range: always a bad read
+    if v < 0 or v > health_max:
+        return previous if previous is not None else health_max
+
+    if previous is None:
+        # First read — accept anything in-range
+        return v
+
+    # Health cannot increase mid-round
+    if v > previous:
+        return previous
+
+    # Large single-frame drops landing on sentinel boundary values are tears
+    drop = previous - v
+    if drop > _MAX_HEALTH_DROP_PER_READ and v in (0, health_max):
+        return previous
+
+    return v
+
+
 def _decode_s16hi(word: int) -> float:
     hi = (int(word) >> 16) & 0xFFFF
     signed = hi if hi < 0x8000 else hi - 0x10000
@@ -359,20 +409,28 @@ def _merge_state_sources(
     p2_air_word = _probe_value(probe, "p2_air_flag_word")
     p1_y_vel_raw = _probe_value(probe, "p1_y_vel_raw")
 
-    p1_health = pick_int_field(
+    _prev_p1 = previous_state.p1_health if previous_state is not None else None
+    _prev_p2 = previous_state.p2_health if previous_state is not None else None
+
+    p1_health_raw = pick_int_field(
         "p1_health",
         direct_value=_decode_health_word(p1_health_word) if p1_health_word is not None else None,
         contract_key="p1_health",
         default=HEALTH_MAX,
-        previous_value=previous_state.p1_health if previous_state is not None else None,
+        previous_value=_prev_p1,
     )
-    p2_health = pick_int_field(
+    p2_health_raw = pick_int_field(
         "p2_health",
         direct_value=_decode_health_word(p2_health_word) if p2_health_word is not None else None,
         contract_key="p2_health",
         default=HEALTH_MAX,
-        previous_value=previous_state.p2_health if previous_state is not None else None,
+        previous_value=_prev_p2,
     )
+    # Final sanity pass: discard read-tearing artefacts at the source so no
+    # corrupted health value ever reaches the WebSocket broadcast.
+    p1_health = _sanitize_health(p1_health_raw, _prev_p1)
+    p2_health = _sanitize_health(p2_health_raw, _prev_p2)
+
     timer = pick_int_field(
         "timer",
         direct_value=(timer_word & 0xFF) if timer_word is not None else None,
