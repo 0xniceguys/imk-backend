@@ -5,6 +5,7 @@ class WalletState {
   final double seekerBalance;
   final double solUsdValue;
   final double seekerUsdValue;
+  final double seekerUsdPrice;
   final String seekerSymbol;
   final bool isDevnet;
   final bool isLoading;
@@ -17,6 +18,7 @@ class WalletState {
     this.seekerBalance = 0,
     this.solUsdValue = 0,
     this.seekerUsdValue = 0,
+    this.seekerUsdPrice = 0,
     this.seekerSymbol = 'SKR',
     this.isDevnet = false,
     this.isLoading = false,
@@ -32,6 +34,7 @@ class WalletState {
     double? seekerBalance,
     double? solUsdValue,
     double? seekerUsdValue,
+    double? seekerUsdPrice,
     String? seekerSymbol,
     bool? isDevnet,
     bool? isLoading,
@@ -44,6 +47,7 @@ class WalletState {
     seekerBalance: seekerBalance ?? this.seekerBalance,
     solUsdValue: solUsdValue ?? this.solUsdValue,
     seekerUsdValue: seekerUsdValue ?? this.seekerUsdValue,
+    seekerUsdPrice: seekerUsdPrice ?? this.seekerUsdPrice,
     seekerSymbol: seekerSymbol ?? this.seekerSymbol,
     isDevnet: isDevnet ?? this.isDevnet,
     isLoading: isLoading ?? this.isLoading,

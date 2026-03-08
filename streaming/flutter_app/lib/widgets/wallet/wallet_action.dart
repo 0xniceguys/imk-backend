@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
@@ -27,8 +28,6 @@ class WalletActionWidget extends ConsumerWidget {
     final total = _usd.format(wallet.totalUsdValue);
 
     if (style == WalletActionStyle.compact) {
-      final dpr = MediaQuery.of(context).devicePixelRatio;
-      final cachePx = (24 * dpr).round();
       return Pressable(
         onTap: () => showWalletManageSheet(context),
         scaleTo: 0.96,
@@ -36,15 +35,14 @@ class WalletActionWidget extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              Assets.balanceIcon,
+            SvgPicture.asset(
+              Assets.moneyIcon,
               width: 24,
               height: 24,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.none,
-              isAntiAlias: false,
-              cacheWidth: cachePx,
-              cacheHeight: cachePx,
+              colorFilter: const ColorFilter.mode(
+                Palette.gold,
+                BlendMode.srcIn,
+              ),
             ),
             const SizedBox(width: 7),
             Text(

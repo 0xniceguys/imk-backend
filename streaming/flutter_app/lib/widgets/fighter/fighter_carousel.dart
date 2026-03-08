@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../models/fighter.dart';
+import '../../models/wallet_state.dart';
 import '../../providers/fighter_stats_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../utils/skr_pricing.dart';
@@ -321,12 +322,12 @@ class _FighterOverviewStats extends ConsumerWidget {
     );
     final betVolumeText = statsAsync.when(
       loading: () => '--',
-      error: (_, _) => '\$0.00',
+      error: (_, _) => '--',
       data: (stats) {
+        if (stats == null) return '--';
         final totalBetVolumeSkr =
-            (stats?['total_bet_volume'] as num?)?.toDouble() ?? 0;
-        final totalBetVolumeUsd = skrToUsd(totalBetVolumeSkr, wallet);
-        return '\$${totalBetVolumeUsd.toStringAsFixed(2)}';
+            (stats['total_bet_volume'] as num?)?.toDouble() ?? 0;
+        return _formatBetVolume(totalBetVolumeSkr, wallet);
       },
     );
 
@@ -374,6 +375,15 @@ class _FighterOverviewStats extends ConsumerWidget {
   static String _winRate(double value) {
     if (value.isNaN || value.isInfinite) return 'N/A';
     return '${(value * 100).toStringAsFixed(0)}%';
+  }
+
+  static String _formatBetVolume(double totalBetVolumeSkr, WalletState wallet) {
+    if (!totalBetVolumeSkr.isFinite) return '--';
+    final totalBetVolumeUsd = skrToUsd(totalBetVolumeSkr, wallet);
+    if (totalBetVolumeUsd > 0 || totalBetVolumeSkr == 0) {
+      return '\$${totalBetVolumeUsd.toStringAsFixed(2)}';
+    }
+    return '${totalBetVolumeSkr.toStringAsFixed(2)} ${wallet.seekerSymbol}';
   }
 }
 

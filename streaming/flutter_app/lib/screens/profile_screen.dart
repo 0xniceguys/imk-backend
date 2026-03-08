@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_boring_avatars/flutter_boring_avatars.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
+import '../core/constants.dart';
 import '../router.dart';
 import '../providers/auth_provider.dart';
 import '../models/bet.dart';
@@ -13,6 +15,7 @@ import '../widgets/shared/app_shell.dart';
 import '../widgets/wallet/wallet_action.dart';
 import '../widgets/shared/profile_stats.dart';
 import '../widgets/shared/history_card.dart';
+import '../widgets/shared/ik_loader.dart';
 import '../widgets/shared/pressable.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -24,7 +27,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  final Set<String> _claimingBetIds = <String>{};
+  bool _isClaimingAll = false;
+  String _claimAllAmountText = '';
 
   @override
   void initState() {
@@ -35,33 +39,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
   }
 
-  Future<void> _claimBet(Bet bet) async {
-    if (_claimingBetIds.contains(bet.id)) return;
-    setState(() => _claimingBetIds.add(bet.id));
+  Future<void> _claimAllBets(List<Bet> claimableBets) async {
+    if (_isClaimingAll || claimableBets.isEmpty) return;
+    final currency = claimableBets.first.currency;
+    final total = claimableBets.fold<double>(
+      0,
+      (sum, bet) => sum + (bet.payout ?? bet.amount),
+    );
+    setState(() {
+      _isClaimingAll = true;
+      _claimAllAmountText = '${_trimAmount(total)} $currency';
+    });
+
+    var successCount = 0;
+    var failureCount = 0;
+
     try {
-      final sig = await ref.read(betProvider.notifier).claimBet(betId: bet.id);
+      final notifier = ref.read(betProvider.notifier);
+      for (var i = 0; i < claimableBets.length; i++) {
+        final bet = claimableBets[i];
+        try {
+          await notifier.claimBet(betId: bet.id);
+          successCount += 1;
+        } catch (_) {
+          failureCount += 1;
+        }
+
+        if (i < claimableBets.length - 1) {
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      }
+
       ref.invalidate(betSummaryProvider);
       if (!mounted) return;
-      final shortSig = (sig != null && sig.length > 14)
-          ? '${sig.substring(0, 8)}...${sig.substring(sig.length - 6)}'
-          : (sig ?? 'n/a');
+      final message = failureCount == 0
+          ? 'Claimed $successCount reward${successCount == 1 ? '' : 's'}'
+          : 'Claimed $successCount, failed $failureCount';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Claim submitted: $shortSig'),
-          backgroundColor: Palette.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Claim failed: $e'),
-          backgroundColor: Palette.red,
+          content: Text(message),
+          backgroundColor: failureCount == 0 ? Palette.green : Palette.gold,
         ),
       );
     } finally {
       if (mounted) {
-        setState(() => _claimingBetIds.remove(bet.id));
+        setState(() {
+          _isClaimingAll = false;
+          _claimAllAmountText = '';
+        });
       }
     }
   }
@@ -111,6 +136,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           (b) => b.status == BetStatus.won || b.status == BetStatus.claimed,
         )
         .length;
+    final claimableBets = bets.where((b) => b.isClaimable).toList();
+    final claimableTotal = claimableBets.fold<double>(
+      0,
+      (sum, bet) => sum + (bet.payout ?? bet.amount),
+    );
+    final claimableCurrency = claimableBets.isNotEmpty
+        ? claimableBets.first.currency
+        : wallet.seekerSymbol;
+    final showClaimButton = claimableBets.isNotEmpty || _isClaimingAll;
+    final claimButtonAmountText = _isClaimingAll && _claimAllAmountText.isNotEmpty
+        ? _claimAllAmountText
+        : '${_trimAmount(claimableTotal)} $claimableCurrency';
     final fallbackTotalBets = bets.length;
     final fallbackWinRate = fallbackTotalBets > 0
         ? '${(wonBets / fallbackTotalBets * 100).toStringAsFixed(0)}%'
@@ -142,7 +179,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         onTap: () => _handleLogout(context),
         scaleTo: 0.96,
         opacityTo: 0.7,
-        child: Text('Log out', style: bodyStyle(size: 16, color: Palette.red)),
+        child: SvgPicture.asset(
+          Assets.logoutIcon,
+          width: 32,
+          height: 32,
+          // colorFilter: const ColorFilter.mode(Palette.red, BlendMode.srcIn),
+        ),
       ),
       onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
@@ -228,29 +270,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               plOverall: pnlText,
               plOverallColor: pnlColor,
               bettingFor: fallbackBettingFor,
+              footer: showClaimButton
+                  ? _ClaimAllButton(
+                      amountText: claimButtonAmountText,
+                      loading: _isClaimingAll,
+                      onTap: () => _claimAllBets(claimableBets),
+                    )
+                  : null,
             ),
           ),
           const SizedBox(height: 24),
-          Text('Bet History', style: displayStyle(size: 24)),
+          Text('BET HISTORY', style: displayStyle(size: 22)),
+          const SizedBox(height: 24),
           if (bets.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              padding: const EdgeInsets.symmetric(vertical: 20,),
               child: Text(
                 'No bets yet',
                 style: bodyStyle(size: 16, color: Palette.muted),
               ),
             )
           else
-            for (final bet in bets) ...[
-              HistoryCardWidget(
+            for (final bet in [...bets]..sort((a, b) => b.placedAt.compareTo(a.placedAt))) ...[
+
+              Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4,horizontal: 40),
+              child:   HistoryCardWidget(
                 bet: bet,
-                onTap: () => widget.onNavigate('/battle-detail'),
-                onClaim: bet.isClaimable ? () => _claimBet(bet) : null,
-                claimLoading: _claimingBetIds.contains(bet.id),
+                onTap: () => widget.onNavigate('/battle-detail/${bet.matchId}'),
               ),
+            ),
+            
               const SizedBox(height: 14),
             ],
           const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  String _trimAmount(double value) {
+    final text = value.toStringAsFixed(2);
+    return text.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+}
+
+class _ClaimAllButton extends StatelessWidget {
+  const _ClaimAllButton({
+    required this.amountText,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final String amountText;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: loading ? null : onTap,
+      scaleTo: 0.97,
+      haptic: true,
+      child: Column(
+        children: [
+          Transform.flip(
+            flipY: true,
+            child: SvgPicture.asset(
+              Assets.ornateTrial,
+              width: 250,
+              height: 8,
+              fit: BoxFit.fill,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Opacity(
+            opacity: loading ? 0.8 : 1,
+            child: Column(
+              children: [
+                Text(
+                  'CLAIM BETS & REWARDS',
+                  textAlign: TextAlign.center,
+                  style: bodyStyle(size: 13, color: Palette.secondary),
+                ),
+                const SizedBox(height: 8),
+                if (loading)
+                  const IKLoader(size: 24)
+                else
+                  Text(
+                    amountText,
+                    textAlign: TextAlign.center,
+                    style: displayStyle(size: 22, color: Palette.gold),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          SvgPicture.asset(
+            Assets.ornateTrial,
+            width: 250,
+            height: 8,
+            fit: BoxFit.fill,
+          ),
         ],
       ),
     );

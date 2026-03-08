@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../core/constants.dart';
@@ -26,23 +27,19 @@ class BottomNavWidget extends StatelessWidget {
       children: [
         _NavItem(
           label: 'Arena',
-          icon: active == NavTab.arena
-              ? Assets.navActiveArena
-              : Assets.navInactiveArena,
+          icon: Assets.navArenaIcon,
           active: active == NavTab.arena,
           onTap: onTapArena,
         ),
         _NavItem(
           label: 'Fighters',
-          icon: active == NavTab.fighters
-              ? Assets.navActiveFighters
-              : Assets.navInactiveFighters,
+          icon: Assets.navFightersIcon,
           active: active == NavTab.fighters,
           onTap: onTapFighters,
         ),
         _NavItem(
           label: 'Profile',
-          icon: Assets.navInactiveProfile,
+          icon: Assets.navProfileIcon,
           active: active == NavTab.profile,
           onTap: onTapProfile,
         ),
@@ -73,7 +70,14 @@ class _NavItem extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(icon, width: 48, height: 48),
+          SvgPicture.asset(
+            icon,
+            width: 48,
+            height: 48,
+            colorMapper: _NavIconColorMapper(
+              active ? Palette.gold : Palette.muted,
+            ),
+          ),
           const SizedBox(height: 4),
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 200),
@@ -86,5 +90,28 @@ class _NavItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _NavIconColorMapper extends ColorMapper {
+  const _NavIconColorMapper(this.replacement);
+
+  final Color replacement;
+
+  @override
+  Color substitute(
+    String? id,
+    String elementName,
+    String attributeName,
+    Color color,
+  ) {
+    final argb = color.toARGB32();
+    final rgb = argb & 0x00FFFFFF;
+    // Recolor only the original gray icon strokes/fills (#888888).
+    if (rgb == 0x00888888) {
+      final alpha = ((argb >> 24) & 0xFF) / 255.0;
+      return replacement.withValues(alpha: alpha);
+    }
+    return color;
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants.dart';
@@ -28,6 +30,7 @@ class BattleDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
+  ProviderSubscription<MatchState>? _matchStateSub;
   int? _selectedFighter;
   Future<List<MatchBetFeedItem>>? _betFeedFuture;
   String? _betFeedMatchId;
@@ -61,6 +64,26 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
           .read(apiServiceProvider)
           .fetchMatchBetFeed(matchId, limit: 20);
     });
+  }
+
+  void _onMatchStateChanged(MatchState? prev, MatchState next) {
+    if (!mounted) return;
+    final match = _resolveMatch(next.matches);
+    if (match == null || match.status != MatchStatus.live) return;
+
+    final streamSvc = ref.read(matchStreamServiceProvider);
+    if (streamSvc.matchId != match.id) {
+      streamSvc.connect(match.id);
+    } else if (!streamSvc.isConnected && !streamSvc.isConnecting) {
+      streamSvc.connect(match.id);
+    }
+
+    if (_navigatedToLive) return;
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
+    if (!isCurrentRoute) return;
+
+    _navigatedToLive = true;
+    Future.microtask(() => widget.onNavigate('/live-match/${match.id}'));
   }
 
   @override
@@ -104,12 +127,20 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
       );
     }
 
-    final match = widget.matchId != null
-        ? matches.firstWhere(
-            (m) => m.id == widget.matchId,
-            orElse: () => matches.first,
-          )
-        : matches.first;
+    final match = _resolveMatch(matches);
+    if (match == null) {
+      return const Scaffold(
+        backgroundColor: Palette.black,
+        body: Center(
+          child: Text(
+            'No matches available',
+            style: TextStyle(color: Palette.muted, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
+    _maybeRefreshAroundGoLive(match);
 
     _ensureBetFeedFuture(match.id);
     _maybePreConnect(match);
@@ -280,6 +311,33 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
         ],
       ),
     );
+  }
+
+  Match? _resolveMatch(List<Match> matches) {
+    if (matches.isEmpty) return null;
+    if (widget.matchId == null) return matches.first;
+    return matches.cast<Match?>().firstWhere(
+          (m) => m?.id == widget.matchId,
+          orElse: () => matches.first,
+        ) ??
+        matches.first;
+  }
+
+  void _maybeRefreshAroundGoLive(Match match) {
+    if (match.status != MatchStatus.upcoming || match.queuePosition != 1) {
+      return;
+    }
+    final startsAt = match.queueStartsAt;
+    if (startsAt == null) return;
+    final remain = startsAt.difference(DateTime.now()).inSeconds;
+    if (remain > 2) return;
+
+    final now = DateTime.now();
+    if (now.difference(_lastGoLiveRefreshAt) < const Duration(seconds: 1)) {
+      return;
+    }
+    _lastGoLiveRefreshAt = now;
+    unawaited(ref.read(matchProvider.notifier).refresh());
   }
 
   Future<void> _pickSideAndOpenBet(int side, Match match) async {

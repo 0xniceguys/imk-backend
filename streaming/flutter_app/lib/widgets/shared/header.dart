@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../core/constants.dart';
+import 'pressable.dart';
 import '../wallet/wallet_action.dart';
 
 class HeaderWidget extends StatelessWidget {
@@ -15,6 +16,8 @@ class HeaderWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mainTrailing =
+        trailing ?? const WalletActionWidget(style: WalletActionStyle.compact);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -32,7 +35,28 @@ class HeaderWidget extends StatelessWidget {
             ),
           ],
         ),
-        trailing ?? const WalletActionWidget(style: WalletActionStyle.compact),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (kOnboardingDebugTapAvailable) ...[
+              Pressable(
+                onTap: () => Navigator.of(context).pushNamed('/onboarding'),
+                opacityTo: 0.8,
+                child: SvgPicture.asset(
+                  Assets.skullIcon,
+                  width: 20,
+                  height: 20,
+                  colorFilter: const ColorFilter.mode(
+                    Palette.gold,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            mainTrailing,
+          ],
+        ),
       ],
     );
   }
