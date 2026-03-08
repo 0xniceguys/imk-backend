@@ -59,14 +59,6 @@ class PostMatchScreen extends ConsumerWidget {
         title: 'Preparing Result',
         subtitle: 'Settling the final result for this match.',
         showLoader: true,
-        actionLabel: resolvedMatch.status == MatchStatus.live
-            ? 'Go to Live Match'
-            : 'Open Match',
-        onAction: () => onNavigate(
-          resolvedMatch.status == MatchStatus.live
-              ? '/live-match/${resolvedMatch.id}'
-              : '/battle-detail/${resolvedMatch.id}',
-        ),
       );
     }
 
@@ -97,19 +89,13 @@ class PostMatchScreen extends ConsumerWidget {
           Container(
             width: 176,
             height: 204,
-            decoration: BoxDecoration(
-              border: Border.all(color: Palette.gold, width: 3),
-              borderRadius: BorderRadius.circular(10),
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Palette.sheetBg.withValues(alpha: 0.5),
-                  Colors.transparent,
-                ],
+                colors: [Color(0x80121212), Colors.transparent],
               ),
             ),
-            clipBehavior: Clip.antiAlias,
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: winner != null
@@ -151,7 +137,6 @@ class PostMatchScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               border: Border.all(color: Palette.border),
-              borderRadius: BorderRadius.circular(8),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -196,8 +181,6 @@ class PostMatchScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     bool showLoader = false,
-    String? actionLabel,
-    VoidCallback? onAction,
   }) {
     return AppShell(
       activeTab: NavTab.arena,
@@ -215,8 +198,8 @@ class PostMatchScreen extends ConsumerWidget {
             Text(subtitle, style: bodyStyle(color: Palette.muted)),
             const SizedBox(height: 16),
             OrnateButton(
-              label: actionLabel ?? 'Back to Arena',
-              onTap: onAction ?? () => onNavigate('/arena-list'),
+              label: 'Back to Arena',
+              onTap: () => onNavigate('/arena-list'),
             ),
           ],
         ),
@@ -277,7 +260,6 @@ class _BetResult extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         children: [
@@ -303,7 +285,6 @@ class _NoBetPlaced extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: Palette.border),
-        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         'No bet(S) placed on this match',

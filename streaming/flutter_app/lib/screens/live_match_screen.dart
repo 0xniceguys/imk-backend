@@ -637,18 +637,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                   builder: (_) => BetBottomSheet(match: match),
                 );
               },
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-              decoration: BoxDecoration(
-                border: Border.all(color: Palette.muted.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Betting Closed',
-                style: bodyStyle(size: 16, color: Palette.muted),
-              ),
             ),
           const SizedBox(height: 8),
         ],
@@ -659,7 +647,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
 
 /// Health bars and timer overlay.
-class _HealthOverlay extends StatelessWidget {
+/// StatefulWidget so it can clamp health monotonically downwards —
+/// if a new value is higher than the last seen, the old value is kept.
+/// This prevents visual glitches from occasional bad reads.
+class _HealthOverlay extends StatefulWidget {
   const _HealthOverlay({
     required this.gameState,
     required this.fighter1Name,
@@ -669,6 +660,24 @@ class _HealthOverlay extends StatelessWidget {
   final GameState gameState;
   final String fighter1Name;
   final String fighter2Name;
+
+  @override
+  State<_HealthOverlay> createState() => _HealthOverlayState();
+}
+
+class _HealthOverlayState extends State<_HealthOverlay> {
+  double _p1Pct = 1.0;
+  double _p2Pct = 1.0;
+
+  @override
+  void didUpdateWidget(_HealthOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newP1 = widget.gameState.p1HealthPct.clamp(0.0, 1.0);
+    final newP2 = widget.gameState.p2HealthPct.clamp(0.0, 1.0);
+    // Only update if health went down — ignore upward glitches
+    if (newP1 < _p1Pct) _p1Pct = newP1;
+    if (newP2 < _p2Pct) _p2Pct = newP2;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -682,13 +691,13 @@ class _HealthOverlay extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  fighter1Name,
+                  widget.fighter1Name,
                   style: bodyStyle(size: 11, color: Palette.secondary),
                 ),
                 const SizedBox(height: 4),
                 _HealthBar(
-                  pct: gameState.p1HealthPct,
-                  color: const Color(0xFF4CAF50),
+                  pct: _p1Pct,
+                  color: const Color(0xFFBB1111), // dark crimson
                   reversed: false,
                 ),
               ],
@@ -698,7 +707,7 @@ class _HealthOverlay extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
-              '${gameState.timer}',
+              '${widget.gameState.timer}',
               style: displayStyle(size: 24, color: Palette.gold),
             ),
           ),
@@ -708,13 +717,13 @@ class _HealthOverlay extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  fighter2Name,
+                  widget.fighter2Name,
                   style: bodyStyle(size: 11, color: Palette.secondary),
                 ),
                 const SizedBox(height: 4),
                 _HealthBar(
-                  pct: gameState.p2HealthPct,
-                  color: const Color(0xFFF44336),
+                  pct: _p2Pct,
+                  color: const Color(0xFF7A0000), // dark blood red
                   reversed: true,
                 ),
               ],
@@ -741,10 +750,8 @@ class _HealthBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 8,
-      decoration: BoxDecoration(
-        color: Palette.cardBg,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      // No borderRadius — sharp edges match design style
+      color: const Color(0xFF1A1410),
       child: LayoutBuilder(
         builder: (context, constraints) {
           return Stack(
@@ -757,12 +764,7 @@ class _HealthBar extends StatelessWidget {
                 top: 0,
                 bottom: 0,
                 width: constraints.maxWidth * pct.clamp(0.0, 1.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
+                child: ColoredBox(color: color),
               ),
             ],
           );
