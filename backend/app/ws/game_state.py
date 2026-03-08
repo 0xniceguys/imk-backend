@@ -37,6 +37,40 @@ async def _get_match_ended(match_id: str) -> dict | None:
         return None
 
 
+@router.websocket("/ws/events")
+async def global_events_websocket(ws: WebSocket):
+    """
+    Global events channel for all match status changes.
+    Clients connect here to get notified when ANY match goes live.
+    """
+    await ws.accept()
+    manager.subscribe_global(ws)
+    client_id = f"client-{id(ws)}"
+
+    try:
+        # Send initial connection confirmation
+        await ws.send_json({
+            "type": "connected",
+            "client_id": client_id,
+        })
+
+        # Keep connection alive and handle pings
+        while True:
+            try:
+                data = await ws.receive_json()
+                if data.get("type") == "ping":
+                    await ws.send_json({"type": "pong"})
+            except Exception:
+                break
+
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("Global events WebSocket error")
+    finally:
+        manager.unsubscribe_global(ws)
+
+
 @router.websocket("/ws/match/{match_id}")
 async def match_websocket(ws: WebSocket, match_id: str):
     """
@@ -82,9 +116,22 @@ async def match_websocket(ws: WebSocket, match_id: str):
             "match_id": match_id,
             "viewer_count": manager.viewer_count(match_id),
             "runner_state": runner.state.value,
+            "streaming_state": runner.streaming_state.value,
             "match_ended": is_ended,
             "game_state": cached_state,
         })
+        # Send current streaming state separately so Flutter's stream listener picks it up
+        if runner.streaming_state.value in ("ready", "playing"):
+            await ws.send_json({
+                "type": "streaming_state",
+                "state": runner.streaming_state.value,
+                "hls_url": f"/stream/{match_id}/stream.m3u8",
+            })
+        elif runner.streaming_state.value != "not_started":
+            await ws.send_json({
+                "type": "streaming_state",
+                "state": runner.streaming_state.value,
+            })
         # Re-emit match_ended so Flutter's listener fires for late joiners
         if is_ended:
             payload = {"type": "match_ended", "match_id": match_id, "runner_state": runner.state.value}

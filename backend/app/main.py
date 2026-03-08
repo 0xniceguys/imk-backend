@@ -30,6 +30,31 @@ async def lifespan(app: FastAPI):
     stats = full_cleanup()
     logger.info(f"Startup cleanup: {stats}")
 
+    # Clean up any stale LIVE matches from previous runs
+    from app.db.engine import async_session
+    from app.db.models import Match, MatchStatus
+    from sqlalchemy import update
+    from datetime import datetime, timezone
+
+    async with async_session() as db:
+        # Find matches that are LIVE but have no active runner
+        # These are matches that were interrupted by a service restart
+        result = await db.execute(
+            update(Match)
+            .where(Match.status == MatchStatus.LIVE)
+            .values(
+                status=MatchStatus.COMPLETED,
+                completed_at=datetime.now(timezone.utc),
+                # Don't set a winner since we don't know who won
+            )
+            .returning(Match.id)
+        )
+        updated_ids = result.scalars().all()
+        await db.commit()
+
+        if updated_ids:
+            logger.warning(f"Cleaned up {len(updated_ids)} stale LIVE matches: {updated_ids}")
+
     # Pre-fetch Privy JWKS so first auth request is fast
     from app.auth.privy import verify_privy_token  # noqa: F401
 
@@ -108,46 +133,66 @@ async def health():
     """Basic health check for load balancer."""
     return {"status": "ok"}
 
+# ── Combined H.264+AAC HLS Streaming ────────────────────────────────────────
 
-# ── HLS Audio Streaming ──────────────────────────────────────────────────────
-
-from fastapi.responses import FileResponse  # noqa: E402
-from app.services.ffmpeg_audio_capture import hls_playlist_path, hls_dir  # noqa: E402
+from fastapi.responses import FileResponse, Response  # noqa: E402
+from app.services.ffmpeg_combined_hls import hls_playlist_path, hls_dir  # noqa: E402
 
 
-@app.get("/stream/audio/{match_id}/stream.m3u8")
-async def audio_playlist(match_id: str):
-    """Serve the HLS audio playlist for a live match."""
+@app.get("/stream/{match_id}/stream.m3u8")
+async def stream_playlist(match_id: str):
+    """Serve the combined HLS playlist (video+audio) for a live match."""
     path = hls_playlist_path(match_id)
     if not path.exists():
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Audio stream not yet available")
+        # Return an empty 404 body for media clients. JSON error payloads can be
+        # misinterpreted by some HLS parsers as transport stream bytes.
+        return Response(
+            status_code=404,
+            media_type="application/vnd.apple.mpegurl",
+            headers={
+                "Cache-Control": "no-cache, no-store",
+                "Access-Control-Allow-Origin": "*",
+                "Retry-After": "1",
+            },
+        )
     return FileResponse(
         str(path),
         media_type="application/vnd.apple.mpegurl",
-        headers={
-            "Cache-Control": "no-cache, no-store",
-            "Access-Control-Allow-Origin": "*",
-        },
+        headers={"Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*"},
     )
 
 
-@app.get("/stream/audio/{match_id}/{segment}")
-async def audio_segment(match_id: str, segment: str):
+@app.get("/stream/{match_id}/{segment}")
+async def stream_segment(match_id: str, segment: str):
     """Serve an individual HLS .ts segment."""
     if not segment.endswith(".ts"):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Only .ts segments served here")
+        return Response(status_code=400)
     path = hls_dir(match_id) / segment
     if not path.exists():
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Segment not found")
+        # Empty 404 avoids sending JSON bodies to media decoders.
+        return Response(
+            status_code=404,
+            media_type="video/mp2t",
+            headers={"Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*"},
+        )
     return FileResponse(
         str(path),
         media_type="video/mp2t",
         headers={"Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*"},
     )
 
+
+# Legacy audio-only path — redirects to combined stream for backward compat
+@app.get("/stream/audio/{match_id}/stream.m3u8")
+async def audio_playlist_compat(match_id: str):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/stream/{match_id}/stream.m3u8")
+
+
+@app.get("/stream/audio/{match_id}/{segment}")
+async def audio_segment_compat(match_id: str, segment: str):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/stream/{match_id}/{segment}")
 
 
 

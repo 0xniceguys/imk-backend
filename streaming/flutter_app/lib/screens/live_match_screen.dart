@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+
 import '../core/constants.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
@@ -13,7 +14,7 @@ import '../models/game_state.dart';
 import '../providers/bet_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
-import '../services/match_stream_service.dart';
+import '../providers/global_events_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
@@ -77,20 +78,30 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   int _playerDisposeCount = 0;
   Future<void> _pendingControllerDispose = Future<void>.value();
 
-  final Queue<_ScheduledHudState> _hudQueue = Queue<_ScheduledHudState>();
-  Timer? _hudPumpTimer;
-  Timer? _hlsFallbackTimer;
-  Timer? _hlsRetryTimer;
-  GameState? _displayGameState;
-
-  bool _disposed = false;
-  bool _terminal = false;
+  String? _lastConnectedMatchId;
   bool _navigatedToPostMatch = false;
+  Timer? _fastPollTimer;
 
-  void _log(String tag, String message, {String? matchId}) {
-    if (!kDebugMode) return;
-    final id = matchId ?? _activeMatchId ?? '-';
-    debugPrint('[$tag][$id] $message');
+  // Combined HLS player: video + audio in one stream
+  VideoPlayerController? _hlsController;
+  String? _hlsMatchId; // guard against double-init for the same match
+  bool _hlsInitializing = false;
+
+  // FPS readout driven by VideoPlayerController listener
+  int _fps = 0;
+  int _lastFpsCheck = 0;
+  int _fpsFrameCount = 0;
+
+  void _onPlayerUpdate() {
+    // Track FPS from VideoPlayer positions advancing
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _fpsFrameCount++;
+    if (now - _lastFpsCheck >= 1000) {
+      final newFps = _fpsFrameCount;
+      _fpsFrameCount = 0;
+      _lastFpsCheck = now;
+      if (mounted) setState(() => _fps = newFps);
+    }
   }
 
   @override
@@ -173,126 +184,68 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       return;
     }
 
-    _ensureWsConnected(matchId);
-    _scheduleHlsFallback(matchId);
-    if (_streamState == LiveStreamClientState.wsConnected ||
-        _streamState == LiveStreamClientState.idle ||
-        _streamState == LiveStreamClientState.error) {
-      _setStreamState(
-        LiveStreamClientState.streamInitializing,
-        reason: 'match-live-awaiting-stream-ready',
-      );
-    }
+    // Connect after first frame — at this point providers may already have data.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connectToMatch();
+      _listenForGlobalEvents();
+      // If the WS was pre-connected from battle_detail_screen and the backend
+      // already signalled 'ready', kick off HLS immediately without waiting.
+      _checkEarlyStreamReady();
+    });
   }
 
-  void _switchMatch(String matchId) {
-    _log('MATCH', 'Switching to match', matchId: matchId);
-    _activeMatchId = matchId;
-    _terminal = false;
-    _navigatedToPostMatch = false;
-    _cancelHlsTimers();
-    _disposeVideoController();
-    _clearHudQueue();
-    if (mounted) {
-      setState(() => _displayGameState = null);
-    } else {
-      _displayGameState = null;
-    }
-    _hlsInitAttempts = 0;
-    _setStreamState(LiveStreamClientState.idle, reason: 'match-switch');
-  }
-
-  void _ensureWsConnected(String matchId) {
-    final streamSvc = ref.read(matchStreamServiceProvider);
-    if (streamSvc.matchId == matchId &&
-        (streamSvc.isConnected || streamSvc.isConnecting)) {
-      return;
-    }
-    _log('WS', 'Connect requested', matchId: matchId);
-    streamSvc.connect(matchId);
-  }
-
-  void _onStreamingState(StreamingStateEvent event) {
-    final matchId = _activeMatchId;
-    if (_disposed || _terminal || matchId == null) return;
-    if (event.matchId != null && event.matchId != matchId) return;
-
-    _log(
-      'WS',
-      'streaming_state=${event.status} hls_url=${event.hlsUrl}',
-      matchId: matchId,
-    );
-    if (event.isReady) {
-      _setStreamState(LiveStreamClientState.streamReady, reason: 'ws-ready');
-      _startHls(matchId, reason: 'ws-ready', hintedHlsUrl: event.hlsUrl);
-    } else if (event.status == 'initializing' || event.status == 'starting') {
-      _setStreamState(
-        LiveStreamClientState.streamInitializing,
-        reason: 'ws-${event.status}',
-      );
-    }
-  }
-
-  void _enqueueHudState(GameState state) {
-    if (_disposed || _terminal) return;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final dueMs = state.timestamp == null
-        ? nowMs
-        : state.timestamp!.millisecondsSinceEpoch + kHudDisplayDelayMs;
-    _hudQueue.add(_ScheduledHudState(state, dueMs));
-    _startHudPump();
-  }
-
-  void _startHudPump() {
-    _hudPumpTimer ??= Timer.periodic(const Duration(milliseconds: 40), (_) {
-      if (_disposed || _terminal) {
-        _clearHudQueue();
-        return;
-      }
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      GameState? latestDue;
-      while (_hudQueue.isNotEmpty && _hudQueue.first.dueAtMs <= nowMs) {
-        latestDue = _hudQueue.removeFirst().state;
-      }
-      if (latestDue != null) {
-        _log(
-          'SYNC',
-          'HUD frame=${latestDue.frameId} applied (delayMs=$kHudDisplayDelayMs)',
-        );
-        if (mounted) {
-          setState(() => _displayGameState = latestDue);
-        }
-      }
-      if (_hudQueue.isEmpty) {
-        _hudPumpTimer?.cancel();
-        _hudPumpTimer = null;
+  /// Eagerly starts HLS if the pre-connected WebSocket already received a
+  /// 'ready' signal before the user navigated to this screen.
+  void _checkEarlyStreamReady() {
+    final matchId = widget.matchId ?? _findLiveMatchId();
+    if (matchId == null) return;
+    final currentState = ref.read(streamingStateProvider);
+    currentState.whenData((data) {
+      final state = data['state'] as String?;
+      final hlsUrl = data['hls_url'] as String?;
+      if (state == 'ready' && hlsUrl != null) {
+        debugPrint('[LiveMatch] Early HLS start — stream was already ready on screen entry');
+        _startHls(matchId);
       }
     });
   }
 
-  void _clearHudQueue() {
-    _hudQueue.clear();
-    _hudPumpTimer?.cancel();
-    _hudPumpTimer = null;
+  void _listenForGlobalEvents() {
+    // Listen for match status changes from global events
+    ref.listen<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (previous, next) {
+        next.whenData((event) {
+          final eventMatchId = event['match_id'] as String?;
+          final currentMatchId = widget.matchId ?? _lastConnectedMatchId;
+
+          // Check if this event is for our current match
+          if (eventMatchId == currentMatchId) {
+            if (event['type'] == 'match_status_changed') {
+              final status = event['status'] as String?;
+
+              if (status == 'completed' || status == 'cancelled') {
+                debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
+                _stopHls();
+                if (eventMatchId != null) {
+                  _navigateToPostMatch(eventMatchId);
+                }
+              }
+            }
+          }
+        });
+      },
+    );
   }
 
-  void _scheduleHlsFallback(String matchId) {
-    if (_hlsFallbackTimer?.isActive ?? false) return;
-    if (!_canStartHls(matchId)) return;
-    _hlsFallbackTimer = Timer(_hlsFallbackDelay, () {
-      if (_disposed || _terminal || _activeMatchId != matchId) return;
-      final match = ref.read(matchProvider.notifier).matchById(matchId);
-      final isLive = match?.status == MatchStatus.live;
-      if (!isLive || !_canStartHls(matchId)) {
-        _log(
-          'HLS',
-          'Fallback start skipped (isLive=$isLive, canStart=${_canStartHls(matchId)})',
-          matchId: matchId,
-        );
-        return;
-      }
-      _log('HLS', 'Fallback start after 8s (no ws ready)', matchId: matchId);
-      _startHls(matchId, reason: 'fallback-timeout');
+  void _navigateToPostMatch(String matchId) {
+    if (_navigatedToPostMatch || !mounted) return;
+    _navigatedToPostMatch = true;
+    _fastPollTimer?.cancel();
+    ref.read(betProvider.notifier).refresh();
+    ref.read(matchProvider.notifier).refresh();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) widget.onNavigate('/post-match/$matchId');
     });
   }
 
@@ -474,49 +427,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     }
   }
 
-  void _scheduleHlsRetry(String matchId, {required Object error}) {
-    if (_disposed || _terminal || _activeMatchId != matchId) return;
-    if (_hlsRetryTimer?.isActive ?? false) return;
-    if (_hlsInitAttempts >= _maxHlsInitAttempts) {
-      _log('HLS', 'Retry limit reached, giving up', matchId: matchId);
-      return;
-    }
-    final match = ref.read(matchProvider.notifier).matchById(matchId);
-    if (match?.status != MatchStatus.live) {
-      _log(
-        'HLS',
-        'Retry blocked because match not live (${match?.status.name})',
-        matchId: matchId,
-      );
-      return;
-    }
-
-    final errText = error.toString();
-    final is404 = errText.contains('404');
-    if (is404 && _terminal) {
-      _log('HLS', '404 after terminal state, no retry', matchId: matchId);
-      return;
-    }
-
-    final delay =
-        _hlsRetryBackoff[(_hlsInitAttempts - 1).clamp(
-          0,
-          _hlsRetryBackoff.length - 1,
-        )];
-    _log(
-      'HLS',
-      'Retry scheduled in ${delay.inSeconds}s (attempt ${_hlsInitAttempts + 1})',
-      matchId: matchId,
-    );
-    _hlsRetryTimer = Timer(delay, () {
-      if (_disposed || _terminal || _activeMatchId != matchId) return;
-      _disposeVideoController();
-      unawaited(_startHls(
-        matchId,
-        reason: is404 ? 'retry-404-transient' : 'retry-init-failure',
-        hintedHlsUrl: _lastHlsUrl,
-      ));
-    });
+    _lastConnectedMatchId = matchId;
+    ref.read(matchStreamServiceProvider).connect(matchId);
+    // Don't auto-start HLS here — wait for streaming_state: ready from backend
   }
 
   /// Returns the ID of the first truly LIVE match, or null.
@@ -531,99 +444,78 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     }
   }
 
-  String? _resolveTargetMatchId([List<Match>? matches]) {
-    return widget.matchId ?? _findLiveMatchId(matches);
-  }
-
-  void _handleMatchEnded({required String reason}) {
-    final matchId = _activeMatchId;
-    if (matchId == null) return;
-    if (_terminal) return;
-    _terminal = true;
-    _log('MATCH', 'Terminal state reached ($reason)', matchId: matchId);
-    _cancelHlsTimers();
-    _clearHudQueue();
-    _displayGameState = null;
-    _disposeVideoController();
-    ref.read(matchStreamServiceProvider).markTerminal(matchId);
-    _setStreamState(LiveStreamClientState.ended, reason: reason);
-    _navigateToPostMatch(matchId);
-  }
-
-  void _cancelHlsTimers() {
-    if ((_hlsFallbackTimer?.isActive ?? false) ||
-        (_hlsRetryTimer?.isActive ?? false)) {
-      _log('HLS', 'Cancelling fallback/retry timers');
-    }
-    _hlsFallbackTimer?.cancel();
-    _hlsFallbackTimer = null;
-    _hlsRetryTimer?.cancel();
-    _hlsRetryTimer = null;
-  }
-
-  Future<void> _disposeVideoController({
-    bool invalidateInitToken = true,
-    bool resetInitializing = true,
-  }) {
-    if (invalidateInitToken) _hlsInitToken++;
-    if (resetInitializing) _playerInitializing = false;
-    final ctrl = _videoController;
-    final videoMatchId = _videoMatchId;
-    _videoController = null;
-    _videoMatchId = null;
-    _lastIsBuffering = false;
-    if (ctrl == null) return _pendingControllerDispose;
-
-    _playerDisposeCount += 1;
-    _log(
-      'PLAYER',
-      'Disposing controller (init_count=$_playerInitCount, dispose_count=$_playerDisposeCount, rebuffer_count=$_rebufferCount)',
-      matchId: videoMatchId,
-    );
-    ctrl.removeListener(_onVideoValueChanged);
-    _pendingControllerDispose = ctrl.dispose().catchError((Object error) {
-      _log('PLAYER', 'Controller dispose failed: $error', matchId: videoMatchId);
-    });
-    return _pendingControllerDispose;
-  }
-
-  void _setStreamState(LiveStreamClientState next, {required String reason}) {
-    if (_streamState == next) return;
-    _log('MATCH', 'State ${_streamState.name} -> ${next.name} ($reason)');
-    if (!mounted) return;
-    setState(() => _streamState = next);
-  }
-
-  void _navigateToPostMatch(String matchId) {
-    if (_navigatedToPostMatch || !mounted) return;
-    _navigatedToPostMatch = true;
-    ref.read(betProvider.notifier).refresh();
-    ref.read(matchProvider.notifier).refresh();
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted) widget.onNavigate('/post-match/$matchId');
-    });
-  }
-
   @override
   void dispose() {
-    _disposed = true;
-    _matchStateSub?.close();
-    _matchStateSub = null;
-    _matchEndSub?.close();
-    _matchEndSub = null;
-    _streamingStateSub?.close();
-    _streamingStateSub = null;
-    _gameStateSub?.close();
-    _gameStateSub = null;
-    _wsConnectedSub?.close();
-    _wsConnectedSub = null;
-    _cancelHlsTimers();
-    _clearHudQueue();
-    unawaited(_disposeVideoController());
-    ref.read(matchStreamServiceProvider).disconnect();
-    ref.read(matchProvider.notifier).stopFastPolling();
+    _fastPollTimer?.cancel();
     _pulseCtrl.dispose();
+    _stopHls();
     super.dispose();
+  }
+
+  // ── HLS player helpers ──────────────────────────────────────────────────────
+
+  void _startHls(String matchId) {
+    if (_hlsMatchId == matchId) return; // already initing/playing this match
+    _hlsMatchId = matchId;
+    _stopHls();
+    _initHls(matchId, attempt: 1);
+  }
+
+  Future<void> _initHls(String matchId, {required int attempt}) async {
+    if (!mounted || _hlsMatchId != matchId) return;
+    _hlsInitializing = true;
+
+    // Backend signals when HLS is ready, so we should be able to init immediately.
+    // Still allow retries for network issues, but fewer and with shorter delays.
+    final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
+
+    if (attempt > 1) {
+      // Retry delay: 1s (network hiccup recovery)
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    if (!mounted || _hlsMatchId != matchId) return;
+
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
+    );
+    _hlsController = controller;
+    controller.addListener(_onPlayerUpdate);
+
+    try {
+      await controller.initialize();
+      if (!mounted || _hlsMatchId != matchId) {
+        controller.dispose();
+        return;
+      }
+      controller.setVolume(1.0);
+      controller.play();
+      _hlsInitializing = false;
+      if (mounted) setState(() {});
+      debugPrint('[HLS] ▶ Playing $url (attempt $attempt)');
+    } catch (e) {
+      debugPrint('[HLS] ✗ Init failed (attempt $attempt): $e');
+      controller.removeListener(_onPlayerUpdate);
+      controller.dispose();
+      if (!mounted || _hlsMatchId != matchId) return;
+      if (attempt < 3) {
+        debugPrint('[HLS] Retrying in 1s (attempt ${attempt + 1}/3)...');
+        _initHls(matchId, attempt: attempt + 1);
+      } else {
+        debugPrint('[HLS] ✗ Giving up after $attempt attempts for $matchId');
+        _hlsInitializing = false;
+        if (mounted) setState(() {});
+      }
+    }
+  }
+
+  void _stopHls() {
+    _hlsMatchId = null;
+    _hlsInitializing = false;
+    final ctrl = _hlsController;
+    _hlsController = null;
+    ctrl?.removeListener(_onPlayerUpdate);
+    ctrl?.dispose();
   }
 
   @override
@@ -631,13 +523,63 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
 
-    final matchId = _resolveTargetMatchId(matches);
+    // Retry connecting when match list loads or updates (handles the race
+    // where matchProvider is still empty when initState fires).
+    // Also catches the case where REST polling flips the match to completed
+    // after we missed the WS match_ended event (e.g. cold-start onto ended match).
+    ref.listen<MatchState>(matchProvider, (prev, next) {
+      final id = widget.matchId ?? _findLiveMatchId();
+      if (id != null) {
+        final updated = next.matches.cast<Match?>().firstWhere(
+          (m) => m?.id == id,
+          orElse: () => null,
+        );
+        if (updated != null &&
+            (updated.status == MatchStatus.completed ||
+                updated.status == MatchStatus.cancelled)) {
+          debugPrint('[LiveMatch] Poll detected match $id ended — navigating to post-match');
+          _navigateToPostMatch(id);
+          return;
+        }
+      }
+      _connectToMatch();
+    });
+
+    final matchId = widget.matchId ?? _findLiveMatchId();
     final match = matchId != null
         ? matches.cast<Match?>().firstWhere(
             (m) => m?.id == matchId,
             orElse: () => null,
           )
         : null;
+
+    // Listen for match end → stop player then navigate (deduped)
+    ref.listen<AsyncValue<void>>(matchEndProvider, (_, next) {
+      if (next.hasValue) {
+        _stopHls();
+        _navigateToPostMatch(matchId ?? '');
+      }
+    });
+
+    // Listen for streaming state changes → start HLS when ready
+    ref.listen<AsyncValue<Map<String, dynamic>>>(streamingStateProvider, (_, next) {
+      next.whenData((data) {
+        final state = data['state'] as String?;
+        final hlsUrl = data['hls_url'] as String?;
+        final error = data['error'] as String?;
+
+        debugPrint('[LiveMatch] Streaming state: $state');
+
+        if (state == 'ready' && matchId != null && hlsUrl != null) {
+          // Backend confirmed HLS is ready — start player now
+          debugPrint('[LiveMatch] HLS ready signal received — starting player');
+          _startHls(matchId);
+        } else if (state == 'error') {
+          debugPrint('[LiveMatch] HLS error: $error');
+          // Could show error UI here
+        }
+      });
+    });
 
     if (match == null) {
       final isStillLoading = !matchState.hasLoaded;
@@ -666,9 +608,32 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       );
     }
 
+    final isHlsReady = _hlsController != null &&
+        _hlsController!.value.isInitialized;
+    final isHlsLoading = _hlsInitializing && !isHlsReady;
+    final gameStateAsync = ref.watch(gameStateProvider);
     final viewerAsync = ref.watch(viewerCountProvider);
-    final gameState = _displayGameState;
-    final controller = _videoController;
+    final streamingStateAsync = ref.watch(streamingStateProvider);
+
+    // Determine what message to show when stream isn't playing
+    String streamStatusMessage = 'Stream starting...';
+    streamingStateAsync.whenData((data) {
+      final state = data['state'] as String?;
+      final error = data['error'] as String?;
+      switch (state) {
+        case 'initializing':
+          streamStatusMessage = 'Initializing stream...';
+          break;
+        case 'ready':
+          streamStatusMessage = 'Stream ready, loading...';
+          break;
+        case 'error':
+          streamStatusMessage = error ?? 'Stream error';
+          break;
+        default:
+          streamStatusMessage = 'Stream starting...';
+      }
+    });
 
     return AppShell(
       activeTab: NavTab.arena,
@@ -724,37 +689,58 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           ),
           const SizedBox(height: 8),
 
-          // Combined HLS video+audio frame
+          // Combined HLS video+audio player
           Stack(
             children: [
-              _LiveVideoFrame(controller: controller, state: _streamState),
-              // Connection-lost banner — shows when WS has given up reconnecting
-              Builder(
-                builder: (ctx) {
-                  final svc = ref.watch(matchStreamServiceProvider);
-                  if (!svc.hasGivenUp) return const SizedBox.shrink();
-                  return Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        final id = _activeMatchId;
-                        if (id != null) {
-                          _log('WS', 'Manual reconnect requested', matchId: id);
-                          svc.resetAndReconnect(id);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        color: Palette.red.withValues(alpha: 0.85),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                            SizedBox(width: 6),
-                            Text(
-                              'Connection lost — tap to retry',
+              AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Container(
+                  color: Palette.black,
+                  child: isHlsReady
+                      ? VideoPlayer(_hlsController!)
+                      : Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isHlsLoading) const IKLoader(size: 44)
+                              else const Icon(Icons.videocam_off,
+                                  color: Palette.muted, size: 36),
+                              const SizedBox(height: 12),
+                              Text(
+                                isHlsLoading
+                                    ? streamStatusMessage
+                                    : 'Stream unavailable',
+                                style: const TextStyle(
+                                    color: Palette.muted, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ),
+              // Connection-lost banner
+              Builder(builder: (ctx) {
+                final svc = ref.watch(matchStreamServiceProvider);
+                if (!svc.hasGivenUp) return const SizedBox.shrink();
+                return Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: GestureDetector(
+                    onTap: () {
+                      final id = widget.matchId ?? _lastConnectedMatchId;
+                      if (id != null) {
+                        _lastConnectedMatchId = null;
+                        svc.resetAndReconnect(id);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      color: Palette.red.withValues(alpha: 0.85),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('Connection lost — tap to retry',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -770,23 +756,32 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
               ),
               if (kDebugMode && matchId != null)
                 Positioned(
-                  top: 6,
-                  right: 8,
+                  top: 6, right: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ),
+                        horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _fps >= 20
+                            ? Colors.greenAccent
+                            : _fps >= 10
+                                ? Colors.yellow
+                                : Colors.redAccent,
+                        width: 1,
+                      ),
                     ),
                     child: Text(
                       _streamState.name,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Palette.gold,
+                        fontWeight: FontWeight.bold,
+                        color: _fps >= 20
+                            ? Colors.greenAccent
+                            : _fps >= 10
+                                ? Colors.yellow
+                                : Colors.redAccent,
                       ),
                     ),
                   ),
@@ -865,63 +860,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   }
 }
 
-class _LiveVideoFrame extends StatelessWidget {
-  const _LiveVideoFrame({required this.controller, required this.state});
-  final VideoPlayerController? controller;
-  final LiveStreamClientState state;
-  static const _targetAspectRatio = 4 / 3;
-
-  @override
-  Widget build(BuildContext context) {
-    final ctrl = controller;
-    if (ctrl == null || !ctrl.value.isInitialized) {
-      final label = switch (state) {
-        LiveStreamClientState.streamReady ||
-        LiveStreamClientState.playerInitializing => 'Loading stream...',
-        LiveStreamClientState.error => 'Stream unavailable (retrying)',
-        LiveStreamClientState.ended => 'Match ended',
-        _ => 'Connecting stream...',
-      };
-      return _GameFramePlaceholder(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const IKLoader(size: 36),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(color: Palette.muted, fontSize: 13),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return AspectRatio(
-      aspectRatio: ctrl.value.aspectRatio == 0
-          ? _targetAspectRatio
-          : ctrl.value.aspectRatio,
-      child: ColoredBox(color: Palette.black, child: VideoPlayer(ctrl)),
-    );
-  }
-}
-
-/// Placeholder shown while waiting for the first frame.
-class _GameFramePlaceholder extends StatelessWidget {
-  const _GameFramePlaceholder({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 4 / 3,
-      child: Container(
-        color: Palette.black,
-        child: Center(child: child),
-      ),
-    );
-  }
-}
 
 /// Health bars and timer overlay.
 class _HealthOverlay extends StatelessWidget {
