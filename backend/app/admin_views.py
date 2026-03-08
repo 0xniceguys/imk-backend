@@ -24,6 +24,7 @@ from app.db.models import (
     Bet,
     BetStatus,
     Fighter,
+    FighterMatchupSavestate,
     Match,
     MatchStatus,
     Stream,
@@ -32,6 +33,11 @@ from app.db.models import (
 )
 from app.services.emulator import M64P_ROOT
 from app.services.actions import decode_controller_state
+from app.services.match_config import (
+    get_fighter_with_agent,
+    resolve_agent_runtime,
+    resolve_matchup_savestate_path,
+)
 from app.services.match_runner import get_all_runners, get_runner
 
 router = APIRouter(prefix="/admin", tags=["admin-views"])
@@ -398,11 +404,14 @@ async def matches_list(request: Request):
             .order_by(Match.created_at.desc())
         )
         matches = list(result.scalars().all())
+        fighters_q = await db.execute(select(Fighter).order_by(Fighter.name))
+        fighters = list(fighters_q.scalars().all())
 
         return templates.TemplateResponse("matches.html", {
             "request": request,
             "active_page": "matches",
             "matches": matches,
+            "fighters": fighters,
             "flash": None,
         })
 
@@ -413,27 +422,12 @@ async def matches_list(request: Request):
 async def match_new_form(request: Request):
     if r := _require_admin(request): return r
     async for db in _get_db():
-        result = await db.execute(
-            select(Fighter)
-            .options(selectinload(Fighter.agent))
-            .order_by(Fighter.name.asc())
-        )
-        fighters = list(result.scalars().all())
-
-        fighter_rows = []
-        for f in fighters:
-            fighter_rows.append({
-                "id": str(f.id),
-                "name": f.name,
-                "llm_model": f.llm_model,
-                "style": _fighter_style_label(f),
-                "slug": f.slug,
-            })
-
+        fighters_q = await db.execute(select(Fighter).order_by(Fighter.name))
+        fighters = list(fighters_q.scalars().all())
         return templates.TemplateResponse("match_new.html", {
             "request": request,
             "active_page": "matches",
-            "fighters": fighter_rows,
+            "fighters": fighters,
             "error": None,
             "selected_fighter1_id": None,
             "selected_fighter2_id": None,
@@ -445,98 +439,82 @@ async def match_new_form(request: Request):
 @router.post("/matches/new", response_class=HTMLResponse)
 async def match_new_submit(
     request: Request,
-    fighter1_id: UUID = Form(...),
-    fighter2_id: UUID = Form(...),
+    fighter1_id: str = Form(...),
+    fighter2_id: str = Form(...),
     label: str = Form("MK4-Classic"),
     best_of: int = Form(3),
 ):
     async for db in _get_db():
-        result = await db.execute(
-            select(Fighter)
-            .options(selectinload(Fighter.agent))
-            .order_by(Fighter.name.asc())
-        )
-        fighters = list(result.scalars().all())
-        fighter_rows = [{
-            "id": str(f.id),
-            "name": f.name,
-            "llm_model": f.llm_model,
-            "style": _fighter_style_label(f),
-            "slug": f.slug,
-        } for f in fighters]
+        fighters_q = await db.execute(select(Fighter).order_by(Fighter.name))
+        fighters = list(fighters_q.scalars().all())
 
-        if fighter1_id == fighter2_id:
+        try:
+            f1_id = UUID(fighter1_id)
+            f2_id = UUID(fighter2_id)
+        except ValueError:
             return templates.TemplateResponse("match_new.html", {
                 "request": request,
                 "active_page": "matches",
-                "fighters": fighter_rows,
+                "fighters": fighters,
+                "error": "Invalid fighter selection.",
+                "selected_fighter1_id": fighter1_id,
+                "selected_fighter2_id": fighter2_id,
+                "label": label,
+                "best_of": best_of,
+            })
+
+        if f1_id == f2_id:
+            return templates.TemplateResponse("match_new.html", {
+                "request": request,
+                "active_page": "matches",
+                "fighters": fighters,
                 "error": "Fighter 1 and Fighter 2 must be different.",
-                "selected_fighter1_id": str(fighter1_id),
-                "selected_fighter2_id": str(fighter2_id),
+                "selected_fighter1_id": fighter1_id,
+                "selected_fighter2_id": fighter2_id,
                 "label": label,
                 "best_of": best_of,
             })
 
-        fighter_map = {f.id: f for f in fighters}
-        f1 = fighter_map.get(fighter1_id)
-        f2 = fighter_map.get(fighter2_id)
-        if f1 is None or f2 is None:
+        f1 = await get_fighter_with_agent(db, f1_id)
+        f2 = await get_fighter_with_agent(db, f2_id)
+        if not f1 or not f2:
             return templates.TemplateResponse("match_new.html", {
                 "request": request,
                 "active_page": "matches",
-                "fighters": fighter_rows,
-                "error": "Selected fighter was not found. Please refresh and try again.",
-                "selected_fighter1_id": str(fighter1_id),
-                "selected_fighter2_id": str(fighter2_id),
+                "fighters": fighters,
+                "error": "Selected fighter does not exist.",
+                "selected_fighter1_id": fighter1_id,
+                "selected_fighter2_id": fighter2_id,
                 "label": label,
                 "best_of": best_of,
             })
 
-        savestate_path = _resolve_match_savestate(f1, f2)
+        savestate_path = await resolve_matchup_savestate_path(
+            db,
+            fighter1_id=f1.id,
+            fighter2_id=f2.id,
+        )
         if not savestate_path:
             return templates.TemplateResponse("match_new.html", {
                 "request": request,
                 "active_page": "matches",
-                "fighters": fighter_rows,
-                "error": "No savestate files found on server. Add savestate files and retry.",
-                "selected_fighter1_id": str(fighter1_id),
-                "selected_fighter2_id": str(fighter2_id),
+                "fighters": fighters,
+                "error": f"No active savestate mapping for {f1.name} (P1) vs {f2.name} (P2).",
+                "selected_fighter1_id": fighter1_id,
+                "selected_fighter2_id": fighter2_id,
                 "label": label,
                 "best_of": best_of,
             })
 
-        p1_agent, _, _ = _resolve_fighter_agent_for_match(f1)
-        p2_agent, _, _ = _resolve_fighter_agent_for_match(f2)
-
-        # ── CONTRACT FIRST: create on-chain, wait for confirmation ──
-        from app.services.on_chain_match import create_match_on_chain
-        try:
-            on_chain_id, on_chain_pda = await create_match_on_chain(
-                fighter1_name=f1.name,
-                fighter2_name=f2.name,
-            )
-        except Exception as exc:
-            import logging as _logging
-            _logging.getLogger(__name__).error(
-                "On-chain create_match failed: %s", exc, exc_info=True,
-            )
-            return templates.TemplateResponse("match_new.html", {
-                "request": request,
-                "active_page": "matches",
-                "fighters": fighter_rows,
-                "error": f"On-chain match creation failed: {exc}",
-                "selected_fighter1_id": str(fighter1_id),
-                "selected_fighter2_id": str(fighter2_id),
-                "label": label,
-                "best_of": best_of,
-            })
+        p1_agent_id, _, _ = resolve_agent_runtime(f1)
+        p2_agent_id, _, _ = resolve_agent_runtime(f2)
 
         # ── ONLY NOW: create DB row with PDA already set ──
         match = Match(
             fighter1_id=f1.id,
             fighter2_id=f2.id,
-            p1_agent=p1_agent,
-            p2_agent=p2_agent,
+            p1_agent=p1_agent_id,
+            p2_agent=p2_agent_id,
             scheduled_at=datetime.now(timezone.utc),
             label=label,
             savestate_path=savestate_path,
@@ -582,6 +560,17 @@ async def match_detail(request: Request, match_id: UUID):
         p1_info = agent_map.get(match.p1_agent)
         p2_info = agent_map.get(match.p2_agent)
 
+        p1_name = (
+            match.fighter1.name
+            if match.fighter1
+            else (p1_info.name if p1_info else match.p1_agent)
+        )
+        p2_name = (
+            match.fighter2.name
+            if match.fighter2
+            else (p2_info.name if p2_info else match.p2_agent)
+        )
+
         return templates.TemplateResponse("match_detail.html", {
             "request": request,
             "active_page": "matches",
@@ -589,8 +578,8 @@ async def match_detail(request: Request, match_id: UUID):
             "bets": match.bets,
             "runner": runner_snapshot,
             "runner_state": runner.state.value if runner else None,
-            "p1_agent_name": p1_info.name if p1_info else match.p1_agent,
-            "p2_agent_name": p2_info.name if p2_info else match.p2_agent,
+            "p1_agent_name": p1_name,
+            "p2_agent_name": p2_name,
             "flash": None,
         })
 
@@ -615,31 +604,13 @@ async def match_start(match_id: UUID):
         if not match.savestate_path:
             return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
-        # ── CONTRACT FIRST: lock match on-chain BEFORE going LIVE ──
-        if match.on_chain_match_pda:
-            try:
-                from app.services.on_chain_match import lock_match_on_chain
-                await lock_match_on_chain(match.on_chain_match_pda)
-            except Exception as exc:
-                import logging as _logging
-                _logging.getLogger(__name__).error(
-                    "lock_match_on_chain FAILED for %s: %s",
-                    match_id, exc, exc_info=True,
-                )
-                return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
-
-        # Resolve runtime agents from fighter policy.
-        p1_agent_id = match.p1_agent
-        p2_agent_id = match.p2_agent
-        p1_checkpoint_path: str | None = None
-        p2_checkpoint_path: str | None = None
-        p1_architecture: str | None = None
-        p2_architecture: str | None = None
-
-        if match.fighter1:
-            p1_agent_id, p1_checkpoint_path, p1_architecture = _resolve_fighter_agent_for_match(match.fighter1)
-        if match.fighter2:
-            p2_agent_id, p2_checkpoint_path, p2_architecture = _resolve_fighter_agent_for_match(match.fighter2)
+        # Resolve runtime agents from fighter configuration.
+        p1_agent_id, p1_checkpoint_path, p1_architecture = resolve_agent_runtime(
+            match.fighter1, fallback_agent_id=match.p1_agent
+        )
+        p2_agent_id, p2_checkpoint_path, p2_architecture = resolve_agent_runtime(
+            match.fighter2, fallback_agent_id=match.p2_agent
+        )
 
         # ONLY NOW: set LIVE in DB (on-chain is already Locked)
         match.status = MatchStatus.LIVE
@@ -1041,6 +1012,15 @@ async def fighter_delete(request: Request, fighter_id: UUID):
             sql_update(Match)
             .where(Match.winner_id == fighter_id)
             .values(winner_id=None)
+        )
+        await db.execute(
+            Bet.__table__.delete().where(Bet.fighter_id == fighter_id)
+        )
+        await db.execute(
+            FighterMatchupSavestate.__table__.delete().where(
+                (FighterMatchupSavestate.left_fighter_id == fighter_id)
+                | (FighterMatchupSavestate.right_fighter_id == fighter_id)
+            )
         )
         await db.commit()
 

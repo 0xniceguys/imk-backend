@@ -25,50 +25,52 @@ logger = logging.getLogger(__name__)
 ACTIONS = list(MacroAction)
 
 
-def _shape_dim_to_int(dim: object) -> int | None:
-    if isinstance(dim, int) and dim > 0:
-        return dim
-    return None
+def _positive_int(value: object) -> int | None:
+    return value if isinstance(value, int) and value > 0 else None
 
 
-def _infer_obs_dim(shape: Sequence[object] | None) -> int | None:
+def _resolve_shape_dim(shape: list[object], index: int, default: int) -> int:
     if not shape:
-        return None
-    # Observation dim is usually the last tensor axis.
-    for dim in reversed(shape):
-        parsed = _shape_dim_to_int(dim)
-        if parsed is not None:
-            return parsed
-    return None
+        return default
+    if index < 0:
+        index = len(shape) + index
+    if index < 0 or index >= len(shape):
+        return default
+    resolved = _positive_int(shape[index])
+    return resolved if resolved is not None else default
 
 
-def _infer_stack_frames(obs_dim: int | None, default_frames: int) -> int:
-    if obs_dim is None or obs_dim <= 0:
-        return default_frames
-    if obs_dim % RAW_OBS_DIM == 0:
+def _materialize_shape(shape: list[object], *, last_dim_default: int) -> tuple[int, ...]:
+    if not shape:
+        return (1, last_dim_default)
+
+    out: list[int] = []
+    last_idx = len(shape) - 1
+    for idx, dim in enumerate(shape):
+        resolved = _positive_int(dim)
+        if resolved is not None:
+            out.append(resolved)
+        elif idx == last_idx:
+            out.append(last_dim_default)
+        else:
+            out.append(1)
+    return tuple(out)
+
+
+def _infer_stack_frames(obs_dim: int, *, fallback: int = 4) -> int:
+    if obs_dim > 0 and obs_dim % RAW_OBS_DIM == 0:
         frames = obs_dim // RAW_OBS_DIM
-        if frames >= 1:
+        if frames > 0:
             return frames
-    return default_frames
+    return fallback
 
 
-def _fit_obs_dim(obs: list[float], expected_dim: int | None) -> list[float]:
-    if expected_dim is None or expected_dim <= 0:
-        return obs
-    if len(obs) == expected_dim:
-        return obs
+def _fit_obs(obs: list[float], expected_dim: int) -> list[float]:
     if len(obs) < expected_dim:
         return obs + [0.0] * (expected_dim - len(obs))
-    return obs[:expected_dim]
-
-
-def _infer_transformer_seq_len(shape: Sequence[object] | None, fallback: int) -> int:
-    if shape and len(shape) >= 2:
-        # For [seq, obs] or [batch, seq, obs], seq is second-last axis.
-        seq_dim = _shape_dim_to_int(shape[-2])
-        if seq_dim is not None:
-            return seq_dim
-    return fallback
+    if len(obs) > expected_dim:
+        return obs[-expected_dim:]
+    return obs
 
 
 class OnnxAgent(FighterAgent):
@@ -173,7 +175,6 @@ class OnnxLstmAgent(FighterAgent):
 
     def __init__(self, model_path: str | Path, *, hidden_size: int = 128) -> None:
         self.model_path = str(model_path)
-        self.hidden_size = hidden_size
 
         opts = ort.SessionOptions()
         opts.inter_op_num_threads = 1
@@ -186,24 +187,39 @@ class OnnxLstmAgent(FighterAgent):
         self._obs_name = inputs[0].name
         self._h_name = inputs[1].name
         self._c_name = inputs[2].name
-        self._obs_dim = _infer_obs_dim(inputs[0].shape) or RAW_OBS_DIM
+        self._obs_dim = _resolve_shape_dim(inputs[0].shape, 1, RAW_OBS_DIM)
+        self.hidden_size = _resolve_shape_dim(inputs[1].shape, -1, hidden_size)
+        self._h_shape = _materialize_shape(inputs[1].shape, last_dim_default=self.hidden_size)
+        self._c_shape = _materialize_shape(inputs[2].shape, last_dim_default=self.hidden_size)
+
+        stack_frames = _infer_stack_frames(self._obs_dim, fallback=1)
+        self.frame_stack = (
+            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=stack_frames)
+            if stack_frames > 1
+            else None
+        )
 
         self._h: np.ndarray | None = None
         self._c: np.ndarray | None = None
 
         logger.info(
-            "ONNX LSTM agent loaded: %s (obs_dim=%s, hidden=%d, outputs=%d)",
-            model_path, self._obs_dim, hidden_size, len(outputs),
+            "ONNX LSTM agent loaded: %s (obs_dim=%s, hidden=%d, stack=%s, outputs=%d)",
+            model_path,
+            self._obs_dim,
+            self.hidden_size,
+            stack_frames,
+            len(outputs),
         )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
         if self._h is None:
-            self._h = np.zeros((1, 1, self.hidden_size), dtype=np.float32)
-            self._c = np.zeros((1, 1, self.hidden_size), dtype=np.float32)
+            self._h = np.zeros(self._h_shape, dtype=np.float32)
+            self._c = np.zeros(self._c_shape, dtype=np.float32)
 
-        raw_obs = _fit_obs_dim(build_obs(state, player=player), self._obs_dim)
-
-        obs_array = np.array([raw_obs], dtype=np.float32)
+        raw_obs = build_obs(state, player=player)
+        obs = self.frame_stack.push(raw_obs) if self.frame_stack is not None else raw_obs
+        obs = _fit_obs(obs, self._obs_dim)
+        obs_array = np.array([obs], dtype=np.float32)
         outputs = self.session.run(None, {
             self._obs_name: obs_array,
             self._h_name: self._h,
@@ -226,6 +242,8 @@ class OnnxLstmAgent(FighterAgent):
     def reset(self) -> None:
         self._h = None
         self._c = None
+        if self.frame_stack is not None:
+            self.frame_stack.reset()
 
 
 class OnnxDiscRssmAgent(FighterAgent):
@@ -243,7 +261,6 @@ class OnnxDiscRssmAgent(FighterAgent):
 
     def __init__(self, model_path: str | Path, *, det_size: int = 128) -> None:
         self.model_path = str(model_path)
-        self.det_size = det_size
 
         opts = ort.SessionOptions()
         opts.inter_op_num_threads = 1
@@ -254,38 +271,41 @@ class OnnxDiscRssmAgent(FighterAgent):
         self._obs_name = inputs[0].name
         self._h_name = inputs[1].name
         self._act_name = inputs[2].name
-        self._obs_dim = _infer_obs_dim(inputs[0].shape)
+        self._obs_dim = _resolve_shape_dim(inputs[0].shape, 1, RAW_OBS_DIM * 4)
+        self.det_size = _resolve_shape_dim(inputs[1].shape, -1, det_size)
+        self._h_shape = _materialize_shape(inputs[1].shape, last_dim_default=self.det_size)
+        self._act_rank = len(inputs[2].shape)
 
         self._h: np.ndarray | None = None
         self._prev_act: int = 0
-        inferred_frames = _infer_stack_frames(self._obs_dim, 4)
+        stack_frames = _infer_stack_frames(self._obs_dim, fallback=4)
         self.frame_stack = (
-            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=inferred_frames)
-            if inferred_frames > 1
+            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=stack_frames)
+            if stack_frames > 1
             else None
         )
 
         logger.info(
-            "ONNX DiscRSSM agent loaded: %s (det=%d obs_dim=%s frame_stack=%s)",
+            "ONNX DiscRSSM agent loaded: %s (obs_dim=%d, det=%d, stack=%s)",
             model_path,
-            det_size,
             self._obs_dim,
-            getattr(self.frame_stack, "n_frames", 1),
+            self.det_size,
+            stack_frames,
         )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
         if self._h is None:
-            self._h = np.zeros((1, self.det_size), dtype=np.float32)
+            self._h = np.zeros(self._h_shape, dtype=np.float32)
 
         raw_obs = build_obs(state, player=player)
-        if self.frame_stack is not None:
-            obs = self.frame_stack.push(raw_obs)
-        else:
-            obs = raw_obs
-        obs = _fit_obs_dim(obs, self._obs_dim)
+        obs = self.frame_stack.push(raw_obs) if self.frame_stack is not None else raw_obs
+        obs = _fit_obs(obs, self._obs_dim)
         obs_array = np.array([obs], dtype=np.float32)
         h_array = self._h
-        act_array = np.array([self._prev_act], dtype=np.int64)
+        if self._act_rank == 2:
+            act_array = np.array([[self._prev_act]], dtype=np.int64)
+        else:
+            act_array = np.array([self._prev_act], dtype=np.int64)
 
         outputs = self.session.run(None, {
             self._obs_name: obs_array,
@@ -341,44 +361,38 @@ class OnnxTransformerAgent(FighterAgent):
         self._input_name = input_meta.name
         self._input_shape = input_meta.shape
         self._input_rank = len(self._input_shape)
-        self._obs_dim = _infer_obs_dim(self._input_shape)
-        self.seq_len = _infer_transformer_seq_len(self._input_shape, seq_len)
+        self.seq_len = _resolve_shape_dim(self._input_shape, -2, seq_len)
+        self._obs_dim = _resolve_shape_dim(self._input_shape, -1, RAW_OBS_DIM * 4)
         self._buf: list[list[float]] = []
-        inferred_frames = _infer_stack_frames(self._obs_dim, 4)
+        stack_frames = _infer_stack_frames(self._obs_dim, fallback=4)
         self.frame_stack = (
-            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=inferred_frames)
-            if inferred_frames > 1
+            FrameStack(obs_dim=RAW_OBS_DIM, n_frames=stack_frames)
+            if stack_frames > 1
             else None
         )
 
         logger.info(
-            "ONNX Transformer agent loaded: %s (shape=%s seq=%d obs_dim=%s frame_stack=%s)",
+            "ONNX Transformer agent loaded: %s (seq=%d, obs_dim=%d, stack=%s)",
             model_path,
-            self._input_shape,
             self.seq_len,
             self._obs_dim,
-            getattr(self.frame_stack, "n_frames", 1),
+            stack_frames,
         )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
         raw_obs = build_obs(state, player=player)
-        if self.frame_stack is not None:
-            obs = self.frame_stack.push(raw_obs)
-        else:
-            obs = raw_obs
-        obs = _fit_obs_dim(obs, self._obs_dim)
+        obs = self.frame_stack.push(raw_obs) if self.frame_stack is not None else raw_obs
+        obs = _fit_obs(obs, self._obs_dim)
         self._buf.append(obs)
         if len(self._buf) > self.seq_len:
             self._buf.pop(0)
 
         # Pad with zeros if fewer than seq_len frames
         pad_count = self.seq_len - len(self._buf)
-        padded = [[0.0] * len(obs)] * pad_count + self._buf
+        padded = [[0.0] * self._obs_dim] * pad_count + self._buf
         obs_seq = np.array(padded, dtype=np.float32)
-        if self._input_rank >= 3:
-            obs_input = np.expand_dims(obs_seq, axis=0)
-        else:
-            obs_input = obs_seq
+        if self._input_rank == 3:
+            obs_seq = np.expand_dims(obs_seq, axis=0)
 
         outputs = self.session.run(None, {self._input_name: obs_input})
         logits_arr = np.asarray(outputs[0], dtype=np.float32)

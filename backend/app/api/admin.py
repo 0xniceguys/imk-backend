@@ -31,6 +31,11 @@ from app.exceptions import (
 )
 from app.schemas.fighter import FighterCreate, FighterOut
 from app.schemas.match import MatchCreate, MatchOut
+from app.services.match_config import (
+    get_fighter_with_agent,
+    resolve_agent_runtime,
+    resolve_matchup_savestate_path,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -98,58 +103,45 @@ async def create_match(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    if body.fighter1_id == body.fighter2_id:
-        raise ValidationError("Fighter 1 and Fighter 2 must be different")
-
-    # Verify both fighters exist and resolve fixed fighter policy agent IDs.
-    fighter1_result = await db.execute(
-        select(Fighter)
-        .where(Fighter.id == body.fighter1_id)
-        .options(selectinload(Fighter.agent))
-    )
-    fighter1 = fighter1_result.scalar_one_or_none()
+    fighter1 = await get_fighter_with_agent(db, body.fighter1_id)
     if fighter1 is None:
         raise FighterNotFoundError(str(body.fighter1_id))
 
-    fighter2_result = await db.execute(
-        select(Fighter)
-        .where(Fighter.id == body.fighter2_id)
-        .options(selectinload(Fighter.agent))
-    )
-    fighter2 = fighter2_result.scalar_one_or_none()
+    fighter2 = await get_fighter_with_agent(db, body.fighter2_id)
     if fighter2 is None:
         raise FighterNotFoundError(str(body.fighter2_id))
 
-    p1_agent_id, _, _ = _resolve_fighter_agent(
-        fighter=fighter1,
-        fallback_agent_id=body.p1_agent,
-        slot="P1",
+    if body.fighter1_id == body.fighter2_id:
+        raise ValidationError("Fighter 1 and Fighter 2 must be different")
+
+    # Resolve defaults from fighter config.
+    p1_agent_id, _, _ = resolve_agent_runtime(
+        fighter1, fallback_agent_id=body.p1_agent
     )
-    p2_agent_id, _, _ = _resolve_fighter_agent(
-        fighter=fighter2,
-        fallback_agent_id=body.p2_agent,
-        slot="P2",
+    p2_agent_id, _, _ = resolve_agent_runtime(
+        fighter2, fallback_agent_id=body.p2_agent
     )
 
-    # ── CONTRACT FIRST: create on-chain, wait for confirmation ────────────
-    from app.services.on_chain_match import create_match_on_chain
-
-    try:
-        on_chain_id, on_chain_pda = await create_match_on_chain(
-            fighter1_name=fighter1.name,
-            fighter2_name=fighter2.name,
+    # Prefer configured matchup savestate; fall back to explicit API payload for compatibility.
+    savestate_path = await resolve_matchup_savestate_path(
+        db,
+        fighter1_id=fighter1.id,
+        fighter2_id=fighter2.id,
+    )
+    if not savestate_path:
+        savestate_path = body.savestate_path
+    if not savestate_path:
+        raise InvalidSavestateError(
+            "",
+            f"No active savestate mapping for matchup {fighter1.slug} (P1) vs {fighter2.slug} (P2)",
         )
-    except Exception as exc:
-        logger.error("On-chain create_match failed: %s", exc, exc_info=True)
-        raise HTTPException(502, f"On-chain match creation failed: {exc}")
 
-    # ── ONLY NOW: create DB row with PDA already set ──────────────────────
     match = Match(
-        fighter1_id=body.fighter1_id,
-        fighter2_id=body.fighter2_id,
+        fighter1_id=fighter1.id,
+        fighter2_id=fighter2.id,
         scheduled_at=body.scheduled_at,
         label=body.label,
-        savestate_path=body.savestate_path,
+        savestate_path=savestate_path,
         p1_agent=p1_agent_id,
         p2_agent=p2_agent_id,
         best_of=body.best_of,
@@ -201,32 +193,17 @@ async def start_match(
     best_of = match.best_of
     match_id_str = str(match_id)
 
-    # Resolve exact runtime agents from fighter policy and keep match metadata in sync.
-    p1_agent_id, p1_checkpoint_path, p1_architecture = _resolve_fighter_agent(
-        fighter=match.fighter1,
-        fallback_agent_id=match.p1_agent,
-        slot="P1",
+    # Resolve runtime agents from fighter configuration.
+    p1_agent_id, p1_checkpoint_path, p1_architecture = resolve_agent_runtime(
+        match.fighter1, fallback_agent_id=match.p1_agent
     )
-    p2_agent_id, p2_checkpoint_path, p2_architecture = _resolve_fighter_agent(
-        fighter=match.fighter2,
-        fallback_agent_id=match.p2_agent,
-        slot="P2",
+    p2_agent_id, p2_checkpoint_path, p2_architecture = resolve_agent_runtime(
+        match.fighter2, fallback_agent_id=match.p2_agent
     )
-    if match.p1_agent != p1_agent_id:
-        match.p1_agent = p1_agent_id
-    if match.p2_agent != p2_agent_id:
-        match.p2_agent = p2_agent_id
 
-    # ── CONTRACT FIRST: lock match on-chain BEFORE going LIVE ────────────
-    if match.on_chain_match_pda:
-        from app.services.on_chain_match import lock_match_on_chain
-        try:
-            await lock_match_on_chain(match.on_chain_match_pda)
-        except Exception as exc:
-            logger.error("lock_match_on_chain FAILED for %s: %s", match_id, exc, exc_info=True)
-            raise HTTPException(502, f"On-chain lock_match failed: {exc}")
-
-    # ── ONLY NOW: mark as LIVE in DB (on-chain is already Locked) ────────
+    # Mark as LIVE and commit — THEN release DB connection before launching emulator.
+    # If we hold the session open during the 3-10s emulator launch, the connection
+    # pool is exhausted and every other endpoint (including GET /api/matches/) hangs.
     match.status = MatchStatus.LIVE
     match.started_at = datetime.now(timezone.utc)
     if match.stream:

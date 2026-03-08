@@ -11,6 +11,50 @@
 <div class="flash flash-{{ flash.type }}">{{ flash.message }}</div>
 {% endif %}
 
+<div class="card mb-2">
+  <h2>Create Match (Fighters Only)</h2>
+  <form method="POST" action="/admin/matches/new">
+    <div class="grid grid-2">
+      <div class="form-group">
+        <label for="fighter1_id">P1 Fighter</label>
+        <select name="fighter1_id" id="fighter1_id" required>
+          <option value="">Select fighter...</option>
+          {% for f in fighters %}
+          <option value="{{ f.id }}">{{ f.name }}{% if f.llm_model %} — {{ f.llm_model }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="fighter2_id">P2 Fighter</label>
+        <select name="fighter2_id" id="fighter2_id" required>
+          <option value="">Select fighter...</option>
+          {% for f in fighters %}
+          <option value="{{ f.id }}">{{ f.name }}{% if f.llm_model %} — {{ f.llm_model }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="form-group">
+        <label for="best_of">Best Of</label>
+        <select name="best_of" id="best_of" required>
+          <option value="1">1 Round</option>
+          <option value="3" selected>Best of 3</option>
+          <option value="5">Best of 5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="label">Match Label</label>
+        <input type="text" name="label" id="label" value="MK4-Classic">
+      </div>
+    </div>
+    <small class="text-dim">Agents and savestate are auto-selected from fighter + matchup mapping.</small>
+    <div class="mt-1">
+      <button type="submit" class="btn btn-accent btn-sm">Create Match</button>
+    </div>
+  </form>
+</div>
+
 <div class="card">
   <table>
     <thead>
