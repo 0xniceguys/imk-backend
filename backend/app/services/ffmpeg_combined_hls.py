@@ -33,17 +33,21 @@ XVFB_DISPLAY = ":99"
 
 # Video capture dimensions (must match Xvfb and emulator resolution)
 #
-# Emulator runs at 640x480 on Linux. Capturing a smaller 320x240 region reads
-# only the top-left quarter of the display and appears as "cropped/zoomed" on
-# clients. Capture the full surface to preserve composition.
+# Capture at 480x360 (scaled from 640x480 in FFmpeg with -vf scale=) to produce
+# smaller segments for faster mobile startup. Quality is intentionally traded for
+# lower bitrate and faster segment download time.
 CAPTURE_WIDTH = 640
 CAPTURE_HEIGHT = 480
 CAPTURE_FPS = 30
 
+# Output resolution — scale down in encoder to shrink segment size ~60%
+OUTPUT_WIDTH = 480
+OUTPUT_HEIGHT = 360
+
 # HLS tuning — 1-second segments with a wider live window for mobile resilience
 HLS_SEGMENT_DURATION = 1
 HLS_LIST_SIZE = 12
-READY_MIN_SEGMENTS = 2
+READY_MIN_SEGMENTS = 1   # mark ready after first segment — don't wait for two
 READY_MIN_BYTES = 188  # One MPEG-TS packet
 
 # Where HLS output is written per match
@@ -106,6 +110,7 @@ class FFmpegCombinedHls:
             # ── Video encoding: H.264 ultrafast / zero-latency ──────────────
             "-fps_mode", "cfr",
             "-r", str(CAPTURE_FPS),      # stable output cadence for HLS
+            "-vf", f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT},setpts=PTS-STARTPTS",
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
@@ -115,9 +120,9 @@ class FFmpegCombinedHls:
             "-keyint_min", str(CAPTURE_FPS),
             "-sc_threshold", "0",
             "-force_key_frames", f"expr:gte(t,n_forced*{HLS_SEGMENT_DURATION})",
-            "-b:v", "1000k",
-            "-maxrate", "1200k",
-            "-bufsize", "2400k",
+            "-b:v", "400k",
+            "-maxrate", "500k",
+            "-bufsize", "800k",
             "-pix_fmt", "yuv420p",       # required by baseline profile
             # ── Audio encoding: AAC-LC ──────────────────────────────────────
             "-c:a", "aac",
