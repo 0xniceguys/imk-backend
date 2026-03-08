@@ -257,7 +257,12 @@ class _ScreenPage extends StatelessWidget {
 
   void _navigate(BuildContext context, String route) {
     if (_authRoutes.contains(route) || _tabRoutes.contains(route)) {
+      // Auth/tab routes: clear entire stack
       Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
+    } else if (route.startsWith('/post-match')) {
+      // Post-match replaces live-match in the stack so back goes to arena-list,
+      // not back into the dead live-match screen.
+      Navigator.of(context).pushReplacementNamed(route);
     } else {
       Navigator.of(context).pushNamed(route);
     }

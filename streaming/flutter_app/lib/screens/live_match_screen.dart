@@ -689,14 +689,63 @@ class _HealthOverlayState extends State<_HealthOverlay> {
   double _p1Pct = 1.0;
   double _p2Pct = 1.0;
 
+  // ── Smooth timer interpolation ──────────────────────────────────────────
+  // The WS sends timer updates at ~5-10Hz which causes visible jumps.
+  // We keep a local _displayTimer that ticks down every second, and
+  // reconcile with backend values when they arrive.
+  int _displayTimer = 99;
+  Timer? _countdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayTimer = widget.gameState.timer;
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        _countdownTimer?.cancel();
+        return;
+      }
+      setState(() {
+        if (_displayTimer > 0) _displayTimer--;
+      });
+    });
+  }
+
   @override
   void didUpdateWidget(_HealthOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Health: only allow decreases (monotonic clamp)
     final newP1 = widget.gameState.p1HealthPct.clamp(0.0, 1.0);
     final newP2 = widget.gameState.p2HealthPct.clamp(0.0, 1.0);
-    // Only update if health went down — ignore upward glitches
     if (newP1 < _p1Pct) _p1Pct = newP1;
     if (newP2 < _p2Pct) _p2Pct = newP2;
+
+    // Timer reconciliation:
+    // - If backend value is lower → snap down (backend is authoritative)
+    // - If backend value is much higher (>20 diff) → round reset, snap up + restart ticker
+    final backendTimer = widget.gameState.timer;
+    if (backendTimer < _displayTimer) {
+      // Backend is behind our local tick — snap to backend (authoritative)
+      setState(() => _displayTimer = backendTimer);
+    } else if (backendTimer > _displayTimer + 20) {
+      // New round started — health also resets
+      _p1Pct = 1.0;
+      _p2Pct = 1.0;
+      setState(() => _displayTimer = backendTimer);
+      _startCountdown(); // restart 1s ticker from new value
+    }
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -723,11 +772,11 @@ class _HealthOverlayState extends State<_HealthOverlay> {
               ],
             ),
           ),
-          // Timer
+          // Timer — shows local interpolated value, not raw WS value
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
-              '${widget.gameState.timer}',
+              '$_displayTimer',
               style: displayStyle(size: 24, color: Palette.gold),
             ),
           ),
