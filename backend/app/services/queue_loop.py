@@ -103,8 +103,6 @@ def _resolve_match_savestate(f1: Fighter, f2: Fighter) -> str | None:
     s2 = _normalize_slug_for_savestate(f2.slug)
     preferred = [
         f"p1p2_{s1}_{s2}.st",
-        "p1p2state.st",
-        "kai_arcade_p1p2.st",
         f"p1p2_{s2}_{s1}.st",
     ]
     for filename in preferred:

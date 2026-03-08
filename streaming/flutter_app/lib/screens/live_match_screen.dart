@@ -76,6 +76,25 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectToMatch();
       _listenForGlobalEvents();
+      // If the WS was pre-connected from battle_detail_screen and the backend
+      // already signalled 'ready', kick off HLS immediately without waiting.
+      _checkEarlyStreamReady();
+    });
+  }
+
+  /// Eagerly starts HLS if the pre-connected WebSocket already received a
+  /// 'ready' signal before the user navigated to this screen.
+  void _checkEarlyStreamReady() {
+    final matchId = widget.matchId ?? _findLiveMatchId();
+    if (matchId == null) return;
+    final currentState = ref.read(streamingStateProvider);
+    currentState.whenData((data) {
+      final state = data['state'] as String?;
+      final hlsUrl = data['hls_url'] as String?;
+      if (state == 'ready' && hlsUrl != null) {
+        debugPrint('[LiveMatch] Early HLS start — stream was already ready on screen entry');
+        _startHls(matchId);
+      }
     });
   }
 

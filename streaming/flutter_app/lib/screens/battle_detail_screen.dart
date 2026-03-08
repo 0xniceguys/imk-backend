@@ -8,6 +8,7 @@ import '../models/match.dart';
 import '../models/match_bet_feed_item.dart';
 import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
+import '../providers/match_stream_provider.dart';
 import '../router.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
 import '../widgets/fighter/fighter_image.dart';
@@ -31,6 +32,19 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   Future<List<MatchBetFeedItem>>? _betFeedFuture;
   String? _betFeedMatchId;
   bool _navigatedToLive = false;
+
+  // Pre-connect WebSocket when match is #1 in queue so HLS starts
+  // loading in the background before the user navigates to the live screen.
+  String? _preConnectedMatchId;
+  void _maybePreConnect(Match match) {
+    if (match.status != MatchStatus.upcoming) return;
+    if (match.queuePosition != 1) return;
+    if (_preConnectedMatchId == match.id) return;
+    _preConnectedMatchId = match.id;
+    debugPrint('[BattleDetail] Pre-connecting WS for match ${match.id} (queue #1)');
+    ref.read(matchStreamServiceProvider).connect(match.id);
+  }
+
   void _ensureBetFeedFuture(String matchId) {
     if (_betFeedFuture == null || _betFeedMatchId != matchId) {
       _betFeedMatchId = matchId;
@@ -98,6 +112,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
         : matches.first;
 
     _ensureBetFeedFuture(match.id);
+    _maybePreConnect(match);
 
     final totalPool = match.totalPool;
     final sideAPool = match.odds.fighter1Pool > 0

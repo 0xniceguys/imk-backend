@@ -236,14 +236,10 @@ def run_training(args) -> None:
     from n64train.reverse.mk4_tracing import Mk4FightTraceProvider, ADDRESSES_CONFIRMED
     from n64train.runtime.rewards import Mk4ShapedRewardExtractor
 
-    # Prefer p1p2state.st; fall back to kai_arcade_p1p2.st; error if neither present.
-    savestates = [
-        STATE_DIR / 'p1p2state.st',
-        STATE_DIR / 'kai_arcade_p1p2.st',
-    ]
-    savestates = [s for s in savestates if s.exists()]
+    # Discover all .st files in STATE_DIR (fighter-specific ones like p1p2_scorpion_cage.st)
+    savestates = sorted(STATE_DIR.glob('*.st'))
     if not savestates:
-        print(f'ERROR: no savestate found in {STATE_DIR}. Expected p1p2state.st or kai_arcade_p1p2.st')
+        print(f'ERROR: no savestate (.st) files found in {STATE_DIR}')
         sys.exit(1)
 
     if args.savestate:

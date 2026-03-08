@@ -112,9 +112,7 @@ def _resolve_match_savestate(f1: Fighter, f2: Fighter) -> str | None:
     s2 = _normalize_slug_for_savestate(f2.slug)
     preferred = [
         f"p1p2_{s1}_{s2}.st",  # exact seat mapping (P1 vs P2)
-        "p1p2state.st",
-        "kai_arcade_p1p2.st",
-        f"p1p2_{s2}_{s1}.st",  # last-resort reverse pairing
+        f"p1p2_{s2}_{s1}.st",  # reverse pairing
     ]
     for filename in preferred:
         path = by_file.get(filename.lower())
