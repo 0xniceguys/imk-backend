@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,10 +13,28 @@ import '../models/game_state.dart';
 import '../providers/bet_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
+import '../services/match_stream_service.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
+
+enum LiveStreamClientState {
+  idle,
+  wsConnected,
+  streamInitializing,
+  streamReady,
+  playerInitializing,
+  playing,
+  ended,
+  error,
+}
+
+class _ScheduledHudState {
+  const _ScheduledHudState(this.state, this.dueAtMs);
+  final GameState state;
+  final int dueAtMs;
+}
 
 class LiveMatchScreen extends ConsumerStatefulWidget {
   const LiveMatchScreen({super.key, required this.onNavigate, this.matchId});
@@ -29,28 +48,49 @@ class LiveMatchScreen extends ConsumerStatefulWidget {
 class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseCtrl;
+  static const _hlsFallbackDelay = Duration(seconds: 8);
+  static const _hlsRetryBackoff = <Duration>[
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+  ];
+  static const _maxHlsInitAttempts = 4;
 
-  String? _lastConnectedMatchId;
-  // Prevents double-navigation when WS event + REST poll both fire at once
+  ProviderSubscription<MatchState>? _matchStateSub;
+  ProviderSubscription<AsyncValue<void>>? _matchEndSub;
+  ProviderSubscription<AsyncValue<StreamingStateEvent>>? _streamingStateSub;
+  ProviderSubscription<AsyncValue<GameState>>? _gameStateSub;
+  ProviderSubscription<AsyncValue<bool>>? _wsConnectedSub;
+
+  String? _activeMatchId;
+  LiveStreamClientState _streamState = LiveStreamClientState.idle;
+
+  VideoPlayerController? _videoController;
+  String? _videoMatchId;
+  String? _lastHlsUrl;
+  int _hlsInitAttempts = 0;
+  int _hlsInitToken = 0;
+  bool _playerInitializing = false;
+  bool _lastIsBuffering = false;
+  int _rebufferCount = 0;
+  int _playerInitCount = 0;
+  int _playerDisposeCount = 0;
+  Future<void> _pendingControllerDispose = Future<void>.value();
+
+  final Queue<_ScheduledHudState> _hudQueue = Queue<_ScheduledHudState>();
+  Timer? _hudPumpTimer;
+  Timer? _hlsFallbackTimer;
+  Timer? _hlsRetryTimer;
+  GameState? _displayGameState;
+
+  bool _disposed = false;
+  bool _terminal = false;
   bool _navigatedToPostMatch = false;
-  Timer? _fastPollTimer;
 
-  // Audio player — plays the HLS audio-only stream for the current match
-  VideoPlayerController? _audioController;
-
-  // FPS counter — track timestamps of the last N frames in a 1s window
-  final List<int> _frameTimes = []; // milliseconds since epoch
-  int _fps = 0;
-
-  void _recordFrame() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    _frameTimes.add(now);
-    // Remove timestamps older than 1 second
-    _frameTimes.removeWhere((t) => now - t > 1000);
-    final newFps = _frameTimes.length;
-    if (newFps != _fps) {
-      setState(() => _fps = newFps);
-    }
+  void _log(String tag, String message, {String? matchId}) {
+    if (!kDebugMode) return;
+    final id = matchId ?? _activeMatchId ?? '-';
+    debugPrint('[$tag][$id] $message');
   }
 
   @override
@@ -60,59 +100,430 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-
-    // Speed up match status polling to 3s while on this screen
-    // so a missed WS match_ended event is caught quickly.
-    _fastPollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) ref.read(matchProvider.notifier).refresh();
-    });
-
-    // Connect after first frame — at this point providers may already have data.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _connectToMatch();
-    });
+    _setStreamState(LiveStreamClientState.idle, reason: 'screen-init');
+    ref.read(matchProvider.notifier).startFastPolling();
+    _setupListeners();
   }
 
-  void _navigateToPostMatch(String matchId) {
-    if (_navigatedToPostMatch || !mounted) return;
-    _navigatedToPostMatch = true;
-    _fastPollTimer?.cancel();
-    ref.read(betProvider.notifier).refresh();
-    ref.read(matchProvider.notifier).refresh();
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) widget.onNavigate('/post-match/$matchId');
-    });
-  }
-
-  void _connectToMatch() {
-    final matchId = widget.matchId ?? _findLiveMatchId();
-    if (matchId == null) return;
-    // Don't reconnect if already on the right match
-    if (matchId == _lastConnectedMatchId) return;
-
-    // If the match is already completed/cancelled, skip WS and go to post-match
-    final match = ref.read(matchProvider).matches.cast<Match?>().firstWhere(
-      (m) => m?.id == matchId,
-      orElse: () => null,
+  void _setupListeners() {
+    _matchStateSub = ref.listenManual<MatchState>(
+      matchProvider,
+      (prev, next) => _onMatchState(next),
+      fireImmediately: true,
     );
-    if (match != null &&
-        (match.status == MatchStatus.completed ||
-            match.status == MatchStatus.cancelled)) {
-      debugPrint('[LiveMatch] Match $matchId already ended — going to post-match');
-      Future.microtask(() => _navigateToPostMatch(matchId));
+    _matchEndSub = ref.listenManual<AsyncValue<void>>(matchEndProvider, (
+      _,
+      next,
+    ) {
+      if (!next.hasValue) return;
+      _handleMatchEnded(reason: 'ws-match_ended');
+    });
+    _streamingStateSub = ref.listenManual<AsyncValue<StreamingStateEvent>>(
+      streamingStateProvider,
+      (_, next) {
+        final event = next.valueOrNull;
+        if (event == null) return;
+        _onStreamingState(event);
+      },
+    );
+    _gameStateSub = ref.listenManual<AsyncValue<GameState>>(gameStateProvider, (
+      _,
+      next,
+    ) {
+      final gs = next.valueOrNull;
+      if (gs == null) return;
+      _enqueueHudState(gs);
+    });
+    _wsConnectedSub = ref.listenManual<AsyncValue<bool>>(wsConnectedProvider, (
+      _,
+      next,
+    ) {
+      final connected = next.valueOrNull;
+      if (connected == true &&
+          !_terminal &&
+          (_streamState == LiveStreamClientState.idle ||
+              _streamState == LiveStreamClientState.error)) {
+        _setStreamState(
+          LiveStreamClientState.wsConnected,
+          reason: 'websocket-connected',
+        );
+      }
+    });
+  }
+
+  void _onMatchState(MatchState state) {
+    if (_disposed) return;
+    final matchId = _resolveTargetMatchId(state.matches);
+    if (matchId == null) return;
+
+    if (_activeMatchId != matchId) {
+      _switchMatch(matchId);
+    }
+
+    final match = ref.read(matchProvider.notifier).matchById(matchId);
+    if (match == null) return;
+
+    if (match.status == MatchStatus.completed ||
+        match.status == MatchStatus.cancelled) {
+      _handleMatchEnded(reason: 'match-status-${match.status.name}');
       return;
     }
 
-    _lastConnectedMatchId = matchId;
-    ref.read(matchStreamServiceProvider).connect(matchId);
-    _startAudio(matchId);
+    if (match.status != MatchStatus.live) {
+      return;
+    }
+
+    _ensureWsConnected(matchId);
+    _scheduleHlsFallback(matchId);
+    if (_streamState == LiveStreamClientState.wsConnected ||
+        _streamState == LiveStreamClientState.idle ||
+        _streamState == LiveStreamClientState.error) {
+      _setStreamState(
+        LiveStreamClientState.streamInitializing,
+        reason: 'match-live-awaiting-stream-ready',
+      );
+    }
+  }
+
+  void _switchMatch(String matchId) {
+    _log('MATCH', 'Switching to match', matchId: matchId);
+    _activeMatchId = matchId;
+    _terminal = false;
+    _navigatedToPostMatch = false;
+    _cancelHlsTimers();
+    _disposeVideoController();
+    _clearHudQueue();
+    if (mounted) {
+      setState(() => _displayGameState = null);
+    } else {
+      _displayGameState = null;
+    }
+    _hlsInitAttempts = 0;
+    _setStreamState(LiveStreamClientState.idle, reason: 'match-switch');
+  }
+
+  void _ensureWsConnected(String matchId) {
+    final streamSvc = ref.read(matchStreamServiceProvider);
+    if (streamSvc.matchId == matchId &&
+        (streamSvc.isConnected || streamSvc.isConnecting)) {
+      return;
+    }
+    _log('WS', 'Connect requested', matchId: matchId);
+    streamSvc.connect(matchId);
+  }
+
+  void _onStreamingState(StreamingStateEvent event) {
+    final matchId = _activeMatchId;
+    if (_disposed || _terminal || matchId == null) return;
+    if (event.matchId != null && event.matchId != matchId) return;
+
+    _log(
+      'WS',
+      'streaming_state=${event.status} hls_url=${event.hlsUrl}',
+      matchId: matchId,
+    );
+    if (event.isReady) {
+      _setStreamState(LiveStreamClientState.streamReady, reason: 'ws-ready');
+      _startHls(matchId, reason: 'ws-ready', hintedHlsUrl: event.hlsUrl);
+    } else if (event.status == 'initializing' || event.status == 'starting') {
+      _setStreamState(
+        LiveStreamClientState.streamInitializing,
+        reason: 'ws-${event.status}',
+      );
+    }
+  }
+
+  void _enqueueHudState(GameState state) {
+    if (_disposed || _terminal) return;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final dueMs = state.timestamp == null
+        ? nowMs
+        : state.timestamp!.millisecondsSinceEpoch + kHudDisplayDelayMs;
+    _hudQueue.add(_ScheduledHudState(state, dueMs));
+    _startHudPump();
+  }
+
+  void _startHudPump() {
+    _hudPumpTimer ??= Timer.periodic(const Duration(milliseconds: 40), (_) {
+      if (_disposed || _terminal) {
+        _clearHudQueue();
+        return;
+      }
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      GameState? latestDue;
+      while (_hudQueue.isNotEmpty && _hudQueue.first.dueAtMs <= nowMs) {
+        latestDue = _hudQueue.removeFirst().state;
+      }
+      if (latestDue != null) {
+        _log(
+          'SYNC',
+          'HUD frame=${latestDue.frameId} applied (delayMs=$kHudDisplayDelayMs)',
+        );
+        if (mounted) {
+          setState(() => _displayGameState = latestDue);
+        }
+      }
+      if (_hudQueue.isEmpty) {
+        _hudPumpTimer?.cancel();
+        _hudPumpTimer = null;
+      }
+    });
+  }
+
+  void _clearHudQueue() {
+    _hudQueue.clear();
+    _hudPumpTimer?.cancel();
+    _hudPumpTimer = null;
+  }
+
+  void _scheduleHlsFallback(String matchId) {
+    if (_hlsFallbackTimer?.isActive ?? false) return;
+    if (!_canStartHls(matchId)) return;
+    _hlsFallbackTimer = Timer(_hlsFallbackDelay, () {
+      if (_disposed || _terminal || _activeMatchId != matchId) return;
+      final match = ref.read(matchProvider.notifier).matchById(matchId);
+      final isLive = match?.status == MatchStatus.live;
+      if (!isLive || !_canStartHls(matchId)) {
+        _log(
+          'HLS',
+          'Fallback start skipped (isLive=$isLive, canStart=${_canStartHls(matchId)})',
+          matchId: matchId,
+        );
+        return;
+      }
+      _log('HLS', 'Fallback start after 8s (no ws ready)', matchId: matchId);
+      _startHls(matchId, reason: 'fallback-timeout');
+    });
+  }
+
+  bool _canStartHls(String matchId) {
+    if (_playerInitializing) return false;
+    final ctrl = _videoController;
+    if (ctrl == null || _videoMatchId != matchId) return true;
+    return !(ctrl.value.isInitialized || ctrl.value.isPlaying);
+  }
+
+  String _canonicalHlsUrl(String matchId) =>
+      '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
+
+  String _resolveHlsUrl(String matchId, String? hintedHlsUrl) {
+    final canonical = _canonicalHlsUrl(matchId);
+    if (hintedHlsUrl == null || hintedHlsUrl.trim().isEmpty) return canonical;
+
+    final raw = hintedHlsUrl.trim();
+    if (raw.contains('/stream/audio/')) return canonical;
+
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return canonical;
+
+    if (uri.hasScheme) {
+      if (uri.path.contains('/stream/audio/')) return canonical;
+      return uri.toString();
+    }
+
+    if (raw.startsWith('/')) {
+      if (raw.contains('/stream/audio/')) return canonical;
+      return '$kStreamBaseUrl$raw';
+    }
+
+    return canonical;
+  }
+
+  Future<void> _startHls(
+    String matchId, {
+    required String reason,
+    String? hintedHlsUrl,
+  }) async {
+    if (_disposed || _terminal || _activeMatchId != matchId) return;
+    if (!_canStartHls(matchId)) {
+      _log(
+        'PLAYER',
+        'Start skipped (already initializing/playing)',
+        matchId: matchId,
+      );
+      return;
+    }
+
+    final match = ref.read(matchProvider.notifier).matchById(matchId);
+    if (match?.status != MatchStatus.live) {
+      _log(
+        'HLS',
+        'Start skipped because match not live (${match?.status.name})',
+        matchId: matchId,
+      );
+      return;
+    }
+
+    _hlsRetryTimer?.cancel();
+    _hlsRetryTimer = null;
+    _hlsFallbackTimer?.cancel();
+    _hlsFallbackTimer = null;
+
+    _playerInitializing = true;
+    _hlsInitAttempts += 1;
+    _playerInitCount += 1;
+    final attempt = _hlsInitAttempts;
+    final initToken = ++_hlsInitToken;
+    final hlsUrl = _resolveHlsUrl(matchId, hintedHlsUrl);
+    _lastHlsUrl = hlsUrl;
+
+    _setStreamState(
+      LiveStreamClientState.playerInitializing,
+      reason: 'hls-start-$reason-attempt-$attempt',
+    );
+    _log(
+      'HLS',
+      'Initializing ($reason) attempt=$attempt url=$hlsUrl',
+      matchId: matchId,
+    );
+
+    await _pendingControllerDispose;
+    if (!_isInitStillValid(matchId, initToken)) return;
+
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(hlsUrl),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
+    );
+
+    try {
+      await controller.initialize().timeout(const Duration(seconds: 12));
+      if (!_isInitStillValid(matchId, initToken)) {
+        _log('PLAYER', 'Stale initialize completion ignored', matchId: matchId);
+        await controller.dispose();
+        return;
+      }
+      await _disposeVideoController(
+        invalidateInitToken: false,
+        resetInitializing: false,
+      );
+      _videoController = controller;
+      _videoMatchId = matchId;
+      controller.addListener(_onVideoValueChanged);
+      await controller.setVolume(1.0);
+      await controller.play();
+      if (!_isInitStillValid(matchId, initToken)) {
+        await _disposeVideoController(resetInitializing: false);
+        return;
+      }
+      _hlsInitAttempts = 0;
+      _setStreamState(LiveStreamClientState.playing, reason: 'player-playing');
+      _log(
+        'PLAYER',
+        'Playback started (init_count=$_playerInitCount, rebuffer_count=$_rebufferCount)',
+        matchId: matchId,
+      );
+    } catch (e) {
+      await controller.dispose();
+      if (!_isInitStillValid(matchId, initToken)) return;
+      _setStreamState(LiveStreamClientState.error, reason: 'hls-init-failed');
+      _log('HLS', 'Initialize failed: $e', matchId: matchId);
+      _scheduleHlsRetry(matchId, error: e);
+    } finally {
+      if (_activeMatchId == matchId) {
+        _playerInitializing = false;
+      }
+    }
+  }
+
+  bool _isInitStillValid(String matchId, int initToken) {
+    return !_disposed &&
+        !_terminal &&
+        _activeMatchId == matchId &&
+        _hlsInitToken == initToken;
+  }
+
+  void _onVideoValueChanged() {
+    final controller = _videoController;
+    if (controller == null || _disposed || _terminal) return;
+    final value = controller.value;
+    if (_lastIsBuffering != value.isBuffering) {
+      _lastIsBuffering = value.isBuffering;
+      if (value.isBuffering) {
+        _rebufferCount += 1;
+      }
+      _log(
+        'PLAYER',
+        'Buffering=${value.isBuffering} rebuffers=$_rebufferCount pos=${value.position.inMilliseconds}ms',
+        matchId: _videoMatchId,
+      );
+    }
+    if (value.hasError) {
+      _log(
+        'PLAYER',
+        'Controller error: ${value.errorDescription}',
+        matchId: _videoMatchId,
+      );
+      _setStreamState(LiveStreamClientState.error, reason: 'player-error');
+      if (_videoMatchId != null) {
+        final failedMatchId = _videoMatchId!;
+        _disposeVideoController();
+        _scheduleHlsRetry(
+          failedMatchId,
+          error: value.errorDescription ?? 'player-error',
+        );
+      }
+      return;
+    }
+    if (value.isInitialized &&
+        value.isPlaying &&
+        _streamState != LiveStreamClientState.playing) {
+      _setStreamState(
+        LiveStreamClientState.playing,
+        reason: 'listener-playing',
+      );
+    }
+  }
+
+  void _scheduleHlsRetry(String matchId, {required Object error}) {
+    if (_disposed || _terminal || _activeMatchId != matchId) return;
+    if (_hlsRetryTimer?.isActive ?? false) return;
+    if (_hlsInitAttempts >= _maxHlsInitAttempts) {
+      _log('HLS', 'Retry limit reached, giving up', matchId: matchId);
+      return;
+    }
+    final match = ref.read(matchProvider.notifier).matchById(matchId);
+    if (match?.status != MatchStatus.live) {
+      _log(
+        'HLS',
+        'Retry blocked because match not live (${match?.status.name})',
+        matchId: matchId,
+      );
+      return;
+    }
+
+    final errText = error.toString();
+    final is404 = errText.contains('404');
+    if (is404 && _terminal) {
+      _log('HLS', '404 after terminal state, no retry', matchId: matchId);
+      return;
+    }
+
+    final delay =
+        _hlsRetryBackoff[(_hlsInitAttempts - 1).clamp(
+          0,
+          _hlsRetryBackoff.length - 1,
+        )];
+    _log(
+      'HLS',
+      'Retry scheduled in ${delay.inSeconds}s (attempt ${_hlsInitAttempts + 1})',
+      matchId: matchId,
+    );
+    _hlsRetryTimer = Timer(delay, () {
+      if (_disposed || _terminal || _activeMatchId != matchId) return;
+      _disposeVideoController();
+      unawaited(_startHls(
+        matchId,
+        reason: is404 ? 'retry-404-transient' : 'retry-init-failure',
+        hintedHlsUrl: _lastHlsUrl,
+      ));
+    });
   }
 
   /// Returns the ID of the first truly LIVE match, or null.
   /// Never falls back to non-live matches to avoid connecting a WS
   /// that the backend will immediately close with 4004.
-  String? _findLiveMatchId() {
-    final matches = ref.read(matchProvider).matches;
+  String? _findLiveMatchId([List<Match>? source]) {
+    final matches = source ?? ref.read(matchProvider).matches;
     try {
       return matches.firstWhere((m) => m.status == MatchStatus.live).id;
     } catch (_) {
@@ -120,38 +531,99 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _fastPollTimer?.cancel();
-    _pulseCtrl.dispose();
-    _stopAudio();
-    super.dispose();
+  String? _resolveTargetMatchId([List<Match>? matches]) {
+    return widget.matchId ?? _findLiveMatchId(matches);
   }
 
-  // ── Audio helpers ──
-  void _startAudio(String matchId) {
-    _stopAudio();
-    final url = '$kStreamBaseUrl/stream/audio/$matchId/stream.m3u8';
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(url),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+  void _handleMatchEnded({required String reason}) {
+    final matchId = _activeMatchId;
+    if (matchId == null) return;
+    if (_terminal) return;
+    _terminal = true;
+    _log('MATCH', 'Terminal state reached ($reason)', matchId: matchId);
+    _cancelHlsTimers();
+    _clearHudQueue();
+    _displayGameState = null;
+    _disposeVideoController();
+    ref.read(matchStreamServiceProvider).markTerminal(matchId);
+    _setStreamState(LiveStreamClientState.ended, reason: reason);
+    _navigateToPostMatch(matchId);
+  }
+
+  void _cancelHlsTimers() {
+    if ((_hlsFallbackTimer?.isActive ?? false) ||
+        (_hlsRetryTimer?.isActive ?? false)) {
+      _log('HLS', 'Cancelling fallback/retry timers');
+    }
+    _hlsFallbackTimer?.cancel();
+    _hlsFallbackTimer = null;
+    _hlsRetryTimer?.cancel();
+    _hlsRetryTimer = null;
+  }
+
+  Future<void> _disposeVideoController({
+    bool invalidateInitToken = true,
+    bool resetInitializing = true,
+  }) {
+    if (invalidateInitToken) _hlsInitToken++;
+    if (resetInitializing) _playerInitializing = false;
+    final ctrl = _videoController;
+    final videoMatchId = _videoMatchId;
+    _videoController = null;
+    _videoMatchId = null;
+    _lastIsBuffering = false;
+    if (ctrl == null) return _pendingControllerDispose;
+
+    _playerDisposeCount += 1;
+    _log(
+      'PLAYER',
+      'Disposing controller (init_count=$_playerInitCount, dispose_count=$_playerDisposeCount, rebuffer_count=$_rebufferCount)',
+      matchId: videoMatchId,
     );
-    _audioController = controller;
-    controller.initialize().then((_) {
-      if (_audioController == controller && mounted) {
-        controller.setVolume(1.0);
-        controller.play();
-        debugPrint('[Audio] Playing HLS stream: $url');
-      }
-    }).catchError((e) {
-      debugPrint('[Audio] Failed to initialize: $e');
+    ctrl.removeListener(_onVideoValueChanged);
+    _pendingControllerDispose = ctrl.dispose().catchError((Object error) {
+      _log('PLAYER', 'Controller dispose failed: $error', matchId: videoMatchId);
+    });
+    return _pendingControllerDispose;
+  }
+
+  void _setStreamState(LiveStreamClientState next, {required String reason}) {
+    if (_streamState == next) return;
+    _log('MATCH', 'State ${_streamState.name} -> ${next.name} ($reason)');
+    if (!mounted) return;
+    setState(() => _streamState = next);
+  }
+
+  void _navigateToPostMatch(String matchId) {
+    if (_navigatedToPostMatch || !mounted) return;
+    _navigatedToPostMatch = true;
+    ref.read(betProvider.notifier).refresh();
+    ref.read(matchProvider.notifier).refresh();
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) widget.onNavigate('/post-match/$matchId');
     });
   }
 
-  void _stopAudio() {
-    final ctrl = _audioController;
-    _audioController = null;
-    ctrl?.dispose();
+  @override
+  void dispose() {
+    _disposed = true;
+    _matchStateSub?.close();
+    _matchStateSub = null;
+    _matchEndSub?.close();
+    _matchEndSub = null;
+    _streamingStateSub?.close();
+    _streamingStateSub = null;
+    _gameStateSub?.close();
+    _gameStateSub = null;
+    _wsConnectedSub?.close();
+    _wsConnectedSub = null;
+    _cancelHlsTimers();
+    _clearHudQueue();
+    unawaited(_disposeVideoController());
+    ref.read(matchStreamServiceProvider).disconnect();
+    ref.read(matchProvider.notifier).stopFastPolling();
+    _pulseCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -159,45 +631,13 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
 
-    // FPS counter — fires every time a new binary frame arrives from WebSocket
-    ref.listen<AsyncValue<Uint8List>>(frameProvider, (prev, next) {
-      if (next.hasValue) _recordFrame();
-    });
-
-    // Retry connecting when match list loads or updates (handles the race
-    // where matchProvider is still empty when initState fires).
-    // Also catches the case where REST polling flips the match to completed
-    // after we missed the WS match_ended event (e.g. cold-start onto ended match).
-    ref.listen<MatchState>(matchProvider, (prev, next) {
-      final id = widget.matchId ?? _findLiveMatchId();
-      if (id != null) {
-        final updated = next.matches.cast<Match?>().firstWhere(
-          (m) => m?.id == id,
-          orElse: () => null,
-        );
-        if (updated != null &&
-            (updated.status == MatchStatus.completed ||
-                updated.status == MatchStatus.cancelled)) {
-          debugPrint('[LiveMatch] Poll detected match $id ended — navigating to post-match');
-          _navigateToPostMatch(id);
-          return;
-        }
-      }
-      _connectToMatch();
-    });
-
-    final matchId = widget.matchId ?? _findLiveMatchId();
+    final matchId = _resolveTargetMatchId(matches);
     final match = matchId != null
-        ? matches.cast<Match?>().firstWhere((m) => m?.id == matchId,
-            orElse: () => null)
+        ? matches.cast<Match?>().firstWhere(
+            (m) => m?.id == matchId,
+            orElse: () => null,
+          )
         : null;
-
-    // Listen for match end → navigate to post-match (deduped)
-    ref.listen<AsyncValue<void>>(matchEndProvider, (_, next) {
-      if (next.hasValue) {
-        _navigateToPostMatch(matchId ?? '');
-      }
-    });
 
     if (match == null) {
       final isStillLoading = !matchState.hasLoaded;
@@ -210,8 +650,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Match not found',
-                        style: bodyStyle(color: Palette.muted)),
+                    Text(
+                      'Match not found',
+                      style: bodyStyle(color: Palette.muted),
+                    ),
                     const SizedBox(height: 16),
                     OrnateButton(
                       label: 'Back',
@@ -224,9 +666,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       );
     }
 
-    final frameAsync = ref.watch(frameProvider);
-    final gameStateAsync = ref.watch(gameStateProvider);
     final viewerAsync = ref.watch(viewerCountProvider);
+    final gameState = _displayGameState;
+    final controller = _videoController;
 
     return AppShell(
       activeTab: NavTab.arena,
@@ -242,11 +684,12 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                 Row(
                   children: [
                     FadeTransition(
-                      opacity: Tween<double>(begin: 0.3, end: 1.0)
-                          .animate(CurvedAnimation(
-                        parent: _pulseCtrl,
-                        curve: Curves.easeInOut,
-                      )),
+                      opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
+                        CurvedAnimation(
+                          parent: _pulseCtrl,
+                          curve: Curves.easeInOut,
+                        ),
+                      ),
                       child: Container(
                         width: 8,
                         height: 8,
@@ -257,8 +700,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text('LIVE',
-                        style: bodyStyle(size: 14, color: Palette.red)),
+                    Text(
+                      'LIVE',
+                      style: bodyStyle(size: 14, color: Palette.red),
+                    ),
                     const SizedBox(width: 12),
                     viewerAsync.when(
                       data: (count) => Text(
@@ -270,97 +715,78 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                     ),
                   ],
                 ),
-                Text(match.label,
-                    style: bodyStyle(size: 14, color: Palette.muted)),
+                Text(
+                  match.label,
+                  style: bodyStyle(size: 14, color: Palette.muted),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 8),
 
-          // Game frame from WebSocket + FPS badge overlay (debug only)
+          // Combined HLS video+audio frame
           Stack(
             children: [
-              frameAsync.when(
-                data: (frameBytes) => _GameFrame(frameBytes: frameBytes),
-                loading: () => const _GameFramePlaceholder(
-                  child: IKLoader(size: 44),
-                ),
-                error: (e, s) => const _GameFramePlaceholder(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IKLoader(size: 36),
-                      SizedBox(height: 12),
-                      Text('Connecting...',
-                          style: TextStyle(color: Palette.muted, fontSize: 13)),
-                    ],
-                  ),
-                ),
-              ),
+              _LiveVideoFrame(controller: controller, state: _streamState),
               // Connection-lost banner — shows when WS has given up reconnecting
-              Builder(builder: (ctx) {
-                final svc = ref.watch(matchStreamServiceProvider);
-                if (!svc.hasGivenUp) return const SizedBox.shrink();
-                return Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: () {
-                      final id = widget.matchId ?? _lastConnectedMatchId;
-                      if (id != null) {
-                        _lastConnectedMatchId = null;
-                        svc.resetAndReconnect(id);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      color: Palette.red.withValues(alpha: 0.85),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text('Connection lost — tap to retry',
+              Builder(
+                builder: (ctx) {
+                  final svc = ref.watch(matchStreamServiceProvider);
+                  if (!svc.hasGivenUp) return const SizedBox.shrink();
+                  return Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: () {
+                        final id = _activeMatchId;
+                        if (id != null) {
+                          _log('WS', 'Manual reconnect requested', matchId: id);
+                          svc.resetAndReconnect(id);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        color: Palette.red.withValues(alpha: 0.85),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                            SizedBox(width: 6),
+                            Text(
+                              'Connection lost — tap to retry',
                               style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600)),
-                        ],
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }),
-              if (kDebugMode)
+                  );
+                },
+              ),
+              if (kDebugMode && matchId != null)
                 Positioned(
                   top: 6,
                   right: 8,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: _fps >= 50
-                            ? Colors.greenAccent
-                            : _fps >= 30
-                                ? Colors.yellow
-                                : Colors.redAccent,
-                        width: 1,
-                      ),
                     ),
                     child: Text(
-                      '$_fps fps',
+                      _streamState.name,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _fps >= 50
-                            ? Colors.greenAccent
-                            : _fps >= 30
-                                ? Colors.yellow
-                                : Colors.redAccent,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.gold,
                       ),
                     ),
                   ),
@@ -370,30 +796,28 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           const SizedBox(height: 8),
 
           // Health bars + timer from game state
-          gameStateAsync.when(
-            data: (gs) => _HealthOverlay(
-              gameState: gs,
+          if (gameState != null)
+            _HealthOverlay(
+              gameState: gameState,
               fighter1Name: match.fighter1?.name ?? 'Fighter 1',
               fighter2Name: match.fighter2?.name ?? 'Fighter 2',
-            ),
-            loading: () => const SizedBox(height: 40),
-            error: (e, s) => const SizedBox(height: 40),
-          ),
+            )
+          else
+            const SizedBox(height: 40),
           const SizedBox(height: 8),
 
           // Round score dots
-          gameStateAsync.when(
-            data: (gs) => gs.bestOf > 1
+          if (gameState != null)
+            gameState.bestOf > 1
                 ? _RoundDots(
-                    bestOf: gs.bestOf,
-                    roundsWonP1: gs.roundsWonP1,
-                    roundsWonP2: gs.roundsWonP2,
-                    currentRound: gs.currentRound,
+                    bestOf: gameState.bestOf,
+                    roundsWonP1: gameState.roundsWonP1,
+                    roundsWonP2: gameState.roundsWonP2,
+                    currentRound: gameState.currentRound,
                   )
-                : const SizedBox.shrink(),
-            loading: () => const SizedBox.shrink(),
-            error: (e, s) => const SizedBox.shrink(),
-          ),
+                : const SizedBox.shrink()
+          else
+            const SizedBox.shrink(),
           const SizedBox(height: 6),
 
           // Fighter names
@@ -441,23 +865,43 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   }
 }
 
-/// Displays the latest PNG frame from the emulator.
-class _GameFrame extends StatelessWidget {
-  const _GameFrame({required this.frameBytes});
-  final Uint8List frameBytes;
+class _LiveVideoFrame extends StatelessWidget {
+  const _LiveVideoFrame({required this.controller, required this.state});
+  final VideoPlayerController? controller;
+  final LiveStreamClientState state;
+  static const _targetAspectRatio = 4 / 3;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 4 / 3,
-      child: Container(
-        color: Palette.black,
-        child: Image.memory(
-          frameBytes,
-          fit: BoxFit.contain,
-          gaplessPlayback: true,
+    final ctrl = controller;
+    if (ctrl == null || !ctrl.value.isInitialized) {
+      final label = switch (state) {
+        LiveStreamClientState.streamReady ||
+        LiveStreamClientState.playerInitializing => 'Loading stream...',
+        LiveStreamClientState.error => 'Stream unavailable (retrying)',
+        LiveStreamClientState.ended => 'Match ended',
+        _ => 'Connecting stream...',
+      };
+      return _GameFramePlaceholder(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const IKLoader(size: 36),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(color: Palette.muted, fontSize: 13),
+            ),
+          ],
         ),
-      ),
+      );
+    }
+
+    return AspectRatio(
+      aspectRatio: ctrl.value.aspectRatio == 0
+          ? _targetAspectRatio
+          : ctrl.value.aspectRatio,
+      child: ColoredBox(color: Palette.black, child: VideoPlayer(ctrl)),
     );
   }
 }
@@ -502,8 +946,10 @@ class _HealthOverlay extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(fighter1Name,
-                    style: bodyStyle(size: 11, color: Palette.secondary)),
+                Text(
+                  fighter1Name,
+                  style: bodyStyle(size: 11, color: Palette.secondary),
+                ),
                 const SizedBox(height: 4),
                 _HealthBar(
                   pct: gameState.p1HealthPct,
@@ -526,8 +972,10 @@ class _HealthOverlay extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(fighter2Name,
-                    style: bodyStyle(size: 11, color: Palette.secondary)),
+                Text(
+                  fighter2Name,
+                  style: bodyStyle(size: 11, color: Palette.secondary),
+                ),
                 const SizedBox(height: 4),
                 _HealthBar(
                   pct: gameState.p2HealthPct,
@@ -684,16 +1132,14 @@ class _PulsingDotState extends State<PulsingDot>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-      ),
+      opacity: Tween<double>(
+        begin: 0.3,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
       child: Container(
         width: widget.size,
         height: widget.size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: widget.color,
-        ),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color),
       ),
     );
   }

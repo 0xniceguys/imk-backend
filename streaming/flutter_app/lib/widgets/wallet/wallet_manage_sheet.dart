@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import '../../core/constants.dart';
 import '../../core/palette.dart';
 import '../../core/runtime_client_config.dart';
 import '../../core/typography.dart';
@@ -256,10 +258,14 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 20,
-                        color: Palette.gold,
+                      SvgPicture.asset(
+                        Assets.moneyIcon,
+                        width: 32,
+                        height: 32,
+                        colorFilter: const ColorFilter.mode(
+                          Palette.gold,
+                          BlendMode.srcIn,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text('Manage Wallet', style: displayStyle(size: 24)),
@@ -376,7 +382,7 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
             ),
             const SizedBox(height: 20),
 
-            const _GoldLine(),
+            Container(height: 1, color: Palette.border),
             const SizedBox(height: 14),
             Pressable(
               onTap: () => setState(() => _withdrawExpanded = !_withdrawExpanded),
@@ -601,22 +607,6 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _GoldLine extends StatelessWidget {
-  const _GoldLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.transparent, Color(0xFFFFC500), Colors.transparent],
-        ),
-      ),
-    );
-  }
-}
 
 class _BalanceRow extends StatelessWidget {
   const _BalanceRow({
