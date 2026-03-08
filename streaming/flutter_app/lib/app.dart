@@ -5,6 +5,7 @@ import 'core/constants.dart';
 import 'core/typography.dart';
 import 'router.dart';
 import 'providers/auth_provider.dart';
+import 'providers/match_stream_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/get_started_screen.dart';
@@ -55,6 +56,9 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
   Widget build(BuildContext context) {
     // Watch auth to rebuild on changes; navigate reactively via listener
     ref.watch(authProvider);
+    // Keep the global HLS preloader alive at all times so the video controller
+    // starts initialising the moment backend signals streaming_state=ready.
+    ref.watch(globalHlsPreloaderProvider);
 
     ref.listen<AuthState>(authProvider, (prev, next) {
       debugPrint('[App] AUTH: ${prev?.status} → ${next.status}');
