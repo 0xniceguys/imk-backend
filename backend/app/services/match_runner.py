@@ -31,7 +31,6 @@ from app.services.actions import (
     encode_controller_state,
     resolve_action,
 )
-from app.services.anti_camping import AntiCampingGuard
 from app.services.bridge import EmulatorBridge
 from app.services.ctrl_writer import write_ctrl
 from app.services.emulator import EmulatorSession, LaunchOptions
@@ -218,8 +217,6 @@ class MatchRunner:
         self._last_state_broadcast: float = 0.0
         # Streaming state monitoring
         self._stream_monitor_task: asyncio.Task | None = None
-        # Anti-camping: injects real N64 D-pad inputs when fighters are stuck
-        self._anti_camping = AntiCampingGuard()
 
     @property
     def rounds_to_win(self) -> int:
@@ -795,7 +792,6 @@ class MatchRunner:
                 await self._load_savestate()
                 self.p1_agent.reset()
                 self.p2_agent.reset()
-                self._anti_camping.reset()  # clear position history for new round
                 self.state = RunnerState.RUNNING
 
                 await self._start_free_running()
@@ -868,22 +864,13 @@ class MatchRunner:
                 p1_action = None if self._manual_overrides[1].enabled else self.p1_agent.choose_action(state, player=1)
                 p2_action = None if self._manual_overrides[2].enabled else self.p2_agent.choose_action(state, player=2)
 
-                # 3a. Anti-camping override — fires ONLY when far apart + not moving.
-                #     Uses real N64 D-pad inputs (D_RIGHT/D_LEFT), no macros.
-                #     check() is a no-op when characters are already at close range.
-                p1_camp, p2_camp = self._anti_camping.check(state.p1_x, state.p2_x)
-
                 # 4. Write controller states to mmap
                 if self._manual_overrides[1].enabled:
                     p1_controller = self._manual_overrides[1].controller_state.clipped()
-                elif p1_camp is not None:
-                    p1_controller = p1_camp
                 else:
                     p1_controller = resolve_action(p1_action).micro_controller_state
                 if self._manual_overrides[2].enabled:
                     p2_controller = self._manual_overrides[2].controller_state.clipped()
-                elif p2_camp is not None:
-                    p2_controller = p2_camp
                 else:
                     p2_controller = resolve_action(p2_action).micro_controller_state
                 write_ctrl(p1_controller, ctrl_p1)
