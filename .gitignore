@@ -64,3 +64,5 @@ streaming/flutter_app/ios/.symlinks/
 streaming/flutter_app/android/.gradle/
 streaming/flutter_app/android/local.properties
 # flutter pub cache lock is committed (pubspec.lock stays)
+
+backend/logs/
