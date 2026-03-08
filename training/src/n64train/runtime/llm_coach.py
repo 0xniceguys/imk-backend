@@ -15,13 +15,18 @@ Two non-blocking coaching layers that plug into mk4_train.py:
      • Runs in a daemon thread — NEVER blocks the 30 Hz training loop
      • Reads current game state (health, distance, timer) via MicroCoachState
      • Returns a 3-float tactical hint: [attack_weight, advance_weight, defend_weight]
-     • Hint is appended to the observation vector (obs dims: 14 → 17)
+     • Hint is appended to the observation vector (obs dims: 14 → 18)
      • If LLM hasn't responded yet, last hint is reused (staleness is tracked)
 
 Usage
 ─────
     coach = LlmCoach(provider="openai", model="gpt-4o-mini", coach_every=10)
     micro = MicroCoach(provider="openai", model="gpt-4o-mini", interval_steps=90)
+
+    # Local (free, recommended for training — no API costs):
+    coach = LlmCoach(provider="ollama", model="llama3.2", coach_every=10)
+    micro = MicroCoach(provider="ollama", model="llama3.2", interval_steps=90)
+    # Requires: ollama pull llama3.2 && ollama serve
 
     # Between episodes:
     if ep_num % coach.coach_every == 0:
@@ -76,6 +81,21 @@ def _gemini_chat(model: str, messages: list[dict]) -> str:
     return resp.text
 
 
+def _ollama_chat(model: str, messages: list[dict]) -> str:
+    """Ollama local inference via its OpenAI-compatible /v1 endpoint."""
+    import openai
+    client = openai.OpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",   # Ollama ignores the key but the client requires one
+    )
+    resp = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        response_format={"type": "json_object"},
+    )
+    return resp.choices[0].message.content or "{}"
+
+
 def _call_llm(provider: str, model: str, messages: list[dict]) -> str:
     """Unified LLM call. Returns raw string (expected to be JSON)."""
     if provider == "openai":
@@ -84,7 +104,9 @@ def _call_llm(provider: str, model: str, messages: list[dict]) -> str:
         return _anthropic_chat(model, messages)
     if provider == "gemini":
         return _gemini_chat(model, messages)
-    raise ValueError(f"Unknown provider: {provider!r}. Use 'openai', 'anthropic', or 'gemini'.")
+    if provider == "ollama":
+        return _ollama_chat(model, messages)
+    raise ValueError(f"Unknown provider: {provider!r}. Use 'openai', 'anthropic', 'gemini', or 'ollama'.")
 
 
 def _parse_json_safe(text: str) -> dict:
