@@ -20,26 +20,100 @@ router = APIRouter(prefix="/fighters", tags=["fighters"])
 IMAGE_STORAGE_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "fighters"
 IMAGE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
+# Bayesian smoothing config for response-time fighter ranking.
+# score = (wins + k*m) / (matches + k)
+_RANK_PRIOR_MEAN = 0.5
+_RANK_PRIOR_STRENGTH = 20.0
+
+
+def _normalized_wins_matches(fighter: Fighter) -> tuple[int, int]:
+    matches = max(int(fighter.matches_played or 0), 0)
+    wins = max(int(fighter.matches_won or 0), 0)
+    if wins > matches:
+        wins = matches
+    return wins, matches
+
+
+def _raw_win_rate(fighter: Fighter) -> float:
+    wins, matches = _normalized_wins_matches(fighter)
+    if matches <= 0:
+        return 0.0
+    return wins / matches
+
+
+def _smoothed_score(fighter: Fighter) -> float:
+    wins, matches = _normalized_wins_matches(fighter)
+    return (wins + (_RANK_PRIOR_STRENGTH * _RANK_PRIOR_MEAN)) / (
+        matches + _RANK_PRIOR_STRENGTH
+    )
+
+
+def _rank_sort_key(fighter: Fighter) -> tuple[float, float, int, str]:
+    wins, matches = _normalized_wins_matches(fighter)
+    return (
+        -_smoothed_score(fighter),
+        -_raw_win_rate(fighter),
+        -matches,
+        (fighter.name or "").lower(),
+    )
+
+
+def _resolved_agent_architecture(fighter: Fighter) -> str | None:
+    # Built-in architecture field takes priority.
+    builtin_arch = (fighter.agent_architecture or "").strip()
+    if builtin_arch:
+        return builtin_arch
+
+    # For custom agents, expose the linked agent architecture in API output.
+    linked_arch = (
+        (fighter.agent.architecture or "").strip()
+        if getattr(fighter, "agent", None) is not None
+        else ""
+    )
+    if linked_arch:
+        return linked_arch
+    return None
+
+
+def _ranked_fighter_out(fighters: list[Fighter]) -> list[FighterOut]:
+    ranked_rows = sorted(fighters, key=_rank_sort_key)
+    out: list[FighterOut] = []
+    for idx, fighter in enumerate(ranked_rows, start=1):
+        out.append(
+            FighterOut.model_validate(fighter).model_copy(
+                update={
+                    "rank": idx,
+                    "agent_architecture": _resolved_agent_architecture(fighter),
+                }
+            )
+        )
+    return out
+
+
+async def _get_ranked_fighters(db: AsyncSession) -> list[FighterOut]:
+    result = await db.execute(select(Fighter).options(selectinload(Fighter.agent)))
+    fighters = list(result.scalars().all())
+    return _ranked_fighter_out(fighters)
+
+
+async def _get_ranked_fighter_by_id(db: AsyncSession, fighter_id: UUID) -> FighterOut:
+    ranked = await _get_ranked_fighters(db)
+    for fighter in ranked:
+        if fighter.id == fighter_id:
+            return fighter
+    raise FighterNotFoundError(str(fighter_id))
+
 
 @router.get("/", response_model=list[FighterOut])
 async def list_fighters(db: AsyncSession = Depends(get_db)):
     """List all fighters with their associated agents."""
-    result = await db.execute(
-        select(Fighter).options(selectinload(Fighter.agent)).order_by(Fighter.name)
-    )
-    return result.scalars().all()
+    return await _get_ranked_fighters(db)
 
 
 @router.get("/{fighter_id}", response_model=FighterOut)
 async def get_fighter(fighter_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get fighter by ID with associated agent."""
-    result = await db.execute(
-        select(Fighter).where(Fighter.id == fighter_id).options(selectinload(Fighter.agent))
-    )
-    fighter = result.scalar_one_or_none()
-    if fighter is None:
-        raise FighterNotFoundError(str(fighter_id))
-    return fighter
+    return await _get_ranked_fighter_by_id(db, fighter_id)
 
 
 @router.put("/{fighter_id}", response_model=FighterOut)
@@ -87,9 +161,7 @@ async def update_fighter(
         fighter.rank = body.rank
 
     await db.commit()
-    await db.refresh(fighter, attribute_names=["agent"])
-
-    return fighter
+    return await _get_ranked_fighter_by_id(db, fighter_id)
 
 
 
@@ -157,9 +229,7 @@ async def upload_fighter_image(
     # Update fighter's image_url
     fighter.image_url = f"/uploads/fighters/{filename}"
     await db.commit()
-    await db.refresh(fighter, attribute_names=["agent"])
-
-    return fighter
+    return await _get_ranked_fighter_by_id(db, fighter_id)
 
 
 # ── Fighter Stats (computed from match/bet data) ──
@@ -274,6 +344,27 @@ async def get_fighter_matches(
     )
     matches = q.scalars().all()
 
+    # Aggregate bet amounts by match and side (P1/P2) for returned rows.
+    bet_amounts_by_match: dict[UUID, dict[str, float]] = {}
+    if matches:
+        match_ids = [m.id for m in matches]
+        match_by_id = {m.id: m for m in matches}
+        bq = await db.execute(select(Bet).where(Bet.match_id.in_(match_ids)))
+        for b in bq.scalars().all():
+            match_row = match_by_id.get(b.match_id)
+            if match_row is None:
+                continue
+            amount = float(b.amount or 0)
+            bucket = bet_amounts_by_match.setdefault(
+                b.match_id,
+                {"total": 0.0, "p1": 0.0, "p2": 0.0},
+            )
+            bucket["total"] += amount
+            if b.fighter_id == match_row.fighter1_id:
+                bucket["p1"] += amount
+            elif b.fighter_id == match_row.fighter2_id:
+                bucket["p2"] += amount
+
     out = []
     for m in matches:
         is_p1 = m.fighter1_id == fighter_id
@@ -281,6 +372,9 @@ async def get_fighter_matches(
         won = m.winner_id == fighter_id
         rounds_for = m.rounds_won_p1 if is_p1 else m.rounds_won_p2
         rounds_against = m.rounds_won_p2 if is_p1 else m.rounds_won_p1
+        amounts = bet_amounts_by_match.get(m.id, {"total": 0.0, "p1": 0.0, "p2": 0.0})
+        bet_for_fighter = amounts["p1"] if is_p1 else amounts["p2"]
+        bet_for_opponent = amounts["p2"] if is_p1 else amounts["p1"]
         out.append({
             "match_id": str(m.id),
             "opponent_id": str(opponent.id) if opponent else None,
@@ -291,6 +385,11 @@ async def get_fighter_matches(
             "side": "P1" if is_p1 else "P2",
             "label": m.label,
             "completed_at": m.completed_at.isoformat() if m.completed_at else None,
+            "total_bet_amount": round(amounts["total"], 6),
+            "bet_amount_p1": round(amounts["p1"], 6),
+            "bet_amount_p2": round(amounts["p2"], 6),
+            "bet_amount_for_fighter": round(bet_for_fighter, 6),
+            "bet_amount_for_opponent": round(bet_for_opponent, 6),
         })
     return out
 
