@@ -74,7 +74,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
 
   @override
   void dispose() {
-    _matchStateSub?.cancel();
+    _matchStateSub?.close();
     super.dispose();
   }
   void _maybePreConnect(Match match) {

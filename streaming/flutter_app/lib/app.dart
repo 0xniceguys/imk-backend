@@ -22,6 +22,10 @@ import 'screens/post_match_screen.dart';
 // Auth-flow routes that should replace the nav stack (no back button)
 const _authRoutes = {'/get-started', '/onboarding'};
 
+/// Global route observer — lets screens implement RouteAware to get
+/// immediate callbacks when they are popped or covered by another route.
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 // Tab-level routes: replace instead of push so back doesn't cycle tabs
 const _tabRoutes = {'/arena-list', '/fighter-overview', '/profile'};
 
@@ -85,6 +89,7 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
       navigatorKey: _navKey,
       debugShowCheckedModeBanner: false,
       title: 'Immortal Kombat',
+      navigatorObservers: [routeObserver],
       theme: ThemeData(
         brightness: Brightness.dark,
         fontFamily: kAppFontFamily,

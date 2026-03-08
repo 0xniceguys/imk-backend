@@ -15,6 +15,7 @@ import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
 import '../services/hls_player_service.dart';
+import '../app.dart' show routeObserver;
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
@@ -42,7 +43,8 @@ class LiveMatchScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin
+    implements RouteAware {
   late final AnimationController _pulseCtrl;
 
   // ignore: unused_field
@@ -59,7 +61,12 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   String? _lastConnectedMatchId;
   bool _navigatedToPostMatch = false;
+  bool _waitingForResult = false; // shows loader overlay when match ends
   Timer? _fastPollTimer;
+
+  // Active match tracking
+  String? _activeMatchId;
+  LiveStreamClientState _streamState = LiveStreamClientState.idle;
 
   // Combined HLS player: video + audio in one stream
   VideoPlayerController? _hlsController;
@@ -93,15 +100,59 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _streamState = LiveStreamClientState.idle;
     ref.read(matchProvider.notifier).startFastPolling();
     _setupListeners();
-    // Unmute the pre-loaded controller — it was started muted in the background
-    // to prevent audio leaking while user was browsing other tabs.
+    // Signal the HlsPlayerService that audio is wanted.
+    // requestAudio() sets wantsAudio=true:
+    //   - If the controller is already initialized → unmutes immediately
+    //   - If preload is still in progress → preload() will unmute once done
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         try {
-          ref.read(hlsPlayerServiceProvider).unmute();
+          ref.read(hlsPlayerServiceProvider).requestAudio();
         } catch (_) {}
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route observer so we get didPop/didPushNext immediately
+    // when navigation starts — not after the 300ms exit animation completes.
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  // ── RouteAware: fires at the START of navigation, before animation ──────────
+
+  /// User pressed back — mute IMMEDIATELY (before the 300ms exit animation).
+  @override
+  void didPop() {
+    _silenceNow();
+  }
+
+  /// Another screen pushed on top — mute immediately.
+  @override
+  void didPushNext() {
+    _silenceNow();
+  }
+
+  /// Screen came back into view — restore audio.
+  @override
+  void didPopNext() {
+    try {
+      ref.read(hlsPlayerServiceProvider).requestAudio();
+    } catch (_) {}
+  }
+
+  @override
+  void didPush() {} // no-op
+
+  void _silenceNow() {
+    try {
+      ref.read(hlsPlayerServiceProvider).silenceAndReset();
+    } catch (_) {}
   }
 
   void _setupListeners() {
@@ -260,9 +311,11 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     if (_navigatedToPostMatch || !mounted) return;
     _navigatedToPostMatch = true;
     _fastPollTimer?.cancel();
+    // Show "Calculating results..." overlay immediately
+    if (mounted) setState(() => _waitingForResult = true);
     ref.read(betProvider.notifier).refresh();
     ref.read(matchProvider.notifier).refresh();
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) widget.onNavigate('/post-match/$matchId');
     });
   }
@@ -287,16 +340,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _pulseCtrl.dispose();
     _stopHls(); // stops local _hlsController
 
-    // Fully stop the global HlsPlayerService controller so audio/video
-    // dies immediately when the user navigates away.
-    // stop() disposes the VideoPlayerController (kills ExoPlayer audio track).
-    // Fire-and-forget is fine — dispose() cannot await.
+    // Kill audio immediately (sync) then fully dispose async.
+    // silenceAndReset() clears wantsAudio flag so a background preload restart
+    // won't auto-unmute. stop() disposes ExoPlayer fire-and-forget.
     try {
-      ref.read(hlsPlayerServiceProvider).stop();
+      final hlsSvc = ref.read(hlsPlayerServiceProvider);
+      hlsSvc.silenceAndReset(); // synchronous — instant audio cut
+      hlsSvc.stop();            // async fire-and-forget — full disposal
     } catch (_) {
       // ref may be invalidated on hot restart — ignore
     }
 
+    routeObserver.unsubscribe(this);
     super.dispose();
   }
 
@@ -466,6 +521,31 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       }
     });
 
+    // ── Waiting-for-result overlay (shown immediately when match ends) ─────────
+    if (_waitingForResult) {
+      return Container(
+        color: Palette.black,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const IKLoader(size: 48),
+              const SizedBox(height: 20),
+              Text(
+                'Calculating Results...',
+                style: displayStyle(size: 22, color: Palette.gold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please wait',
+                style: bodyStyle(size: 14, color: Palette.muted),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return AppShell(
       activeTab: NavTab.arena,
       onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
@@ -622,7 +702,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           const SizedBox(height: 8),
 
           // Round score dots
-          if (gameState != null && gameState.bestOf > 1)
+          if (gameState != null)
             _RoundDots(
               bestOf: gameState.bestOf,
               roundsWonP1: gameState.roundsWonP1,
