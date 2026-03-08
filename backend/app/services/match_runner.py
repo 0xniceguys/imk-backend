@@ -166,7 +166,7 @@ class MatchRunner:
     reloads the savestate and continues until a player wins enough rounds.
 
     The emulator runs freely at native speed on all platforms.
-    FFmpeg captures the display at 60fps (x11grab on Linux, avfoundation on macOS).
+    FFmpeg captures the display at 30fps (x11grab on Linux, avfoundation on macOS).
     The agent brain runs independently at ~10Hz reading RAM and writing inputs.
     """
 
@@ -457,7 +457,7 @@ class MatchRunner:
             except Exception:
                 pass
 
-            # Let emulator run freely, FFmpeg captures display at 60fps
+            # Let emulator run freely, FFmpeg captures display at 30fps
             await self._start_free_running()
 
             self._agent_loop_task = asyncio.create_task(self._match_loop())
@@ -504,12 +504,12 @@ class MatchRunner:
 
     async def _monitor_hls_ready(self) -> None:
         """Poll until HLS playlist is ready, then notify clients."""
-        max_wait = 10  # seconds
+        max_wait = 20  # seconds
         poll_interval = 0.5
         elapsed = 0.0
 
         while elapsed < max_wait:
-            if self._hls_capture.playlist_ready:
+            if self._hls_capture.ready_for_playback():
                 self.streaming_state = StreamingState.READY
                 logger.info("HLS stream ready for match %s", self.match_id)
                 await ws_manager.broadcast_json(self.match_id, {
@@ -811,7 +811,7 @@ class MatchRunner:
         """Single round: agent brain loop at ~10Hz.
 
         The emulator runs freely at native speed.
-        FFmpeg captures frames independently at 60fps.
+        FFmpeg captures frames independently at 30fps.
         This loop ONLY reads RAM and writes agent inputs.
 
         Returns True if P1 won the round, False if P2 won.
