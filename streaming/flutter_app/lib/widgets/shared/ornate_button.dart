@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../core/constants.dart';
@@ -26,13 +27,24 @@ class OrnateButton extends StatelessWidget {
         width: 250,
         child: Column(
           children: [
-            Image.asset(Assets.ctaTop,
-                width: 250, height: 8, fit: BoxFit.cover),
+            Transform.flip(
+              flipY: true,
+              child: SvgPicture.asset(
+                Assets.ornateTrial,
+                width: 250,
+                height: 8,
+                fit: BoxFit.fill,
+              ),
+            ),
             const SizedBox(height: 11),
             Text(label, style: displayStyle(size: 20, color: color)),
             const SizedBox(height: 11),
-            Image.asset(Assets.ctaBottom,
-                width: 250, height: 8, fit: BoxFit.cover),
+            SvgPicture.asset(
+              Assets.ornateTrial,
+              width: 250,
+              height: 8,
+              fit: BoxFit.fill,
+            ),
           ],
         ),
       ),

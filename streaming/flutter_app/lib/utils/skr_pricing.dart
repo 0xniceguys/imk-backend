@@ -1,9 +1,12 @@
+import '../core/constants.dart';
 import '../core/runtime_client_config.dart';
 import '../models/wallet_state.dart';
 
-const double kDevnetSkrFallbackPriceUsd = 0.25;
-
 double resolveSkrUsdPrice(WalletState wallet, {RuntimeClientConfig? config}) {
+  if (wallet.seekerUsdPrice > 0 && wallet.seekerUsdPrice.isFinite) {
+    return wallet.seekerUsdPrice;
+  }
+
   if (wallet.seekerBalance > 0 && wallet.seekerUsdValue > 0) {
     final inferred = wallet.seekerUsdValue / wallet.seekerBalance;
     if (inferred.isFinite && inferred > 0) {
@@ -13,7 +16,7 @@ double resolveSkrUsdPrice(WalletState wallet, {RuntimeClientConfig? config}) {
 
   final cfg = config ?? RuntimeClientConfig.instance;
   if (cfg.isDevnet) {
-    return kDevnetSkrFallbackPriceUsd;
+    return kDevnetSkrPriceUsd;
   }
   return 0;
 }

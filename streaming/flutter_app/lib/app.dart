@@ -13,6 +13,7 @@ import 'screens/arena_list_screen.dart';
 import 'screens/battle_detail_screen.dart';
 import 'screens/fighter_overview_screen.dart';
 import 'screens/fighter_details_screen.dart';
+import 'screens/fighter_match_history_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/live_match_screen.dart';
 import 'screens/post_match_screen.dart';
@@ -24,7 +25,7 @@ const _authRoutes = {'/get-started', '/onboarding'};
 const _tabRoutes = {'/arena-list', '/fighter-overview', '/profile'};
 
 // Routes that use right-slide (iOS detail) transition
-const _slideRightRoutes = {'/fighter-details'};
+const _slideRightRoutes = {'/fighter-details', '/fighter-match-history'};
 
 // Routes that get a zoom-scale entrance (feels cinematic)
 const _zoomRoutes = {'/live-match'};
@@ -284,6 +285,10 @@ class _ScreenPage extends StatelessWidget {
       ),
       ScreenSlug.fighterOverview => FighterOverviewScreen(onNavigate: onNav),
       ScreenSlug.fighterDetails => FighterDetailsScreen(
+        onNavigate: onNav,
+        fighterId: paramId,
+      ),
+      ScreenSlug.fighterMatchHistory => FighterMatchHistoryScreen(
         onNavigate: onNav,
         fighterId: paramId,
       ),
