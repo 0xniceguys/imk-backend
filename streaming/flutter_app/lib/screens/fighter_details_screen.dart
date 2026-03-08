@@ -7,6 +7,7 @@ import '../providers/fighter_provider.dart';
 import '../providers/fighter_stats_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/skr_pricing.dart';
+import '../widgets/fighter/match_history.dart';
 import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_loader.dart';
 import '../widgets/fighter/fighter_image.dart';
@@ -28,6 +29,8 @@ class FighterDetailsScreen extends ConsumerStatefulWidget {
 
 class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
   String? _vsOpponentId;
+  MatchHistoryResultFilter _matchResultFilter = MatchHistoryResultFilter.all;
+  String? _matchHistoryOpponentId;
 
   @override
   Widget build(BuildContext context) {
@@ -188,70 +191,6 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
             const _GoldDivider(),
             const SizedBox(height: 30),
             _DetailsSection(
-              title: 'Fighter Profile',
-              child: Column(
-                children: [
-                  if (fighter.fightStyle.isNotEmpty ||
-                      fighter.origin.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (fighter.fightStyle.isNotEmpty)
-                            _Tag(label: fighter.fightStyle),
-                          if (fighter.origin.isNotEmpty)
-                            _Tag(label: fighter.origin),
-                        ],
-                      ),
-                    ),
-                  _StatsGrid(
-                    items: [
-                      _InfoItem('Character', fighter.character),
-                      _InfoItem(
-                        'Architecture',
-                        fighter.agentArchitecture?.toUpperCase() ?? 'Unknown',
-                      ),
-                      _InfoItem(
-                        'Origin',
-                        fighter.origin.isEmpty ? 'Unknown' : fighter.origin,
-                      ),
-                      _InfoItem(
-                        'Slug',
-                        fighter.slug.isEmpty ? 'Unknown' : fighter.slug,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
-            const _GoldDivider(),
-            const SizedBox(height: 30),
-            _DetailsSection(
-              title: 'Match History',
-              child: matchesAsync.when(
-                loading: () => const _Loader(),
-                error: (error, stackTrace) => _emptyMsg('History unavailable'),
-                data: (matches) {
-                  if (matches.isEmpty) {
-                    return _emptyMsg('No completed matches yet');
-                  }
-                  return Column(
-                    children: matches
-                        .take(10)
-                        .map((match) => _MatchRow(match: match))
-                        .toList(),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 30),
-            const _GoldDivider(),
-            const SizedBox(height: 30),
-            _DetailsSection(
               title: 'Head-to-Head Stats',
               child: Column(
                 children: [
@@ -341,6 +280,135 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                     )
                   else
                     _emptyMsg('Select an opponent above'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
+            _DetailsSection(
+              title: 'Match History',
+              child: matchesAsync.when(
+                loading: () => const _Loader(),
+                error: (error, stackTrace) => _emptyMsg('History unavailable'),
+                data: (matches) {
+                  if (matches.isEmpty) {
+                    return _emptyMsg('No completed matches yet');
+                  }
+                  final opponentOptions = buildMatchHistoryOpponentOptions(
+                    matches,
+                  );
+                  final filteredMatches = filterMatchHistory(
+                    matches,
+                    resultFilter: _matchResultFilter,
+                    opponentId: _matchHistoryOpponentId,
+                  );
+                  final visibleMatches = filteredMatches.take(3).toList();
+
+                  return Column(
+                    children: [
+                      MatchHistoryFilters(
+                        resultFilter: _matchResultFilter,
+                        opponentId: _matchHistoryOpponentId,
+                        opponentOptions: opponentOptions,
+                        onResultChanged: (value) =>
+                            setState(() => _matchResultFilter = value),
+                        onOpponentChanged: (value) =>
+                            setState(() => _matchHistoryOpponentId = value),
+                      ),
+                      const SizedBox(height: 18),
+                      if (filteredMatches.isEmpty)
+                        _emptyMsg('No matches found for the selected filters')
+                      else ...[
+                        Column(
+                          children: visibleMatches
+                              .map(
+                                (match) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: MatchHistoryCard(
+                                    match: match,
+                                    fighterName: fighter.name,
+                                    tokenSymbol: wallet.seekerSymbol,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        if (filteredMatches.length > 3)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Pressable(
+                              onTap: () => widget.onNavigate(
+                                '/fighter-match-history/${fighter.id}',
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(2),
+                                  color: Palette.cardBg.withValues(alpha: 0.32),
+                                  border: Border.all(
+                                    color: Palette.gold.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Show More',
+                                  style: bodyStyle(
+                                    size: 14,
+                                    color: Palette.gold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
+            _DetailsSection(
+              title: 'Fighter Profile',
+              child: Column(
+                children: [
+                  if (fighter.fightStyle.isNotEmpty ||
+                      fighter.origin.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (fighter.fightStyle.isNotEmpty)
+                            _Tag(label: fighter.fightStyle),
+                          if (fighter.origin.isNotEmpty)
+                            _Tag(label: fighter.origin),
+                        ],
+                      ),
+                    ),
+                  _StatsGrid(
+                    items: [
+                      _InfoItem('Character', fighter.character),
+                      _InfoItem(
+                        'Architecture',
+                        fighter.agentArchitecture?.toUpperCase() ?? 'Unknown',
+                      ),
+                      _InfoItem(
+                        'Origin',
+                        fighter.origin.isEmpty ? 'Unknown' : fighter.origin,
+                      ),
+                      _InfoItem(
+                        'Slug',
+                        fighter.slug.isEmpty ? 'Unknown' : fighter.slug,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -534,80 +602,6 @@ class _StatsGrid extends StatelessWidget {
           )
           .toList(),
     );
-  }
-}
-
-class _MatchRow extends StatelessWidget {
-  const _MatchRow({required this.match});
-
-  final Map<String, dynamic> match;
-
-  @override
-  Widget build(BuildContext context) {
-    final isWin = match['result'] == 'WIN';
-    final opponent = match['opponent_name'] as String? ?? 'Unknown';
-    final side = match['side'] as String? ?? '';
-    final roundsWon = match['rounds_won'] as int? ?? 0;
-    final roundsLost = match['rounds_lost'] as int? ?? 0;
-    final date = _fmt(match['completed_at'] as String?);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: Palette.border.withValues(alpha: 0.9)),
-        color: Palette.cardBg.withValues(alpha: 0.35),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
-              color: isWin
-                  ? Palette.green.withValues(alpha: 0.14)
-                  : Palette.red.withValues(alpha: 0.14),
-              border: Border.all(
-                color: isWin ? Palette.green : Palette.red,
-                width: 0.9,
-              ),
-            ),
-            child: Text(
-              isWin ? 'WIN' : 'LOSS',
-              style: bodyStyle(
-                size: 10,
-                color: isWin ? Palette.green : Palette.red,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'vs $opponent',
-              style: bodyStyle(size: 14, color: Palette.white),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            '$roundsWon-$roundsLost  $side  $date',
-            style: bodyStyle(size: 11, color: Palette.statLabel),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _fmt(String? iso) {
-    if (iso == null) return '';
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      return '${dt.month}/${dt.day}';
-    } catch (_) {
-      return '';
-    }
   }
 }
 

@@ -3,185 +3,204 @@ import 'package:intl/intl.dart';
 import '../../core/palette.dart';
 import '../../core/typography.dart';
 import '../../models/bet.dart';
+import 'pressable.dart';
 
 class HistoryCardWidget extends StatelessWidget {
   const HistoryCardWidget({
     super.key,
     required this.bet,
     required this.onTap,
-    this.onClaim,
-    this.claimLoading = false,
   });
 
   final Bet bet;
   final VoidCallback onTap;
-  final VoidCallback? onClaim;
-  final bool claimLoading;
 
   @override
   Widget build(BuildContext context) {
-    final Color statusColor;
-    final String statusText;
-    switch (bet.status) {
-      case BetStatus.active:
-        statusColor = Palette.gold;
-        statusText = 'ACTIVE';
-      case BetStatus.won:
-        statusColor = Palette.green;
-        statusText = 'WON';
-      case BetStatus.lost:
-        statusColor = Palette.red;
-        statusText = 'LOST';
-      case BetStatus.cancelled:
-        statusColor = Palette.muted;
-        statusText = 'CANCELLED';
-      case BetStatus.claimed:
-        statusColor = Palette.green;
-        statusText = 'CLAIMED';
-    }
+    final _HistoryVisualState visual = _resolveVisualState();
+    final dateStr = DateFormat('dd/MM/yy- h:mma').format(bet.placedAt.toLocal());
+    final stakeText = _formatCurrencyAmount(bet.amount);
+    final outcomeText = _formatOutcomeAmount(visual.valueAmount);
 
-    // P&L delta
-    final double? pnl = switch (bet.status) {
-      BetStatus.won || BetStatus.claimed => (bet.payout ?? 0) - bet.amount,
-      BetStatus.lost => -bet.amount,
-      _ => null,
-    };
-
-    final dateStr = DateFormat('MMM d, yy').format(bet.placedAt.toLocal());
-
-    return SizedBox(
-      width: double.infinity,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 0),
-        color: Colors.transparent,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-          side: BorderSide(
-            color: statusColor.withValues(alpha: 0.35),
-            width: 1,
-          ),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top row: fighters + status badge
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${bet.fighterName} V/S ${bet.opponentName}',
-                        style: bodyStyle(size: 15, weight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+    return Pressable(
+      onTap: onTap,
+      scaleTo: 0.98,
+      opacityTo: 0.82,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${bet.fighterName} V/S ${bet.opponentName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle(
+                      size: 16,
+                      color: Palette.white,
+                      weight: FontWeight.w300,
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: statusColor.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Text(
-                        statusText,
-                        style: bodyStyle(
-                          size: 11,
-                          color: statusColor,
-                          weight: FontWeight.w700,
-                        ),
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Bet - $stakeText',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle(
+                      size: 12,
+                      color: Palette.white,
+                      weight: FontWeight.w300,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Bottom row: date | wagered | payout/P&L
-                Row(
-                  children: [
-                    // Date
-                    Text(
-                      dateStr,
-                      style: bodyStyle(size: 12, color: Palette.muted),
-                    ),
-                    const SizedBox(width: 12),
-                    // Bet amount
-                    Flexible(
-                      child: Text(
-                        '${bet.amount.toStringAsFixed(2)} ${bet.currency}',
-                        style: bodyStyle(size: 12, color: Palette.secondary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (bet.payout != null) ...[
-                      Text(
-                        '  →  ',
-                        style: bodyStyle(size: 12, color: Palette.muted),
-                      ),
-                      Flexible(
-                        child: Text(
-                          '${bet.payout!.toStringAsFixed(2)} ${bet.currency}',
-                          style: bodyStyle(size: 12, color: Palette.green),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
-                    // P&L delta chip
-                    if (pnl != null)
-                      Text(
-                        '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(2)} ${bet.currency}',
-                        style: bodyStyle(
-                          size: 13,
-                          color: pnl >= 0 ? Palette.green : Palette.red,
-                          weight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
-                ),
-                if (bet.isClaimable && onClaim != null) ...[
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: claimLoading ? null : onClaim,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Palette.gold,
-                      ),
-                      child: claimLoading
-                          ? SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Palette.gold,
-                              ),
-                            )
-                          : Text(
-                              'Claim Reward',
-                              style: bodyStyle(
-                                size: 12,
-                                color: Palette.gold,
-                                weight: FontWeight.w700,
-                              ),
-                            ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateStr,
+                    style: bodyStyle(
+                      size: 12,
+                      color: const Color(0xFF848484),
+                      weight: FontWeight.w300,
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 18),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 104, maxWidth: 132),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    outcomeText,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle(
+                      size: 16,
+                      color: visual.valueColor,
+                      weight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    visual.primaryStatus,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle(
+                      size: 12,
+                      color: visual.statusColor,
+                      weight: FontWeight.w300,
+                    ),
+                  ),
+                  if (visual.secondaryStatus != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      visual.secondaryStatus!,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: bodyStyle(
+                        size: 12,
+                        color: visual.statusColor,
+                        weight: FontWeight.w300,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  _HistoryVisualState _resolveVisualState() {
+    switch (bet.status) {
+      case BetStatus.active:
+        return _HistoryVisualState(
+          primaryStatus: 'ACTIVE',
+          statusColor: const Color(0xFF848484),
+          valueColor: Palette.gold,
+          valueAmount: bet.amount,
+        );
+      case BetStatus.won:
+        final valueAmount = (bet.payout ?? 0) - bet.amount;
+        return _HistoryVisualState(
+          primaryStatus: 'WON',
+          statusColor: const Color(0xFF848484),
+          valueColor: _resolveOutcomeColor(valueAmount),
+          valueAmount: valueAmount,
+        );
+      case BetStatus.lost:
+        return _HistoryVisualState(
+          primaryStatus: 'LOST',
+          statusColor: const Color(0xFF848484),
+          valueColor: Palette.red,
+          valueAmount: -bet.amount,
+        );
+      case BetStatus.claimed:
+        final valueAmount = (bet.payout ?? 0) - bet.amount;
+        return _HistoryVisualState(
+          primaryStatus: 'WON',
+          secondaryStatus: 'CLAIMED',
+          statusColor: const Color(0xFF848484),
+          valueColor: _resolveOutcomeColor(valueAmount),
+          valueAmount: valueAmount,
+        );
+      case BetStatus.cancelled:
+        return _HistoryVisualState(
+          primaryStatus: 'CANCELLED',
+          statusColor: const Color(0xFF848484),
+          valueColor: Palette.gold,
+          valueAmount: 0,
+        );
+    }
+  }
+
+  Color _resolveOutcomeColor(double valueAmount) {
+    if (valueAmount < 0) return Palette.red;
+    if (valueAmount > 0) return Palette.green;
+    return Palette.gold;
+  }
+
+  String _formatCurrencyAmount(double value) {
+    final amount = _trimAmount(value.abs());
+    return '$amount ${bet.currency}';
+  }
+
+  String _formatOutcomeAmount(double value) {
+    final amount = _trimAmount(value.abs());
+    if (bet.status == BetStatus.active || bet.status == BetStatus.cancelled) {
+      return '$amount ${bet.currency}';
+    }
+    final sign = value < 0 ? '- ' : '+ ';
+    return '$sign$amount ${bet.currency}';
+  }
+
+  String _trimAmount(double value) {
+    final text = value.toStringAsFixed(2);
+    return text.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+}
+
+class _HistoryVisualState {
+  const _HistoryVisualState({
+    required this.primaryStatus,
+    required this.statusColor,
+    required this.valueColor,
+    required this.valueAmount,
+    this.secondaryStatus,
+  });
+
+  final String primaryStatus;
+  final String? secondaryStatus;
+  final Color statusColor;
+  final Color valueColor;
+  final double valueAmount;
 }

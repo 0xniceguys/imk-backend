@@ -13,13 +13,13 @@ final fighterStatsProvider = FutureProvider.family<
 });
 
 // ── Fighter Match History Provider ──
-// GET /api/fighters/{id}/matches?limit=10
+// GET /api/fighters/{id}/matches?limit=100
 
 final fighterMatchesProvider = FutureProvider.family<
     List<Map<String, dynamic>>,
     String>((ref, fighterId) async {
   final api = ref.read(apiServiceProvider);
-  return api.fetchFighterMatches(fighterId, limit: 10);
+  return api.fetchFighterMatches(fighterId, limit: 100);
 });
 
 // ── Fighter VS Provider ──

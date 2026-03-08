@@ -32,6 +32,7 @@ class ArenaListScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
+              
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,7 +41,7 @@ class ArenaListScreen extends ConsumerWidget {
                         'ARENA',
                         style: displayStyle(size: 24, color: Palette.gold),
                       ),
-                      // const SizedBox(height: 2),
+                      // const SizedBox(height: 2),r
                       // Text(
                       //   'One s2tream. Next fights in queue.',
                       //   style: bodyStyle(size: 13, color: Palette.muted),
@@ -82,6 +83,7 @@ class ArenaListScreen extends ConsumerWidget {
               },
             ),
           ),
+          SizedBox(height: 102)
         ],
       ),
     );
@@ -139,7 +141,7 @@ class _MatchList extends StatelessWidget {
     // Still loading
     if (!allLoaded) {
       return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 32, 16, 20),
         itemCount: 3,
         separatorBuilder: (context, i) => const SizedBox(height: 18),
         itemBuilder: (_, i) => TweenAnimationBuilder<double>(
@@ -164,7 +166,7 @@ class _MatchList extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
       itemCount: matches.length,
       separatorBuilder: (context, idx) => const SizedBox(height: 18),
       itemBuilder: (_, i) => TweenAnimationBuilder<double>(

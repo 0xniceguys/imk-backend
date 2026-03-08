@@ -43,8 +43,13 @@ final matchEndProvider = StreamProvider<void>((ref) {
 });
 
 /// Fires on round end with details.
-final roundEndProvider =
-    StreamProvider<Map<String, dynamic>>((ref) {
+final roundEndProvider = StreamProvider<Map<String, dynamic>>((ref) {
   final service = ref.watch(matchStreamServiceProvider);
   return service.roundEndStream;
+});
+
+/// Fires when backend emits stream pipeline status updates.
+final streamingStateProvider = StreamProvider<StreamingStateEvent>((ref) {
+  final service = ref.watch(matchStreamServiceProvider);
+  return service.streamingStateStream;
 });
