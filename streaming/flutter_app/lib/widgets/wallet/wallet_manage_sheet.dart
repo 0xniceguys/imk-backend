@@ -281,10 +281,14 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                         border: Border.all(color: Palette.border),
                         color: Palette.cardBg.withValues(alpha: 0.45),
                       ),
-                      child: const Icon(
-                        Icons.refresh,
-                        color: Palette.muted,
-                        size: 16,
+                      child: SvgPicture.asset(
+                        Assets.reloadIcon,
+                        width: 16,
+                        height: 16,
+                        colorFilter: const ColorFilter.mode(
+                          Palette.muted,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),

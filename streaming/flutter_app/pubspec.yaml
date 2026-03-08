@@ -68,6 +68,7 @@ flutter:
     - assets/figma/
     - assets/figma/ui/
     - assets/icon/
+    - assets/characters/
 
   fonts:
     - family: AdelonSerialLight

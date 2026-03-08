@@ -28,6 +28,7 @@ class _FighterMatchHistoryScreenState
     extends ConsumerState<FighterMatchHistoryScreen> {
   MatchHistoryResultFilter _resultFilter = MatchHistoryResultFilter.all;
   String? _opponentId;
+  bool _nonZeroPoolOnly = false;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +107,7 @@ class _FighterMatchHistoryScreenState
                     matches,
                     resultFilter: _resultFilter,
                     opponentId: _opponentId,
+                    nonZeroPoolOnly: _nonZeroPoolOnly,
                   );
 
                   return Column(
@@ -119,6 +121,9 @@ class _FighterMatchHistoryScreenState
                             setState(() => _resultFilter = value),
                         onOpponentChanged: (value) =>
                             setState(() => _opponentId = value),
+                        nonZeroPoolOnly: _nonZeroPoolOnly,
+                        onNonZeroPoolOnlyChanged: (value) =>
+                            setState(() => _nonZeroPoolOnly = value),
                       ),
                       const SizedBox(height: 18),
                       Expanded(

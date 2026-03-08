@@ -33,10 +33,14 @@ const kFallbackProgramId = 'CoTfhg7a9vjZMCCuvpxmnhSj9CzTAahxUvDutzZjRrth';
 const kFallbackTokenSymbol = 'SKR';
 const kFallbackTokenDecimals = 6;
 const kFallbackExplorerBaseUrl = 'https://solscan.io';
+const kDevnetSkrPriceUsd = 0.025;
+const kOnboardingDebugTapAvailable = false;
 
 class Assets {
   static const skullIcon = 'assets/icon/skullicon.svg';
   static const moneyIcon = 'assets/icon/moneyicon.svg';
+  static const logoutIcon = 'assets/icon/logout.svg';
+  static const reloadIcon = 'assets/icon/reload.svg';
   static const startBg = 'assets/figma/getstartedimage.png';
   static const startHero = 'assets/figma/startHeroGray.png';
   static const logoVector = 'assets/figma/logoVector.png';
@@ -47,6 +51,9 @@ class Assets {
   static const onboardingOne = 'assets/figma/onboardingOne.png';
   static const onboardingTwo = 'assets/figma/onboardingTwo.png';
   static const onboardingThree = 'assets/figma/onboardingThree.png';
+  static const characterScorpio = 'assets/characters/scorpio.png';
+  static const characterCage = 'assets/characters/cage.png';
+  static const characterSonya = 'assets/characters/sonya.png';
   static const onboardingGlowOne = 'assets/figma/onboardingGlowOne.png';
   static const onboardingGlowTwo = 'assets/figma/onboardingGlowTwo.png';
   static const onboardingGlowThree = 'assets/figma/onboardingGlowThree.png';

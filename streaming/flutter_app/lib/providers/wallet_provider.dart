@@ -77,7 +77,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
         solBalance: 1.5,
         seekerBalance: 500.0,
         solUsdValue: 300.0,
-        seekerUsdValue: 50.0,
+        seekerUsdValue: 500.0 * kDevnetSkrPriceUsd,
+        seekerUsdPrice: kDevnetSkrPriceUsd,
         seekerSymbol: _cfg.tokenSymbol,
         isDevnet: _cfg.isDevnet,
         usdcBalance: 0,
@@ -105,6 +106,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
         seekerBalance: seekerBalance,
         solUsdValue: solBalance * (prices['sol'] ?? 0),
         seekerUsdValue: seekerBalance * (prices['seeker'] ?? 0),
+        seekerUsdPrice: prices['seeker'] ?? 0,
         seekerSymbol: _cfg.tokenSymbol,
         isDevnet: _cfg.isDevnet,
         usdcBalance: 0,
@@ -341,7 +343,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
     // ── SKR: try each source, stop on first non-zero result ────────────────
     if (_isDevnet) {
       // Devnet SKR has no reliable market feed; use a fixed testing price.
-      seekerPrice = 0.25;
+      seekerPrice = kDevnetSkrPriceUsd;
     } else {
       final seekerSources = <String, Future<double> Function()>{
         'Jupiter': _skrPriceJupiter,

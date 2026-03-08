@@ -9,7 +9,6 @@ import '../core/palette.dart';
 import '../core/typography.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
-import '../services/wallet_deep_link_service.dart';
 import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/ik_loader.dart';
 
@@ -35,12 +34,13 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
   );
 
   late final AnimationController _ctrl;
-  late final AnimationController _flameCtrl;
+  AnimationController? _flameCtrl;
   late final Animation<double> _heroSlide;
   late final Animation<double> _logoFade;
   late final Animation<double> _taglineFade;
   late final Animation<double> _ctaFade;
-  late final Future<_GetStartedFlameResources> _flameResourcesFuture;
+  Future<_GetStartedFlameResources>? _flameResourcesFuture;
+  final bool _enableFlameShader = false;
 
   // Sign-in modal auth state
   bool _showSignInModal = false;
@@ -56,11 +56,13 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _flameCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-    _flameResourcesFuture = _loadFlameResources();
+    if (_enableFlameShader) {
+      _flameCtrl = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 18),
+      )..repeat();
+      _flameResourcesFuture = _loadFlameResources();
+    }
 
     // Staggered entrance: bg -> hero -> logo -> tagline -> CTA
     _heroSlide = Tween<double>(begin: 60, end: 0).animate(
@@ -88,7 +90,7 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
   @override
   void dispose() {
     _ctrl.dispose();
-    _flameCtrl.dispose();
+    _flameCtrl?.dispose();
     _emailCtrl.dispose();
     _otpCtrl.dispose();
     super.dispose();
@@ -155,14 +157,6 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
     if (!ok) _showError(ref.read(authProvider).error);
   }
 
-  Future<void> _onWallet(SolanaWallet wallet) async {
-    final ok = await ref
-        .read(authProvider.notifier)
-        .loginWithWallet(wallet: wallet);
-    if (!mounted) return;
-    if (!ok) _showError(ref.read(authProvider).error);
-  }
-
   void _showError(String? message) {
     if (message == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -204,44 +198,48 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
                   child: Image.asset(Assets.startBg, fit: BoxFit.cover),
                 ),
               ),
-              Positioned(
-                left: -heroWidth * 0.0,
-                bottom: -50 + _heroSlide.value,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: (_ctrl.value * 2.5).clamp(0.0, 1.0),
-                    child: SizedBox(
-                      width: heroWidth,
-                      height: heroHeight,
-                      child: AnimatedBuilder(
-                        animation: _flameCtrl,
-                        builder: (context, _) {
-                          return FutureBuilder<_GetStartedFlameResources>(
-                            future: _flameResourcesFuture,
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) {
-                                return const SizedBox.shrink();
-                              }
+              // Flame fragment shader behind hero is intentionally disabled.
+              if (_enableFlameShader &&
+                  _flameCtrl != null &&
+                  _flameResourcesFuture != null)
+                Positioned(
+                  left: -heroWidth * 0.0,
+                  bottom: -50 + _heroSlide.value,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: (_ctrl.value * 2.5).clamp(0.0, 1.0),
+                      child: SizedBox(
+                        width: heroWidth,
+                        height: heroHeight,
+                        child: AnimatedBuilder(
+                          animation: _flameCtrl!,
+                          builder: (context, _) {
+                            return FutureBuilder<_GetStartedFlameResources>(
+                              future: _flameResourcesFuture,
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return const SizedBox.shrink();
+                                }
 
-                              return CustomPaint(
-                                painter: _GetStartedFlamePainter(
-                                  image: snapshot.data!.image,
-                                  program: snapshot.data!.program,
-                                  time:
-                                      _flameCtrl.value *
-                                      12.0 *
-                                      _flameConfig.animationSpeed,
-                                  config: _flameConfig,
-                                ),
-                              );
-                            },
-                          );
-                        },
+                                return CustomPaint(
+                                  painter: _GetStartedFlamePainter(
+                                    image: snapshot.data!.image,
+                                    program: snapshot.data!.program,
+                                    time:
+                                        _flameCtrl!.value *
+                                        12.0 *
+                                        _flameConfig.animationSpeed,
+                                    config: _flameConfig,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
               Positioned(
                 left: -heroWidth * 0.0,
                 bottom: -50 + _heroSlide.value,
@@ -425,18 +423,6 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
                                             ? _otpInput()
                                             : _emailInput(),
                                       ),
-                                      const SizedBox(height: 12),
-                                      _socialButton(
-                                        'Google',
-                                        icon: Icons.g_mobiledata,
-                                        onTap: _onGoogle,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      _socialButton(
-                                        'Apple',
-                                        icon: Icons.apple,
-                                        onTap: _onApple,
-                                      ),
                                       const SizedBox(height: 14),
                                       Row(
                                         children: [
@@ -466,19 +452,17 @@ class _GetStartedScreenState extends ConsumerState<GetStartedScreen>
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 12),
                                       _socialButton(
-                                        'Phantom',
-                                        icon: Icons.account_balance_wallet_outlined,
-                                        onTap: () =>
-                                            _onWallet(SolanaWallet.phantom),
+                                        'Google',
+                                        icon: Icons.g_mobiledata,
+                                        onTap: _onGoogle,
                                       ),
                                       const SizedBox(height: 8),
                                       _socialButton(
-                                        'Solflare',
-                                        icon: Icons.account_balance_wallet_outlined,
-                                        onTap: () =>
-                                            _onWallet(SolanaWallet.solflare),
+                                        'Apple',
+                                        icon: Icons.apple,
+                                        onTap: _onApple,
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
