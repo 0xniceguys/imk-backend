@@ -36,8 +36,12 @@ List<Map<String, dynamic>> filterMatchHistory(
   List<Map<String, dynamic>> matches, {
   MatchHistoryResultFilter resultFilter = MatchHistoryResultFilter.all,
   String? opponentId,
+  bool nonZeroPoolOnly = false,
 }) {
   return matches.where((match) {
+    if (nonZeroPoolOnly && _asDouble(match['total_bet_amount']) <= 0) {
+      return false;
+    }
     if (resultFilter == MatchHistoryResultFilter.won &&
         match['result'] != 'WIN') {
       return false;
@@ -61,6 +65,8 @@ class MatchHistoryFilters extends StatelessWidget {
     required this.opponentOptions,
     required this.onResultChanged,
     required this.onOpponentChanged,
+    this.nonZeroPoolOnly = false,
+    this.onNonZeroPoolOnlyChanged,
   });
 
   final MatchHistoryResultFilter resultFilter;
@@ -68,6 +74,8 @@ class MatchHistoryFilters extends StatelessWidget {
   final Map<String, String> opponentOptions;
   final ValueChanged<MatchHistoryResultFilter> onResultChanged;
   final ValueChanged<String?> onOpponentChanged;
+  final bool nonZeroPoolOnly;
+  final ValueChanged<bool>? onNonZeroPoolOnlyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +119,12 @@ class MatchHistoryFilters extends StatelessWidget {
                 color: Palette.statLabel,
               ),
             ),
+          ),
+        if (onNonZeroPoolOnlyChanged != null)
+          _HistoryFilterChip(
+            label: 'Non-zero Pool',
+            selected: nonZeroPoolOnly,
+            onTap: () => onNonZeroPoolOnlyChanged!.call(!nonZeroPoolOnly),
           ),
       ],
     );

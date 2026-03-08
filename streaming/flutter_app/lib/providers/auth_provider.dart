@@ -24,6 +24,7 @@ class AuthState {
   final String? avatarPath; // local file path, SharedPreferences only
   final String? error;
   final String? pendingEmail;
+  final DateTime? emailRateLimitUntil;
   final bool hasSeenIntro;
 
   const AuthState({
@@ -34,6 +35,7 @@ class AuthState {
     this.avatarPath,
     this.error,
     this.pendingEmail,
+    this.emailRateLimitUntil,
     this.hasSeenIntro = false,
   });
 
@@ -45,6 +47,7 @@ class AuthState {
     String? avatarPath,
     String? error,
     String? pendingEmail,
+    DateTime? emailRateLimitUntil,
     bool? hasSeenIntro,
     bool clearDisplayName = false,
     bool clearAvatarPath = false,
@@ -56,6 +59,7 @@ class AuthState {
     avatarPath: clearAvatarPath ? null : (avatarPath ?? this.avatarPath),
     error: error,
     pendingEmail: pendingEmail ?? this.pendingEmail,
+    emailRateLimitUntil: emailRateLimitUntil,
     hasSeenIntro: hasSeenIntro ?? this.hasSeenIntro,
   );
 }
@@ -68,6 +72,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._privy, this._walletDeepLink, this._api)
     : super(const AuthState()) {
     _init();
+  }
+
+  static const Duration _emailRateLimitCooldown = Duration(seconds: 60);
+
+  bool _isRateLimitedError(String? raw) {
+    final msg = (raw ?? '').toLowerCase();
+    return msg.contains('too many requests') ||
+        msg.contains('rate limit') ||
+        msg.contains('429');
+  }
+
+  bool _isEmailRateLimitedNow() {
+    final until = state.emailRateLimitUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
+
+  String _emailRateLimitMessage([DateTime? until]) {
+    if (until == null) {
+      return 'Too many email attempts. Please wait and try again. '
+          'You can still log in with Google or Apple.';
+    }
+    final remain = until.difference(DateTime.now()).inSeconds.clamp(1, 999);
+    return 'Too many email attempts. Please wait ${remain}s and try again. '
+        'You can still log in with Google or Apple.';
+  }
+
+  String _friendlyEmailAuthError(
+    String? raw, {
+    required bool isVerifyStep,
+    DateTime? retryAt,
+  }) {
+    if (_isRateLimitedError(raw)) {
+      return _emailRateLimitMessage(retryAt);
+    }
+    final msg = raw?.trim();
+    if (msg == null || msg.isEmpty) {
+      return isVerifyStep
+          ? 'Unable to verify code right now. You can still log in with Google or Apple.'
+          : 'Unable to send code right now. You can still log in with Google or Apple.';
+    }
+    final lower = msg.toLowerCase();
+    if (lower.contains('invalid') || lower.contains('expired')) {
+      return 'Invalid or expired code. Request a new code or use Google/Apple.';
+    }
+    return '$msg You can still log in with Google or Apple.';
   }
 
   Future<void> _init() async {
@@ -183,20 +232,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> sendEmailCode(String email) async {
+    if (_isEmailRateLimitedNow()) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        error: _emailRateLimitMessage(state.emailRateLimitUntil),
+      );
+      return;
+    }
+
     state = state.copyWith(
       status: AuthStatus.authenticating,
       pendingEmail: email,
     );
     final ok = await _privy.sendEmailCode(email);
     if (!ok) {
+      final isLimited = _isRateLimitedError(_privy.lastError);
+      final retryAt = isLimited
+          ? DateTime.now().add(_emailRateLimitCooldown)
+          : null;
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
-        error: 'Failed to send code',
+        error: _friendlyEmailAuthError(
+          _privy.lastError,
+          isVerifyStep: false,
+          retryAt: retryAt,
+        ),
+        emailRateLimitUntil: retryAt,
       );
+      return;
     }
+    state = state.copyWith(
+      status: AuthStatus.unauthenticated,
+      error: null,
+      emailRateLimitUntil: null,
+    );
   }
 
   Future<bool> verifyEmailCode(String code) async {
+    if (_isEmailRateLimitedNow()) {
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        error: _emailRateLimitMessage(state.emailRateLimitUntil),
+      );
+      return false;
+    }
+
     final email = state.pendingEmail;
     if (email == null) return false;
     final ok = await _privy.loginWithEmailCode(code, email);
@@ -207,12 +287,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.authenticated,
         email: _privy.email,
         walletAddress: _privy.walletAddress,
+        emailRateLimitUntil: null,
       );
       return true;
     }
+    final isLimited = _isRateLimitedError(_privy.lastError);
+    final retryAt = isLimited
+        ? DateTime.now().add(_emailRateLimitCooldown)
+        : null;
     state = state.copyWith(
       status: AuthStatus.unauthenticated,
-      error: 'Invalid code',
+      error: _friendlyEmailAuthError(
+        _privy.lastError,
+        isVerifyStep: true,
+        retryAt: retryAt,
+      ),
+      emailRateLimitUntil: retryAt,
     );
     return false;
   }

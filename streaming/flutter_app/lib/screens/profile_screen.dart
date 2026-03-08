@@ -179,7 +179,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         onTap: () => _handleLogout(context),
         scaleTo: 0.96,
         opacityTo: 0.7,
-        child: Text('Log out', style: bodyStyle(size: 16, color: Palette.red)),
+        child: SvgPicture.asset(
+          Assets.logoutIcon,
+          width: 32,
+          height: 32,
+          // colorFilter: const ColorFilter.mode(Palette.red, BlendMode.srcIn),
+        ),
       ),
       onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Column(
