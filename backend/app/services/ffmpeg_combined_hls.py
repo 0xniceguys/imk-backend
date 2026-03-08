@@ -2,12 +2,17 @@
 Combined H.264+AAC HLS capture for live match streaming.
 
 One FFmpeg process captures:
-  - Video: x11grab from Xvfb display :99 @ 320x240 30fps  →  libx264 ultrafast
+  - Video: x11grab from Xvfb display :99 @ 640x480 30fps  →  libx264 ultrafast
   - Audio: PulseAudio null-sink monitor (game audio)       →  AAC-LC 128k
 
 Output: HLS segments at /tmp/hls/{match_id}/ with 1-second segments.
 Flutter's VideoPlayer (ExoPlayer on Android) plays the m3u8 directly —
 video and audio are always in sync because they're in the same container.
+
+Mobile robustness notes:
+- Keep a wider live segment window to tolerate network jitter.
+- Avoid aggressive segment deletion while live to reduce transient 404s.
+- Mark stream "ready" only once real .ts media files exist and are non-empty.
 """
 
 from __future__ import annotations
@@ -27,13 +32,19 @@ PULSE_MONITOR_SOURCE = "auto_null.monitor"
 XVFB_DISPLAY = ":99"
 
 # Video capture dimensions (must match Xvfb and emulator resolution)
-CAPTURE_WIDTH = 320
-CAPTURE_HEIGHT = 240
+#
+# Emulator runs at 640x480 on Linux. Capturing a smaller 320x240 region reads
+# only the top-left quarter of the display and appears as "cropped/zoomed" on
+# clients. Capture the full surface to preserve composition.
+CAPTURE_WIDTH = 640
+CAPTURE_HEIGHT = 480
 CAPTURE_FPS = 30
 
-# HLS tuning — 1-second segments for ~2–3s end-to-end latency
+# HLS tuning — 1-second segments with a wider live window for mobile resilience
 HLS_SEGMENT_DURATION = 1
-HLS_LIST_SIZE = 3
+HLS_LIST_SIZE = 12
+READY_MIN_SEGMENTS = 2
+READY_MIN_BYTES = 188  # One MPEG-TS packet
 
 # Where HLS output is written per match
 _HLS_BASE = Path("/tmp/hls")
@@ -71,22 +82,42 @@ class FFmpegCombinedHls:
         seg_pattern = str(self._dir / "seg%05d.ts")
         return [
             "ffmpeg", "-y",
+            # Generate PTS when an input packet lacks timestamps.
+            "-fflags", "+genpts",
             # ── Video input: Xvfb virtual display ──────────────────────────
+            "-thread_queue_size", "2048",
+            "-use_wallclock_as_timestamps", "1",
             "-f", "x11grab",
             "-video_size", f"{CAPTURE_WIDTH}x{CAPTURE_HEIGHT}",
             "-framerate", str(CAPTURE_FPS),
             "-i", XVFB_DISPLAY,
             # ── Audio input: PulseAudio null-sink monitor ───────────────────
+            "-thread_queue_size", "2048",
+            "-use_wallclock_as_timestamps", "1",
             "-f", "pulse",
             "-i", PULSE_MONITOR_SOURCE,
+            # Explicit mapping and timestamp normalization:
+            # - reset both streams to a common zero origin
+            # - continuously correct tiny audio clock drift vs video timeline
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-vf", "setpts=PTS-STARTPTS",
+            "-af", "aresample=async=1000:min_hard_comp=0.100:first_pts=0",
             # ── Video encoding: H.264 ultrafast / zero-latency ──────────────
+            "-fps_mode", "cfr",
+            "-r", str(CAPTURE_FPS),      # stable output cadence for HLS
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
             "-profile:v", "baseline",   # widest device compat (no B-frames)
             "-level", "3.1",
             "-g", str(CAPTURE_FPS),     # keyframe every 1s = one per segment
+            "-keyint_min", str(CAPTURE_FPS),
+            "-sc_threshold", "0",
+            "-force_key_frames", f"expr:gte(t,n_forced*{HLS_SEGMENT_DURATION})",
             "-b:v", "1000k",
+            "-maxrate", "1200k",
+            "-bufsize", "2400k",
             "-pix_fmt", "yuv420p",       # required by baseline profile
             # ── Audio encoding: AAC-LC ──────────────────────────────────────
             "-c:a", "aac",
@@ -96,13 +127,20 @@ class FFmpegCombinedHls:
             "-ac", "2",
             # ── MPEG-TS muxer settings  ─────────────────────────────────────
             "-mpegts_flags", "resend_headers",  # PAT/PMT at segment start
+            "-max_interleave_delta", "1000000",
+            "-muxpreload", "0",
+            "-muxdelay", "0",
+            "-avoid_negative_ts", "make_zero",
             "-muxrate", "0",
             "-pcr_period", "20",
             # ── HLS output ──────────────────────────────────────────────────
             "-f", "hls",
             "-hls_time", str(HLS_SEGMENT_DURATION),
             "-hls_list_size", str(HLS_LIST_SIZE),
-            "-hls_flags", "delete_segments+append_list+discont_start",
+            # Keep recent segments on disk while live. This avoids clients
+            # briefly requesting a just-rotated segment and receiving JSON 404
+            # payloads that confuse some mobile decoders.
+            "-hls_flags", "append_list+discont_start+independent_segments+temp_file",
             "-hls_segment_type", "mpegts",
             "-hls_segment_filename", seg_pattern,
             playlist,
@@ -115,6 +153,13 @@ class FFmpegCombinedHls:
             logger.warning("FFmpeg not found — HLS capture disabled")
             return
 
+        # Always start from a clean directory to avoid stale playlist/segments
+        # when a previous capture crashed or was interrupted.
+        try:
+            if self._dir.exists():
+                shutil.rmtree(self._dir, ignore_errors=True)
+        except Exception:
+            pass
         self._dir.mkdir(parents=True, exist_ok=True)
         cmd = self._build_cmd()
         logger.info("Starting combined HLS capture for match %s", self.match_id)
@@ -187,7 +232,35 @@ class FFmpegCombinedHls:
 
         logger.info("Combined HLS capture stopped for match %s", self.match_id)
 
+    def _segment_paths_from_playlist(self) -> list[Path]:
+        try:
+            if not self._playlist.exists():
+                return []
+            lines = self._playlist.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception:
+            return []
+        paths: list[Path] = []
+        for line in lines:
+            seg = line.strip()
+            if not seg or seg.startswith("#") or not seg.endswith(".ts"):
+                continue
+            paths.append(self._dir / seg)
+        return paths
+
+    def ready_for_playback(self, min_segments: int = READY_MIN_SEGMENTS) -> bool:
+        """True once the playlist and enough non-empty media segments exist."""
+        segs = self._segment_paths_from_playlist()
+        if len(segs) < min_segments:
+            return False
+        for seg in segs[-min_segments:]:
+            try:
+                if not seg.exists() or seg.stat().st_size < READY_MIN_BYTES:
+                    return False
+            except Exception:
+                return False
+        return True
+
     @property
     def playlist_ready(self) -> bool:
-        """True once the first HLS segment has been written."""
-        return self._playlist.exists()
+        """Backward-compatible readiness check."""
+        return self.ready_for_playback(min_segments=1)

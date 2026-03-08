@@ -2,7 +2,7 @@
 {% block title %}Live Viewer{% endblock %}
 
 {% block content %}
-{# hls.js removed — audio now streams over WebSocket (0x01 prefix) #}
+{# Viewer now uses combined HLS (video+audio in one stream) #}
 
 
 <div class="flex justify-between items-center mb-2">
@@ -13,7 +13,7 @@
   </h1>
   <div class="flex gap-1 items-center">
     <span class="text-dim text-sm" id="viewer-count">0 viewers</span>
-    <span class="text-dim text-sm" id="fps-counter">0 fps</span>
+    <span class="text-dim text-sm" id="fps-counter">HLS idle</span>
     <!-- Audio mute toggle -->
     <button id="audio-mute-btn" class="btn btn-sm" title="Toggle audio" style="padding:4px 8px;font-size:0.8rem;"
       onclick="toggleAudioMute()">
@@ -29,14 +29,12 @@
 
 <!-- Game display area -->
 <div class="card" style="padding:0;overflow:hidden;position:relative;background:#000;">
-  <!-- Canvas for emulator frames -->
+  <!-- Combined HLS video+audio -->
   <div style="display:flex;justify-content:center;align-items:center;min-height:480px;">
-    <canvas id="game-canvas" width="320" height="240" style="
+    <video id="hls-video" playsinline controls autoplay style="
       width:640px;height:480px;
-      image-rendering:pixelated;
-      image-rendering:crisp-edges;
       background:#111;
-    "></canvas>
+    "></video>
   </div>
 
   <div id="ram-overlay" style="
@@ -231,6 +229,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 <script>
   (function () {
     const SAVESTATES = {{ savestates | tojson
@@ -238,8 +237,7 @@
   const HEALTH_MAX = 160;
 
   // ── Elements ──
-  const canvas = document.getElementById('game-canvas');
-  const ctx = canvas.getContext('2d');
+  const videoEl = document.getElementById('hls-video');
   const overlay = document.getElementById('no-match-overlay');
   const selector = document.getElementById('match-selector');
   const statusDot = document.getElementById('status-dot');
@@ -311,12 +309,12 @@
   let currentMatchId = null;
   let jsonMsgCount = 0;
   let binaryMsgCount = 0;
-  let frameTimestamps = [];
-  let pollingInterval = null;
   let reconnectTimeout = null;
   let reconnectDelay = 1000;
   let lastDebugSignature = '';
   let pendingMatchId = '{{ match_id | default("", true) }}';
+  let hlsPlayer = null;
+  let activeHlsUrl = '';
   const matchCatalog = new Map();
   const manualControllers = {
     1: { enabled: false, pressed: new Set(), analogX: 0, analogY: 0 },
@@ -530,7 +528,7 @@
       }
 
       matches.forEach(m => {
-        const isLive = m.status === 'live' && Boolean(m.stream_url);
+        const isLive = m.status === 'live';
         m.is_live = isLive;
         matchCatalog.set(m.id, m);
         const opt = document.createElement('option');
@@ -721,45 +719,109 @@
     Promise.all([releaseManual(1, false), releaseManual(2, false)]).catch(() => { });
   });
 
-  // ── Audio (WebSocket Opus via Web Audio API) ──
+  // ── Combined HLS playback (video + audio) ──
   const audioMuteBtn = document.getElementById('audio-mute-btn');
-  let audioMuted = false;
-  let audioCtx = null;
-  let gainNode = null;
-  // Accumulate incoming OGG/Opus data until we have enough to decode
-  const audioQueue = [];
+  let audioMuted = true;
 
-  function ensureAudioContext() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-    gainNode = audioCtx.createGain();
-    gainNode.gain.value = audioMuted ? 0 : 1;
-    gainNode.connect(audioCtx.destination);
+  function canonicalHlsUrl(matchId) {
+    return `${location.origin}/stream/${matchId}/stream.m3u8`;
   }
 
-  function handleAudioChunk(buffer) {
-    // buffer = ArrayBuffer WITHOUT the leading 0x01 prefix byte
-    ensureAudioContext();
-    if (audioMuted) return;
-    audioCtx.decodeAudioData(buffer.slice(0), (decoded) => {
-      const src = audioCtx.createBufferSource();
-      src.buffer = decoded;
-      src.connect(gainNode);
-      // Schedule immediately; slight scheduling ahead prevents glitches
-      const startAt = Math.max(audioCtx.currentTime, (gainNode._nextStart || 0));
-      src.start(startAt);
-      gainNode._nextStart = startAt + decoded.duration;
-    }, () => {
-      // decode error is normal for partial OGG pages — silently ignore
-    });
-  }
-
-  function stopAudio() {
-    if (audioCtx) {
-      audioCtx.close();
-      audioCtx = null;
-      gainNode = null;
+  function resolveHlsUrl(matchId, hintedUrl) {
+    const canonical = canonicalHlsUrl(matchId);
+    if (!hintedUrl || typeof hintedUrl !== 'string') {
+      return canonical;
     }
+    const raw = hintedUrl.trim();
+    if (!raw || raw.includes('/stream/audio/')) {
+      return canonical;
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
+    }
+    if (raw.startsWith('/')) {
+      return `${location.origin}${raw}`;
+    }
+    return canonical;
+  }
+
+  function destroyHlsPlayer() {
+    if (hlsPlayer) {
+      hlsPlayer.destroy();
+      hlsPlayer = null;
+    }
+  }
+
+  function stopHlsPlayback() {
+    destroyHlsPlayer();
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+    activeHlsUrl = '';
+    fpsCounter.textContent = 'HLS idle';
+  }
+
+  function startHlsPlayback(matchId, hintedUrl = null) {
+    if (!matchId) {
+      return;
+    }
+    const url = resolveHlsUrl(matchId, hintedUrl);
+    if (activeHlsUrl === url && !videoEl.paused) {
+      return;
+    }
+    destroyHlsPlayer();
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+    activeHlsUrl = url;
+    fpsCounter.textContent = 'HLS loading';
+    logEvent('info', `Loading HLS ${url}`);
+
+    if (window.Hls && Hls.isSupported()) {
+      hlsPlayer = new Hls({
+        lowLatencyMode: true,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 8,
+      });
+      hlsPlayer.on(Hls.Events.ERROR, (_, data) => {
+        if (!data || !data.fatal) {
+          return;
+        }
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          logEvent('warn', 'HLS network error, retrying load');
+          hlsPlayer.startLoad();
+          return;
+        }
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          logEvent('warn', 'HLS media error, recovering');
+          hlsPlayer.recoverMediaError();
+          return;
+        }
+        logEvent('error', `HLS fatal error: ${data.type}`);
+        destroyHlsPlayer();
+      });
+      hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
+        fpsCounter.textContent = 'HLS live';
+        videoEl.play().catch(() => {
+          logEvent('warn', 'Autoplay blocked. Click play on video.');
+        });
+      });
+      hlsPlayer.loadSource(url);
+      hlsPlayer.attachMedia(videoEl);
+      return;
+    }
+
+    if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+      videoEl.src = url;
+      videoEl.play().catch(() => {
+        logEvent('warn', 'Autoplay blocked. Click play on video.');
+      });
+      fpsCounter.textContent = 'HLS native';
+      return;
+    }
+
+    logEvent('error', 'HLS not supported in this browser');
+    fpsCounter.textContent = 'HLS unsupported';
   }
 
   function updateMuteBtn() {
@@ -768,9 +830,17 @@
 
   window.toggleAudioMute = function () {
     audioMuted = !audioMuted;
-    if (gainNode) gainNode.gain.value = audioMuted ? 0 : 1;
+    videoEl.muted = audioMuted;
     updateMuteBtn();
   };
+  videoEl.muted = audioMuted;
+  updateMuteBtn();
+  videoEl.addEventListener('playing', () => {
+    fpsCounter.textContent = 'HLS playing';
+  });
+  videoEl.addEventListener('waiting', () => {
+    fpsCounter.textContent = 'HLS buffering';
+  });
 
   // ── WebSocket connection ──
   function connectToMatch(matchId) {
@@ -786,7 +856,7 @@
 
     logEvent('info', `Connecting to ${url}`);
     connState.textContent = 'Connecting...';
-    connTransport.textContent = 'WebSocket';
+    connTransport.textContent = 'WebSocket + HLS';
     statusDot.style.background = 'var(--yellow)';
 
     ws = new WebSocket(url);
@@ -797,6 +867,7 @@
       statusDot.style.background = 'var(--green)';
       reconnectDelay = 1000;
       logEvent('info', 'WebSocket connected');
+      startHlsPlayback(matchId);
     };
 
     ws.onmessage = (event) => {
@@ -812,17 +883,31 @@
       statusDot.style.background = 'var(--red)';
       logEvent('warn', `WebSocket closed: code=${event.code} reason=${event.reason || 'none'}`);
 
-      // Try polling fallback
       if (currentMatchId) {
-        startPollingFallback(currentMatchId);
-        // Auto-reconnect with backoff
-        reconnectTimeout = setTimeout(() => {
-          if (currentMatchId === matchId) {
-            logEvent('info', `Reconnecting (delay=${reconnectDelay}ms)...`);
-            connectToMatch(matchId);
+        // Re-check liveness before attempting reconnect to avoid stale /state calls.
+        refreshMatches({ preserveSelection: true, autoConnect: false }).then(() => {
+          if (currentMatchId !== matchId) {
+            return;
           }
-        }, reconnectDelay);
-        reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+          const meta = matchCatalog.get(matchId);
+          if (!meta || !meta.is_live) {
+            logEvent('info', `Match ${matchId} is no longer live; not reconnecting`);
+            return;
+          }
+          reconnectTimeout = setTimeout(() => {
+            if (currentMatchId === matchId) {
+              logEvent('info', `Reconnecting (delay=${reconnectDelay}ms)...`);
+              connectToMatch(matchId);
+            }
+          }, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+        }).catch(() => {
+          reconnectTimeout = setTimeout(() => {
+            if (currentMatchId === matchId) {
+              connectToMatch(matchId);
+            }
+          }, reconnectDelay);
+        });
       }
     };
 
@@ -832,15 +917,11 @@
   }
 
   function disconnect() {
-    stopAudio();
+    stopHlsPlayback();
     if (ws) {
       ws.onclose = null; // prevent reconnect
       ws.close();
       ws = null;
-    }
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
     }
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
@@ -861,43 +942,13 @@
     updateSelectedMatchMeta();
   }
 
-  // ── Handle binary JPEG frames ──
+  // ── Handle legacy binary frames/chunks (ignored in HLS mode) ──
   function handleBinaryFrame(buffer) {
     binaryMsgCount++;
     msgCountBinary.textContent = binaryMsgCount;
-
-    const view = new Uint8Array(buffer);
-    const type = view[0];  // 0x00 = video JPEG, 0x01 = audio Opus/OGG
-    const payload = buffer.slice(1);  // strip the 1-byte type prefix
-
-    if (type === 0x01) {
-      // Audio chunk — decode with Web Audio API
-      handleAudioChunk(payload);
-      return;
+    if (buffer.byteLength > 0) {
+      fpsCounter.textContent = 'HLS live';
     }
-
-    // Default: 0x00 = video JPEG frame
-    // Track FPS
-    const now = performance.now();
-    frameTimestamps.push(now);
-    frameTimestamps = frameTimestamps.filter(t => now - t < 1000);
-    fpsCounter.textContent = frameTimestamps.length + ' fps';
-
-    // Render JPEG to canvas
-    const blob = new Blob([payload], { type: 'image/jpeg' });
-    createImageBitmap(blob).then(bitmap => {
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close();
-    }).catch(() => {
-      // Fallback: use Image element
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-      };
-      img.src = url;
-    });
   }
 
   // ── Handle JSON messages ──
@@ -919,6 +970,9 @@
       logEvent('info', `Joined match ${msg.match_id} (${msg.viewer_count} viewers)`);
       viewerCount.textContent = msg.viewer_count + ' viewers';
       if (msg.game_state) updateGameState(msg.game_state);
+      if (msg.streaming_state === 'ready' || msg.streaming_state === 'playing') {
+        startHlsPlayback(msg.match_id, msg.hls_url || null);
+      }
       statusBadge.style.display = 'inline-block';
       statusBadge.textContent = 'LIVE';
       statusBadge.className = 'badge badge-live';
@@ -932,6 +986,13 @@
       viewerCount.textContent = msg.count + ' viewers';
     }
 
+    else if (type === 'streaming_state') {
+      logEvent('info', `Streaming state=${msg.state || 'unknown'}`);
+      if (msg.state === 'ready' || msg.state === 'playing') {
+        startHlsPlayback(currentMatchId, msg.hls_url || null);
+      }
+    }
+
     else if (type === 'round_end') {
       const winner = msg.p1_won ? 'P1' : 'P2';
       logEvent('event', `ROUND OVER! ${winner} wins (P1=${msg.p1_health} P2=${msg.p2_health})`);
@@ -941,6 +1002,7 @@
 
     else if (type === 'match_ended') {
       logEvent('event', 'MATCH ENDED');
+      stopHlsPlayback();
       statusBadge.textContent = 'ENDED';
       statusBadge.className = 'badge badge-cancelled';
     }
@@ -1041,41 +1103,6 @@
         logEvent('info', `RAM src=${debug.state_source || '—'} trusted=${debug.logic_trusted === true ? 'yes' : 'no'} flags=${flags.length ? flags.join('|') : 'none'}`);
       }
     }
-  }
-
-  // ── HTTP Polling Fallback ──
-  function startPollingFallback(matchId) {
-    if (pollingInterval) return; // already polling
-    connTransport.textContent = 'HTTP Polling (fallback)';
-    logEvent('warn', 'Falling back to HTTP polling');
-
-    pollingInterval = setInterval(async () => {
-      if (!currentMatchId) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        return;
-      }
-      try {
-        // Fetch state
-        const stateResp = await fetch(`/api/stream/${matchId}/state`);
-        if (stateResp.ok) {
-          const state = await stateResp.json();
-          updateGameState(state);
-        }
-        // Fetch frame
-        const frameResp = await fetch(`/api/stream/${matchId}/frame`);
-        if (frameResp.ok) {
-          const blob = await frameResp.blob();
-          const bitmap = await createImageBitmap(blob);
-          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-          bitmap.close();
-          binaryMsgCount++;
-          msgCountBinary.textContent = binaryMsgCount;
-        }
-      } catch (e) {
-        // silently retry
-      }
-    }, 200);
   }
 
   // ── Event log ──

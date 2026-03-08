@@ -135,7 +135,7 @@ async def health():
 
 # ── Combined H.264+AAC HLS Streaming ────────────────────────────────────────
 
-from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.responses import FileResponse, Response  # noqa: E402
 from app.services.ffmpeg_combined_hls import hls_playlist_path, hls_dir  # noqa: E402
 
 
@@ -144,8 +144,17 @@ async def stream_playlist(match_id: str):
     """Serve the combined HLS playlist (video+audio) for a live match."""
     path = hls_playlist_path(match_id)
     if not path.exists():
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Stream not yet available — match may be starting")
+        # Return an empty 404 body for media clients. JSON error payloads can be
+        # misinterpreted by some HLS parsers as transport stream bytes.
+        return Response(
+            status_code=404,
+            media_type="application/vnd.apple.mpegurl",
+            headers={
+                "Cache-Control": "no-cache, no-store",
+                "Access-Control-Allow-Origin": "*",
+                "Retry-After": "1",
+            },
+        )
     return FileResponse(
         str(path),
         media_type="application/vnd.apple.mpegurl",
@@ -157,12 +166,15 @@ async def stream_playlist(match_id: str):
 async def stream_segment(match_id: str, segment: str):
     """Serve an individual HLS .ts segment."""
     if not segment.endswith(".ts"):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Only .ts segments served here")
+        return Response(status_code=400)
     path = hls_dir(match_id) / segment
     if not path.exists():
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Segment not found")
+        # Empty 404 avoids sending JSON bodies to media decoders.
+        return Response(
+            status_code=404,
+            media_type="video/mp2t",
+            headers={"Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*"},
+        )
     return FileResponse(
         str(path),
         media_type="video/mp2t",
