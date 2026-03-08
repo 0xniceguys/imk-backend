@@ -11,6 +11,7 @@ import '../models/match_bet_feed_item.dart';
 import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
+import '../providers/global_events_provider.dart';
 import '../router.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
 import '../widgets/fighter/fighter_image.dart';
@@ -40,6 +41,42 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   // loading in the background before the user navigates to the live screen.
   String? _preConnectedMatchId;
   DateTime _lastGoLiveRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void initState() {
+    super.initState();
+    // Wire match-state changes (REST poll) → go-live redirect
+    _matchStateSub = ref.listenManual<MatchState>(
+      matchProvider,
+      (prev, next) => _onMatchStateChanged(prev, next),
+      fireImmediately: false,
+    );
+    // Wire global WS events → instant go-live redirect (no poll delay)
+    ref.listenManual<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (_, next) {
+        next.whenData((event) {
+          if (_navigatedToLive || !mounted) return;
+          if (event['type'] != 'match_status_changed') return;
+          if (event['status'] != 'live') return;
+          final eventMatchId = event['match_id'] as String?;
+          final ourMatchId = widget.matchId ?? _resolveMatch(
+            ref.read(matchProvider).matches,
+          )?.id;
+          if (eventMatchId == null || eventMatchId != ourMatchId) return;
+          _navigatedToLive = true;
+          debugPrint('[BattleDetail] Global event: match $eventMatchId went live — instant redirect');
+          widget.onNavigate('/live-match/$eventMatchId');
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _matchStateSub?.cancel();
+    super.dispose();
+  }
   void _maybePreConnect(Match match) {
     if (match.status != MatchStatus.upcoming) return;
     if (match.queuePosition != 1) return;
