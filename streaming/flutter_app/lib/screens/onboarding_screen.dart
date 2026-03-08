@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import '../core/constants.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
-import '../core/constants.dart';
+import '../widgets/shared/ik_loader.dart';
 import '../widgets/shared/ornate_button.dart';
+import '../widgets/shared/pressable.dart';
 
-/// Single swipeable onboarding flow (pages 1→2→3).
-/// Used from a single route '/onboarding'.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
     super.key,
@@ -21,37 +21,26 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    debugPrint('[Screen] ONBOARDING initState');
-  }
+  bool _isNavigating = false;
 
   static const _pages = [
     _PageData(
-      title: 'WHAT IS IMMORTAL KOMBAT?',
-      body:
-          'LLMs have been compared all the time, but this time we make humans bet on their skills.',
-      image: Assets.onboardingOne,
-      glow: Assets.onboardingGlowOne,
-      cta: 'Continue',
+      title: 'WATCH AI FIGHTS LIVE',
+      body: 'Every match is real-time. Read momentum fast and pick your side.',
+      image: Assets.characterScorpio,
+      cta: 'Next',
     ),
     _PageData(
-      title: 'ERA OF UNFIXABLE ESPORTS.',
-      body:
-          "Humans have had a good history of fixing matches, but sentient beings don't sell out.",
-      image: Assets.onboardingTwo,
-      glow: Assets.onboardingGlowTwo,
-      cta: 'Continue',
+      title: 'BET IN SKR',
+      body: 'Choose a fighter and lock your bet before the match closes.',
+      image: Assets.characterCage,
+      cta: 'Next',
     ),
     _PageData(
-      title: 'PURE FATALITY CHAOS.',
-      body:
-          'Humans also have their limitations, artificial intelligence does not. True fatality achieved.',
-      image: Assets.onboardingThree,
-      glow: Assets.onboardingGlowThree,
-      cta: 'Take my money',
+      title: 'TRACK AND CLAIM',
+      body: 'Review outcomes, claim rewards, and jump into the next arena.',
+      image: Assets.characterSonya,
+      cta: 'Enter Arena',
     ),
   ];
 
@@ -62,90 +51,106 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
+    if (_isNavigating) return;
     if (_page < _pages.length - 1) {
       _controller.nextPage(
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
       );
     } else {
-      widget.onNavigate('/arena-list');
+      _goToArena();
     }
+  }
+
+  void _goToArena() {
+    if (_isNavigating) return;
+    setState(() => _isNavigating = true);
+    widget.onNavigate('/arena-list');
   }
 
   @override
   Widget build(BuildContext context) {
+    final current = _pages[_page];
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Swipeable pages
         PageView.builder(
           controller: _controller,
           itemCount: _pages.length,
-          onPageChanged: (i) => setState(() => _page = i),
-          itemBuilder: (context, index) =>
-              _OnboardingPage(data: _pages[index]),
+          onPageChanged: (index) => setState(() => _page = index),
+          itemBuilder: (context, index) => _OnboardingPage(data: _pages[index]),
         ),
-        // Controls overlay
         SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              // Step indicator
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(Assets.stepperLeft, width: 84, height: 14),
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Image.asset(Assets.stepperFrame,
-                            width: 48, height: 48),
-                        Text(
-                          '${_page + 1}',
-                          style: displayStyle(
-                            size: 22,
-                            color: Palette.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Image.asset(Assets.stepperRight, width: 84, height: 14),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Dot indicators
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: i == _page ? 20 : 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: i == _page ? Palette.gold : Palette.muted,
-                    ),
-                  );
-                }),
-              ),
-              const Spacer(),
-              OrnateButton(label: _pages[_page].cta, onTap: _next),
-              if (_page < _pages.length - 1) ...[
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
                 const SizedBox(height: 18),
-                TextButton(
-                  onPressed: () => widget.onNavigate('/arena-list'),
-                  style: plainBtn(),
-                  child: Text('Skip',
-                      style: displayStyle(size: 18, color: Palette.muted)),
+                Row(
+                  children: [
+                    ...List.generate(
+                      _pages.length,
+                      (index) => Container(
+                        width: 4,
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: index == _page
+                              ? Palette.gold
+                              : const Color(0xFF555555),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Pressable(
+                      onTap: _goToArena,
+                      opacityTo: 0.75,
+                      child: Text(
+                        'Skip',
+                        style: displayStyle(size: 18, color: Palette.muted),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 28),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Column(
+                    children: [
+                      Text(
+                        current.title,
+                        textAlign: TextAlign.center,
+                        style: displayStyle(
+                          size: 32,
+                          color: Palette.gold,
+                          height: 0.92,
+                          letterSpacing: -0.9,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        current.body,
+                        textAlign: TextAlign.center,
+                        style: bodyStyle(
+                          size: 16,
+                          color: Palette.secondary,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(height: 20),
+                if (_isNavigating)
+                  const IKLoader(size: 26)
+                else
+                  OrnateButton(label: current.cta, onTap: _next),
+                const SizedBox(height: 28),
               ],
-              const SizedBox(height: 40),
-            ],
+            ),
           ),
         ),
       ],
@@ -158,91 +163,58 @@ class _PageData {
     required this.title,
     required this.body,
     required this.image,
-    required this.glow,
     required this.cta,
   });
 
   final String title;
   final String body;
   final String image;
-  final String glow;
   final String cta;
 }
 
 class _OnboardingPage extends StatelessWidget {
   const _OnboardingPage({required this.data});
+
   final _PageData data;
 
   @override
   Widget build(BuildContext context) {
-    final screenH = MediaQuery.of(context).size.height;
+    final screen = MediaQuery.of(context).size;
 
     return Stack(
       fit: StackFit.expand,
       children: [
+        const ColoredBox(color: Palette.black),
         Positioned(
           left: 0,
           right: 0,
-          bottom: 0,
-          height: screenH * 0.6,
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black],
-                stops: [0, 0.625],
-              ),
+          bottom: -screen.height * 0.08,
+          child: IgnorePointer(
+            child: Image.asset(
+              data.image,
+              height: screen.height * 0.66,
+              fit: BoxFit.contain,
             ),
           ),
         ),
         Positioned(
-          left: 32,
-          right: 32,
-          bottom: 0,
-          child: Image.asset(data.glow,
-              height: screenH * 0.55, fit: BoxFit.contain),
-        ),
-        Positioned(
           left: 0,
           right: 0,
-          bottom: -screenH * 0.57,
-          child: SizedBox(
-            height: screenH * 1.05,
-            width: screenH * 0.75,
-            child: Image.asset(data.image, fit: BoxFit.fitHeight),
-          ),
-        ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 104),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 48),
-                  child: Text(
-                    data.title,
-                    textAlign: TextAlign.center,
-                    style: displayStyle(
-                      size: 36,
-                      color: Palette.gold,
-                      letterSpacing: -1.08,
-                      height: 0.9,
-                    ),
-                  ),
+          bottom: 0,
+          child: IgnorePointer(
+            child: Container(
+              height: screen.height * 0.35,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Palette.black.withValues(alpha: 0.95),
+                    Palette.black.withValues(alpha: 0.72),
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 48),
-                  child: Text(
-                    data.body,
-                    textAlign: TextAlign.center,
-                    style: bodyStyle(
-                        size: 20,
-                        color: Palette.muted),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

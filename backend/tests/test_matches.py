@@ -3,7 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from app.db.models import Fighter, Match
+from app.db.models import Bet, BetStatus, Fighter, Match, User
 
 
 @pytest.mark.asyncio
@@ -121,3 +121,63 @@ async def test_match_schema_fields(
     assert data["rounds_won_p2"] == 0
     # Upcoming match should have betting open
     assert data["betting_open"] is True
+
+
+@pytest.mark.asyncio
+async def test_match_bet_feed_returns_masked_recent_bets(
+    client: AsyncClient,
+    db,
+    match_with_stream: Match,
+    fighters: tuple[Fighter, Fighter],
+    cleanup,
+):
+    f1, f2 = fighters
+    user1 = User(
+        privy_user_id="feed-u1",
+        wallet_address="AbcdEFGHiJkLmNoPqRsTuVwXyZ1234567890",
+        email="u1@test.local",
+        display_name="User1",
+    )
+    user2 = User(
+        privy_user_id="feed-u2",
+        wallet_address="ZYXwVuTsRqPoNmLkJiHgFeDcBa9876543210",
+        email="u2@test.local",
+        display_name="User2",
+    )
+    db.add_all([user1, user2])
+    await db.flush()
+
+    b1 = Bet(
+        user_id=user1.id,
+        match_id=match_with_stream.id,
+        fighter_id=f1.id,
+        amount=123.0,
+        currency="SKR",
+        odds_at_placement=1.5,
+        status=BetStatus.ACTIVE,
+        on_chain_side="A",
+    )
+    b2 = Bet(
+        user_id=user2.id,
+        match_id=match_with_stream.id,
+        fighter_id=f2.id,
+        amount=222.0,
+        currency="SKR",
+        odds_at_placement=1.7,
+        status=BetStatus.ACTIVE,
+        on_chain_side="B",
+    )
+    db.add_all([b1, b2])
+    await db.commit()
+
+    resp = await client.get(f"/api/matches/{match_with_stream.id}/bet-feed")
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 2
+    assert rows[0]["wallet_masked"].count("...") == 1
+    assert rows[1]["wallet_masked"].count("...") == 1
+    assert rows[0]["side"] in ("A", "B")
+    assert rows[1]["side"] in ("A", "B")
+    assert rows[0]["fighter_name"] in (f1.name, f2.name)
+    assert rows[1]["fighter_name"] in (f1.name, f2.name)
+    assert rows[0]["status"] == "active"

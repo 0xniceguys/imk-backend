@@ -1,6 +1,7 @@
 /// Live game state received via WebSocket from the backend.
 class GameState {
   final int frameId;
+  final DateTime? timestamp;
   final int p1Health;
   final int p2Health;
   final double p1HealthPct;
@@ -26,6 +27,7 @@ class GameState {
 
   const GameState({
     this.frameId = 0,
+    this.timestamp,
     this.p1Health = 160,
     this.p2Health = 160,
     this.p1HealthPct = 1.0,
@@ -49,8 +51,19 @@ class GameState {
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) {
+    final dynamic rawTs = json['timestamp'];
+    DateTime? parsedTs;
+    if (rawTs is num) {
+      parsedTs = DateTime.fromMillisecondsSinceEpoch(
+        (rawTs.toDouble() * 1000).round(),
+      );
+    } else if (rawTs is String) {
+      parsedTs = DateTime.tryParse(rawTs);
+    }
+
     return GameState(
       frameId: json['frame_id'] as int? ?? 0,
+      timestamp: parsedTs,
       p1Health: json['p1_health'] as int? ?? 160,
       p2Health: json['p2_health'] as int? ?? 160,
       p1HealthPct: (json['p1_health_pct'] as num?)?.toDouble() ?? 1.0,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,38 +7,69 @@ import '../models/wallet_state.dart';
 import '../services/api_service.dart';
 import '../services/privy_service.dart';
 import '../core/constants.dart';
+import '../core/runtime_client_config.dart';
 import 'auth_provider.dart';
-
-/// Solana RPC endpoint — switches to devnet when USE_DEVNET=true.
-final _solanaRpc = kUseDevnet
-    ? 'https://api.devnet.solana.com'
-    : 'https://api.mainnet-beta.solana.com';
-
-/// SEEKER token mint (mainnet) or USDC devnet mint for testing.
-final _seekerMint = kUseDevnet
-    ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' // USDC on devnet
-    : 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'; // SEEKER mainnet
 
 /// Wrapped SOL mint (used for Jupiter price lookup).
 const _wrappedSolMint = 'So11111111111111111111111111111111111111112';
 
 class WalletNotifier extends StateNotifier<WalletState> {
   final PrivyService _privy;
+  Timer? _autoRefreshTimer;
+  bool _isRefreshInFlight = false;
 
-  WalletNotifier(this._privy) : super(const WalletState());
+  WalletNotifier(this._privy) : super(const WalletState()) {
+    _startAutoRefresh();
+  }
+
+  RuntimeClientConfig get _cfg => RuntimeClientConfig.instance;
+  String get _skrMint => _cfg.skrMint;
+  bool get _isDevnet => _cfg.isDevnet;
+  int get _tokenDecimals => _cfg.tokenDecimals;
+
+  static const Duration _autoRefreshEvery = Duration(seconds: 12);
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(_autoRefreshEvery, (_) async {
+      if (_isRefreshInFlight) return;
+      final address = _privy.walletAddress;
+      if (address == null || address.isEmpty) return;
+      _isRefreshInFlight = true;
+      try {
+        await _loadWallet(showLoading: false);
+      } finally {
+        _isRefreshInFlight = false;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> loadWallet() async {
+    await _loadWallet(showLoading: true);
+  }
+
+  Future<void> _loadWallet({required bool showLoading}) async {
     final address = _privy.walletAddress;
     if (address == null) {
       state = const WalletState();
       return;
     }
 
-    state = state.copyWith(
-      solanaAddress: address,
-      isLoading: true,
-      clearError: true,
-    );
+    if (showLoading) {
+      state = state.copyWith(
+        solanaAddress: address,
+        isLoading: true,
+        clearError: true,
+      );
+    } else {
+      state = state.copyWith(solanaAddress: address, clearError: true);
+    }
 
     if (kUseMockData) {
       state = WalletState(
@@ -45,16 +77,23 @@ class WalletNotifier extends StateNotifier<WalletState> {
         solBalance: 1.5,
         seekerBalance: 500.0,
         solUsdValue: 300.0,
-        seekerUsdValue: 50.0,
+        seekerUsdValue: 500.0 * kDevnetSkrPriceUsd,
+        seekerUsdPrice: kDevnetSkrPriceUsd,
+        seekerSymbol: _cfg.tokenSymbol,
+        isDevnet: _cfg.isDevnet,
         usdcBalance: 0,
         isLoading: false,
       );
       return;
     }
 
-    final solFuture = _fetchSolBalance(address);
-    final seekerFuture = _fetchSeekerBalance(address);
-    final pricesFuture = _fetchTokenPrices();
+    final solFuture = _fetchSolBalance(address, rpcHttp: _cfg.rpcHttp);
+    final seekerFuture = _fetchSeekerBalance(
+      address,
+      rpcHttp: _cfg.rpcHttp,
+      seekerMint: _cfg.skrMint,
+    );
+    final pricesFuture = _fetchTokenPrices(seekerMint: _cfg.skrMint);
 
     try {
       final solBalance = await solFuture;
@@ -67,6 +106,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
         seekerBalance: seekerBalance,
         solUsdValue: solBalance * (prices['sol'] ?? 0),
         seekerUsdValue: seekerBalance * (prices['seeker'] ?? 0),
+        seekerUsdPrice: prices['seeker'] ?? 0,
+        seekerSymbol: _cfg.tokenSymbol,
+        isDevnet: _cfg.isDevnet,
         usdcBalance: 0,
         isLoading: false,
       );
@@ -98,9 +140,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 1. Jupiter Price v2  (often 401 but keep as first attempt)
   Future<double> _solPriceJupiter() async {
-    final r = await http.get(Uri.parse(
-      'https://api.jup.ag/price/v2?ids=$_wrappedSolMint',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(Uri.parse('https://api.jup.ag/price/v2?ids=$_wrappedSolMint'))
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     final d = (body['data'] as Map<String, dynamic>?)?[_wrappedSolMint];
@@ -109,9 +151,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 2. CoinGecko public API (no key, 30 rpm free)
   Future<double> _solPriceCoinGecko() async {
-    final r = await http.get(Uri.parse(
-      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['solana']?['usd']);
@@ -119,9 +165,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 3. Binance public ticker (no key, very reliable)
   Future<double> _solPriceBinance() async {
-    final r = await http.get(Uri.parse(
-      'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['price']);
@@ -129,9 +179,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 4. Kraken public ticker (no key)
   Future<double> _solPriceKraken() async {
-    final r = await http.get(Uri.parse(
-      'https://api.kraken.com/0/public/Ticker?pair=SOLUSD',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(Uri.parse('https://api.kraken.com/0/public/Ticker?pair=SOLUSD'))
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     final result = body['result'] as Map<String, dynamic>?;
@@ -144,86 +194,106 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   /// 5. DexScreener (no key, 300 rpm)  — SOL via wrapped-SOL/USDC pair
   Future<double> _solPriceDexScreener() async {
-    final r = await http.get(Uri.parse(
-      'https://api.dexscreener.com/tokens/v1/solana/$_wrappedSolMint',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.dexscreener.com/tokens/v1/solana/$_wrappedSolMint',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body);
     final pairs = (body is List ? body : (body as Map)['pairs']) as List?;
     if (pairs == null || pairs.isEmpty) return 0;
     // Sort by liquidity and take the best pair
-    pairs.sort((a, b) =>
-        (b['liquidity']?['usd'] as num? ?? 0)
-            .compareTo(a['liquidity']?['usd'] as num? ?? 0));
+    pairs.sort(
+      (a, b) => (b['liquidity']?['usd'] as num? ?? 0).compareTo(
+        a['liquidity']?['usd'] as num? ?? 0,
+      ),
+    );
     return _parsePrice(pairs.first['priceUsd']);
   }
 
   /// 6. CoinPaprika (no key)
   Future<double> _solPriceCoinPaprika() async {
-    final r = await http.get(Uri.parse(
-      'https://api.coinpaprika.com/v1/tickers/sol-solana?quotes=USD',
-    )).timeout(const Duration(seconds: 6));
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.coinpaprika.com/v1/tickers/sol-solana?quotes=USD',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['quotes']?['USD']?['price']);
   }
 
-  // ── SEEKER price sources ──────────────────────────────────────────────
+  // ── SKR price sources ─────────────────────────────────────────────────
 
-  /// 1. Jupiter Price v2 for SEEKER
-  Future<double> _seekerPriceJupiter() async {
-    final r = await http.get(Uri.parse(
-      'https://api.jup.ag/price/v2?ids=$_seekerMint',
-    )).timeout(const Duration(seconds: 6));
+  /// 1. Jupiter Price v2 for SKR mint.
+  Future<double> _skrPriceJupiter() async {
+    final r = await http
+        .get(Uri.parse('https://api.jup.ag/price/v2?ids=$_skrMint'))
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
-    final d = (body['data'] as Map<String, dynamic>?)?[_seekerMint];
+    final d = (body['data'] as Map<String, dynamic>?)?[_skrMint];
     return _parsePrice(d?['price']);
   }
 
-  /// 2. DexScreener — SEEKER by mint address (best liquidity pair)
-  Future<double> _seekerPriceDexScreener() async {
-    final r = await http.get(Uri.parse(
-      'https://api.dexscreener.com/tokens/v1/solana/$_seekerMint',
-    )).timeout(const Duration(seconds: 6));
+  /// 2. DexScreener by mint address (best liquidity pair).
+  Future<double> _skrPriceDexScreener() async {
+    final r = await http
+        .get(
+          Uri.parse('https://api.dexscreener.com/tokens/v1/solana/$_skrMint'),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body);
     final pairs = (body is List ? body : (body as Map)['pairs']) as List?;
     if (pairs == null || pairs.isEmpty) return 0;
-    pairs.sort((a, b) =>
-        (b['liquidity']?['usd'] as num? ?? 0)
-            .compareTo(a['liquidity']?['usd'] as num? ?? 0));
+    pairs.sort(
+      (a, b) => (b['liquidity']?['usd'] as num? ?? 0).compareTo(
+        a['liquidity']?['usd'] as num? ?? 0,
+      ),
+    );
     return _parsePrice(pairs.first['priceUsd']);
   }
 
-  /// 3. GeckoTerminal on-chain API (no key, Solana network)
-  Future<double> _seekerPriceGeckoTerminal() async {
-    final r = await http.get(Uri.parse(
-      'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$_seekerMint',
-    )).timeout(const Duration(seconds: 6));
+  /// 3. GeckoTerminal on-chain API (no key, Solana network).
+  Future<double> _skrPriceGeckoTerminal() async {
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.geckoterminal.com/api/v2/networks/solana/tokens/$_skrMint',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
-    return _parsePrice(
-        body['data']?['attributes']?['price_usd']);
+    return _parsePrice(body['data']?['attributes']?['price_usd']);
   }
 
-  /// 4. Raydium price API (no key)
-  Future<double> _seekerPriceRaydium() async {
-    final r = await http.get(Uri.parse(
-      'https://api-v3.raydium.io/mint/price?mints=$_seekerMint',
-    )).timeout(const Duration(seconds: 6));
+  /// 4. Raydium price API (no key).
+  Future<double> _skrPriceRaydium() async {
+    final r = await http
+        .get(Uri.parse('https://api-v3.raydium.io/mint/price?mints=$_skrMint'))
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>?;
-    return _parsePrice(data?[_seekerMint]);
+    return _parsePrice(data?[_skrMint]);
   }
 
-  /// 5. CoinPaprika — SEEKER (symbol-based search fallback)
-  Future<double> _seekerPriceCoinPaprika() async {
-    // SEEKER is listed on CoinPaprika as skr-seeker
-    final r = await http.get(Uri.parse(
-      'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
-    )).timeout(const Duration(seconds: 6));
+  /// 5. CoinPaprika fallback for SKR symbol.
+  Future<double> _skrPriceCoinPaprika() async {
+    final r = await http
+        .get(
+          Uri.parse(
+            'https://api.coinpaprika.com/v1/tickers/skr-seeker?quotes=USD',
+          ),
+        )
+        .timeout(const Duration(seconds: 6));
     if (r.statusCode != 200) return 0;
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return _parsePrice(body['quotes']?['USD']?['price']);
@@ -231,7 +301,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   // ── Orchestrator ────────────────────────────────────────────────────────
 
-  Future<Map<String, double>> _fetchTokenPrices() async {
+  Future<Map<String, double>> _fetchTokenPrices({
+    required String seekerMint,
+  }) async {
     double solPrice = 0;
     double seekerPrice = 0;
 
@@ -268,16 +340,17 @@ class WalletNotifier extends StateNotifier<WalletState> {
       _lastKnownSolPrice = solPrice;
     }
 
-    // ── SEEKER: try each source, stop on first non-zero result ────────────
-    if (kUseDevnet) {
-      seekerPrice = 1.0; // USDC devnet is always $1
+    // ── SKR: try each source, stop on first non-zero result ────────────────
+    if (_isDevnet) {
+      // Devnet SKR has no reliable market feed; use a fixed testing price.
+      seekerPrice = kDevnetSkrPriceUsd;
     } else {
       final seekerSources = <String, Future<double> Function()>{
-        'Jupiter': _seekerPriceJupiter,
-        'DexScreener': _seekerPriceDexScreener,
-        'GeckoTerminal': _seekerPriceGeckoTerminal,
-        'Raydium': _seekerPriceRaydium,
-        'CoinPaprika': _seekerPriceCoinPaprika,
+        'Jupiter': _skrPriceJupiter,
+        'DexScreener': _skrPriceDexScreener,
+        'GeckoTerminal': _skrPriceGeckoTerminal,
+        'Raydium': _skrPriceRaydium,
+        'CoinPaprika': _skrPriceCoinPaprika,
       };
 
       for (final entry in seekerSources.entries) {
@@ -286,18 +359,18 @@ class WalletNotifier extends StateNotifier<WalletState> {
           final p = await entry.value();
           if (p > 0) {
             seekerPrice = p;
-            debugPrint('[Wallet] SEEKER price via ${entry.key}: \$$seekerPrice');
+            debugPrint('[Wallet] SKR price via ${entry.key}: \$$seekerPrice');
           } else {
-            debugPrint('[Wallet] SEEKER price ${entry.key}: no data');
+            debugPrint('[Wallet] SKR price ${entry.key}: no data');
           }
         } catch (e) {
-          debugPrint('[Wallet] SEEKER price ${entry.key} error: $e');
+          debugPrint('[Wallet] SKR price ${entry.key} error: $e');
         }
       }
 
       if (seekerPrice <= 0 && _lastKnownSeekerPrice > 0) {
         seekerPrice = _lastKnownSeekerPrice;
-        debugPrint('[Wallet] SEEKER price: using cached \$$seekerPrice');
+        debugPrint('[Wallet] SKR price: using cached \$$seekerPrice');
       } else if (seekerPrice > 0) {
         _lastKnownSeekerPrice = seekerPrice;
       }
@@ -308,9 +381,12 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   // ── Balance fetch ───────────────────────────────────────────────────────
 
-  Future<double> _fetchSolBalance(String address) async {
+  Future<double> _fetchSolBalance(
+    String address, {
+    required String rpcHttp,
+  }) async {
     final response = await http.post(
-      Uri.parse(_solanaRpc),
+      Uri.parse(rpcHttp),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'jsonrpc': '2.0',
@@ -330,10 +406,14 @@ class WalletNotifier extends StateNotifier<WalletState> {
     return 0;
   }
 
-  Future<double> _fetchSeekerBalance(String address) async {
+  Future<double> _fetchSeekerBalance(
+    String address, {
+    required String rpcHttp,
+    required String seekerMint,
+  }) async {
     try {
       final response = await http.post(
-        Uri.parse(_solanaRpc),
+        Uri.parse(rpcHttp),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'jsonrpc': '2.0',
@@ -341,7 +421,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
           'method': 'getTokenAccountsByOwner',
           'params': [
             address,
-            {'mint': _seekerMint},
+            {'mint': seekerMint},
             {'encoding': 'jsonParsed', 'commitment': 'confirmed'},
           ],
         }),
@@ -350,13 +430,29 @@ class WalletNotifier extends StateNotifier<WalletState> {
         final data = jsonDecode(response.body);
         final accounts = data['result']?['value'] as List?;
         if (accounts != null && accounts.isNotEmpty) {
-          final tokenAmount = accounts[0]['account']['data']['parsed']['info']
-              ['tokenAmount'];
-          return (tokenAmount['uiAmount'] as num?)?.toDouble() ?? 0;
+          BigInt rawTotal = BigInt.zero;
+          for (final account in accounts) {
+            final tokenAmount =
+                account['account']?['data']?['parsed']?['info']?['tokenAmount']
+                    as Map<String, dynamic>?;
+            if (tokenAmount == null) continue;
+            final raw = tokenAmount['amount']?.toString() ?? '0';
+            rawTotal += BigInt.tryParse(raw) ?? BigInt.zero;
+          }
+          return _baseUnitsToUi(rawTotal, _tokenDecimals);
         }
       }
     } catch (_) {}
     return 0;
+  }
+
+  double _baseUnitsToUi(BigInt raw, int decimals) {
+    if (raw == BigInt.zero) return 0;
+    if (decimals <= 0) return raw.toDouble();
+    final scale = BigInt.from(10).pow(decimals);
+    final whole = raw ~/ scale;
+    final fraction = raw % scale;
+    return whole.toDouble() + (fraction.toDouble() / scale.toDouble());
   }
 
   // ── Public methods ───────────────────────────────────────────────────────
@@ -378,7 +474,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
       debugPrint('[Wallet] Retry ${i + 1}/$maxAttempts — waiting ${delay}s...');
       await Future.delayed(Duration(seconds: delay));
 
-      await loadWallet();
+      await _loadWallet(showLoading: false);
 
       // Check if balance actually changed
       if (state.solBalance != prevSol || state.seekerBalance != prevSeeker) {
@@ -389,8 +485,10 @@ class WalletNotifier extends StateNotifier<WalletState> {
       delay *= 2; // exponential backoff: 2s → 4s → 8s
     }
 
-    debugPrint('[Wallet] Balance unchanged after $maxAttempts retries — '
-        'may update on next manual refresh');
+    debugPrint(
+      '[Wallet] Balance unchanged after $maxAttempts retries — '
+      'may update on next manual refresh',
+    );
   }
 
   Future<String?> signMessage(String message) async {
@@ -419,7 +517,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
       api.setAuthToken(token);
       debugPrint('[Wallet] Auth token refreshed before API call');
     } else {
-      debugPrint('[Wallet] No Privy access token available — withdraw may fail');
+      debugPrint(
+        '[Wallet] No Privy access token available — withdraw may fail',
+      );
     }
   }
 }

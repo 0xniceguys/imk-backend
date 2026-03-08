@@ -13,13 +13,26 @@ final fighterStatsProvider = FutureProvider.family<
 });
 
 // ── Fighter Match History Provider ──
-// GET /api/fighters/{id}/matches?limit=10
+// Fetch enough rows to cover all completed matches for the fighter so
+// match-history totals stay aligned with /fighters/{id}/stats.
 
 final fighterMatchesProvider = FutureProvider.family<
     List<Map<String, dynamic>>,
     String>((ref, fighterId) async {
   final api = ref.read(apiServiceProvider);
-  return api.fetchFighterMatches(fighterId, limit: 10);
+  Map<String, dynamic>? stats;
+  try {
+    stats = await ref.watch(fighterStatsProvider(fighterId).future);
+  } catch (_) {
+    stats = null;
+  }
+
+  final played = (stats?['matches_played'] as num?)?.toInt() ?? 100;
+  var limit = played <= 0 ? 100 : played;
+  if (limit < 100) limit = 100;
+  if (limit > 2000) limit = 2000;
+
+  return api.fetchFighterMatches(fighterId, limit: limit);
 });
 
 // ── Fighter VS Provider ──

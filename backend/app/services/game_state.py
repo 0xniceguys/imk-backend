@@ -48,6 +48,7 @@ def _decode_health_word(word: int) -> int:
     return int(round(_clamp01(float(word) / float(HEALTH_FP_ONE)) * HEALTH_MAX))
 
 
+
 def _decode_s16hi(word: int) -> float:
     hi = (int(word) >> 16) & 0xFFFF
     signed = hi if hi < 0x8000 else hi - 0x10000
@@ -373,6 +374,7 @@ def _merge_state_sources(
         default=HEALTH_MAX,
         previous_value=previous_state.p2_health if previous_state is not None else None,
     )
+
     timer = pick_int_field(
         "timer",
         direct_value=(timer_word & 0xFF) if timer_word is not None else None,

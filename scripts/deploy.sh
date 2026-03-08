@@ -12,4 +12,4 @@ echo "=== Pulling on EC2 + restarting service ==="
 ssh tekkenlord 'cd /home/ubuntu/imk && git pull origin main && sudo systemctl restart imk && sudo systemctl status imk --no-pager | head -4'
 
 echo "=== Deploy complete ==="
-curl -s https://immortalkombat.mercle.ai/health
+curl -s https://immortalkombat.timesnap.xyz/health

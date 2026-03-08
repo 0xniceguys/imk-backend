@@ -11,6 +11,7 @@ class ProfileStatsWidget extends StatelessWidget {
     this.plOverallColor = Palette.green,
     this.totalBets = '51',
     this.bettingFor = '41days',
+    this.footer,
   });
 
   final String winRate;
@@ -18,6 +19,7 @@ class ProfileStatsWidget extends StatelessWidget {
   final Color plOverallColor;
   final String totalBets;
   final String bettingFor;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +45,12 @@ class ProfileStatsWidget extends StatelessWidget {
             _Stat(title: 'Betting For', value: bettingFor),
           ],
         ),
+        if (footer != null) ...[
+          const SizedBox(height: 18),
+          footer!,
+        ],
         const SizedBox(height: 22),
-        const _ProfileDivider(),
+        // const _ProfileDivider(),
       ],
     );
   }

@@ -9,6 +9,14 @@ from app.db.engine import async_session
 from app.db.models import User
 
 
+def _extract_bearer_subject(authorization: str | None) -> str:
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        if token:
+            return token
+    return "dev-test-user"
+
+
 async def get_db():
     async with async_session() as session:
         yield session
@@ -20,18 +28,34 @@ async def get_current_user(
 ) -> User:
     # DEV BYPASS: DEV_USER_BYPASS=true skips Privy for local testing.
     if os.getenv("DEV_USER_BYPASS", "").lower() == "true":
+        from app.config import settings
+        from app.services.dev_local_signer import wallet_address_for_subject
+
+        subject = _extract_bearer_subject(authorization)
         result = await db.execute(
-            select(User).where(User.privy_user_id == "dev-test-user")
+            select(User).where(User.privy_user_id == subject)
         )
         user = result.scalar_one_or_none()
+
+        wallet_address = None
+        if settings.dev_local_signer_bypass:
+            try:
+                wallet_address = wallet_address_for_subject(subject)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc))
+
         if user is None:
             user = User(
-                privy_user_id="dev-test-user",
-                wallet_address="DevTestWallet123",
-                display_name="Dev Test User",
+                privy_user_id=subject,
+                wallet_address=wallet_address,
+                display_name=f"Dev User {subject}",
                 is_admin=False,
             )
             db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        elif wallet_address and user.wallet_address != wallet_address:
+            user.wallet_address = wallet_address
             await db.commit()
             await db.refresh(user)
         return user

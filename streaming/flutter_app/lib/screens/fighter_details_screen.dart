@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
 import '../models/fighter.dart';
+import '../models/wallet_state.dart';
 import '../providers/fighter_provider.dart';
 import '../providers/fighter_stats_provider.dart';
+import '../providers/wallet_provider.dart';
+import '../utils/skr_pricing.dart';
+import '../widgets/fighter/match_history.dart';
 import '../widgets/shared/pressable.dart';
 import '../widgets/shared/ik_loader.dart';
 import '../widgets/fighter/fighter_image.dart';
@@ -26,6 +30,8 @@ class FighterDetailsScreen extends ConsumerStatefulWidget {
 
 class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
   String? _vsOpponentId;
+  MatchHistoryResultFilter _matchResultFilter = MatchHistoryResultFilter.all;
+  String? _matchHistoryOpponentId;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +46,7 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
     final currentIndex = initialIndex >= 0 ? initialIndex : 0;
     final fighter = fighters[currentIndex];
     final bottom = MediaQuery.of(context).padding.bottom;
+    final wallet = ref.watch(walletProvider);
 
     final statsAsync = ref.watch(fighterStatsProvider(fighter.id));
     final matchesAsync = ref.watch(fighterMatchesProvider(fighter.id));
@@ -170,14 +177,218 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                       'Losses',
                       '${stats != null ? ((stats['matches_played'] ?? fighter.matchesPlayed) - (stats['matches_won'] ?? fighter.matchesWon)) : fighter.matchesLost}',
                     ),
-                    _InfoItem(
-                      'Bet Volume',
-                      stats != null
-                          ? '${(stats['total_bet_volume'] as num? ?? 0).toStringAsFixed(2)} SOL'
-                          : '0.00 SOL',
-                    ),
+                    _InfoItem('Bet Volume', _formatBetVolume(stats, wallet)),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
+            _DetailsSection(
+              title: 'Head-to-Head Stats',
+              child: matchesAsync.when(
+                loading: () => const _Loader(),
+                error: (error, stackTrace) =>
+                    _emptyMsg('Head-to-head stats unavailable'),
+                data: (matches) {
+                  final rows = _buildHeadToHeadRows(
+                    fighterId: fighter.id,
+                    fighters: fighters,
+                    matches: matches,
+                  );
+                  if (rows.isEmpty) {
+                    return _emptyMsg('No opponent data available');
+                  }
+
+                  final selectedOpponentId =
+                      rows.any((row) => row.opponentId == _vsOpponentId)
+                      ? _vsOpponentId
+                      : rows.first.opponentId;
+                  if (selectedOpponentId != _vsOpponentId) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      setState(() => _vsOpponentId = selectedOpponentId);
+                    });
+                  }
+
+                  return Column(
+                    children: [
+                      const _HeadToHeadLegend(),
+                      const SizedBox(height: 12),
+                      ...rows
+                          .take(8)
+                          .map(
+                            (row) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _HeadToHeadHeatRow(
+                                row: row,
+                                selected: row.opponentId == _vsOpponentId,
+                                onTap: () =>
+                                    setState(() => _vsOpponentId = row.opponentId),
+                              ),
+                            ),
+                          ),
+                      if (rows.length > 8)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '+${rows.length - 8} more opponents',
+                            style: bodyStyle(size: 12, color: Palette.secondary),
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      if (vsAsync != null)
+                        vsAsync.when(
+                          loading: () => const _Loader(),
+                          error: (error, stackTrace) =>
+                              _emptyMsg('VS stats unavailable'),
+                          data: (vs) {
+                            if (vs == null) {
+                              return _emptyMsg('No matches vs this opponent');
+                            }
+                            final opponentName = rows
+                                .where(
+                                  (row) => row.opponentId == _vsOpponentId,
+                                )
+                                .map((row) => row.opponentName)
+                                .cast<String?>()
+                                .firstWhere(
+                                  (name) =>
+                                      name != null && name.trim().isNotEmpty,
+                                  orElse: () => null,
+                                ) ??
+                                (vs['opponent_name'] as String?) ??
+                                'Unknown';
+
+                            final played = _asInt(
+                              vs['total_matches'] ?? vs['matches_played'],
+                            );
+                            final wins = _asInt(
+                              vs['wins'] ?? vs['matches_won'],
+                            );
+                            final lossesRaw = vs['losses'];
+                            final losses = lossesRaw == null
+                                ? (played - wins).clamp(0, played)
+                                : _asInt(lossesRaw);
+                            final winRate = _asDouble(vs['win_rate']);
+
+                            final recentMatches = vs['matches'] is List
+                                ? (vs['matches'] as List)
+                                : const [];
+                            final latestResult = recentMatches.isNotEmpty
+                                ? ((recentMatches.first
+                                              as Map<String, dynamic>)['result']
+                                          as String? ??
+                                      'null')
+                                : 'null';
+
+                            return _StatsGrid(
+                              items: [
+                                _InfoItem('Opponent', opponentName),
+                                _InfoItem(
+                                  'Win Rate',
+                                  '${(winRate * 100).toStringAsFixed(1)}%',
+                                ),
+                                _InfoItem('Played', '$played'),
+                                _InfoItem('Wins', '$wins'),
+                                _InfoItem('Losses', '$losses'),
+                                _InfoItem('Latest Result', latestResult),
+                              ],
+                            );
+                          },
+                        )
+                      else
+                        _emptyMsg('Select an opponent above'),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 30),
+            const _GoldDivider(),
+            const SizedBox(height: 30),
+            _DetailsSection(
+              title: 'Match History',
+              child: matchesAsync.when(
+                loading: () => const _Loader(),
+                error: (error, stackTrace) => _emptyMsg('History unavailable'),
+                data: (matches) {
+                  if (matches.isEmpty) {
+                    return _emptyMsg('No completed matches yet');
+                  }
+                  final opponentOptions = buildMatchHistoryOpponentOptions(
+                    matches,
+                  );
+                  final filteredMatches = filterMatchHistory(
+                    matches,
+                    resultFilter: _matchResultFilter,
+                    opponentId: _matchHistoryOpponentId,
+                  );
+                  final visibleMatches = filteredMatches.take(3).toList();
+
+                  return Column(
+                    children: [
+                      MatchHistoryFilters(
+                        resultFilter: _matchResultFilter,
+                        opponentId: _matchHistoryOpponentId,
+                        opponentOptions: opponentOptions,
+                        onResultChanged: (value) =>
+                            setState(() => _matchResultFilter = value),
+                        onOpponentChanged: (value) =>
+                            setState(() => _matchHistoryOpponentId = value),
+                      ),
+                      const SizedBox(height: 18),
+                      if (filteredMatches.isEmpty)
+                        _emptyMsg('No matches found for the selected filters')
+                      else ...[
+                        Column(
+                          children: visibleMatches
+                              .map(
+                                (match) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: MatchHistoryCard(
+                                    match: match,
+                                    fighterName: fighter.name,
+                                    tokenSymbol: wallet.seekerSymbol,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        if (filteredMatches.length > 3)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Pressable(
+                              onTap: () => widget.onNavigate(
+                                '/fighter-match-history/${fighter.id}',
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(2),
+                                  color: Palette.cardBg.withValues(alpha: 0.32),
+                                  border: Border.all(
+                                    color: Palette.gold.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Show More',
+                                  style: bodyStyle(
+                                    size: 14,
+                                    color: Palette.gold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 30),
@@ -220,123 +431,6 @@ class _FighterDetailsScreenState extends ConsumerState<FighterDetailsScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
-            const _GoldDivider(),
-            const SizedBox(height: 30),
-            _DetailsSection(
-              title: 'Match History',
-              child: matchesAsync.when(
-                loading: () => const _Loader(),
-                error: (error, stackTrace) => _emptyMsg('History unavailable'),
-                data: (matches) {
-                  if (matches.isEmpty) {
-                    return _emptyMsg('No completed matches yet');
-                  }
-                  return Column(
-                    children: matches
-                        .take(10)
-                        .map((match) => _MatchRow(match: match))
-                        .toList(),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 30),
-            const _GoldDivider(),
-            const SizedBox(height: 30),
-            _DetailsSection(
-              title: 'Head-to-Head Stats',
-              child: Column(
-                children: [
-                  if (fighters.length > 1)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Palette.border),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _vsOpponentId,
-                        dropdownColor: Palette.cardBg,
-                        style: bodyStyle(size: 14, color: Palette.white),
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        onChanged: (value) =>
-                            setState(() => _vsOpponentId = value),
-                        items: fighters
-                            .where((item) => item.id != fighter.id)
-                            .map(
-                              (item) => DropdownMenuItem<String>(
-                                value: item.id,
-                                child: Text(item.name),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  if (vsAsync != null)
-                    vsAsync.when(
-                      loading: () => const _Loader(),
-                      error: (error, stackTrace) =>
-                          _emptyMsg('VS stats unavailable'),
-                      data: (vs) {
-                        if (vs == null) {
-                          return _emptyMsg('No matches vs this opponent');
-                        }
-                        final opponentName =
-                            fighters
-                                .where((item) => item.id == _vsOpponentId)
-                                .map((item) => item.name)
-                                .cast<String?>()
-                                .firstWhere(
-                                  (name) =>
-                                      name != null && name.trim().isNotEmpty,
-                                  orElse: () => null,
-                                ) ??
-                            (vs['opponent_name'] as String?) ??
-                            'Unknown';
-
-                        final played = _asInt(
-                          vs['total_matches'] ?? vs['matches_played'],
-                        );
-                        final wins = _asInt(vs['wins'] ?? vs['matches_won']);
-                        final lossesRaw = vs['losses'];
-                        final losses = lossesRaw == null
-                            ? (played - wins).clamp(0, played)
-                            : _asInt(lossesRaw);
-                        final winRate = _asDouble(vs['win_rate']);
-
-                        final recentMatches = vs['matches'] is List
-                            ? (vs['matches'] as List)
-                            : const [];
-                        final latestResult = recentMatches.isNotEmpty
-                            ? ((recentMatches.first
-                                          as Map<String, dynamic>)['result']
-                                      as String? ??
-                                  'null')
-                            : 'null';
-
-                        return _StatsGrid(
-                          items: [
-                            _InfoItem('Opponent', opponentName),
-                            _InfoItem(
-                              'Win Rate',
-                              '${(winRate * 100).toStringAsFixed(1)}%',
-                            ),
-                            _InfoItem('Played', '$played'),
-                            _InfoItem('Wins', '$wins'),
-                            _InfoItem('Losses', '$losses'),
-                            _InfoItem('Latest Result', latestResult),
-                          ],
-                        );
-                      },
-                    )
-                  else
-                    _emptyMsg('Select an opponent above'),
                 ],
               ),
             ),
@@ -533,77 +627,140 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
-class _MatchRow extends StatelessWidget {
-  const _MatchRow({required this.match});
-
-  final Map<String, dynamic> match;
+class _HeadToHeadLegend extends StatelessWidget {
+  const _HeadToHeadLegend();
 
   @override
   Widget build(BuildContext context) {
-    final isWin = match['result'] == 'WIN';
-    final opponent = match['opponent_name'] as String? ?? 'Unknown';
-    final side = match['side'] as String? ?? '';
-    final roundsWon = match['rounds_won'] as int? ?? 0;
-    final roundsLost = match['rounds_lost'] as int? ?? 0;
-    final date = _fmt(match['completed_at'] as String?);
-
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: Palette.border.withValues(alpha: 0.9)),
-        color: Palette.cardBg.withValues(alpha: 0.35),
+        color: Palette.cardBg.withValues(alpha: 0.2),
       ),
-      child: Row(
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
-              color: isWin
-                  ? Palette.green.withValues(alpha: 0.14)
-                  : Palette.red.withValues(alpha: 0.14),
-              border: Border.all(
-                color: isWin ? Palette.green : Palette.red,
-                width: 0.9,
-              ),
-            ),
-            child: Text(
-              isWin ? 'WIN' : 'LOSS',
-              style: bodyStyle(
-                size: 10,
-                color: isWin ? Palette.green : Palette.red,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'vs $opponent',
-              style: bodyStyle(size: 14, color: Palette.white),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            '$roundsWon-$roundsLost  $side  $date',
-            style: bodyStyle(size: 11, color: Palette.statLabel),
-          ),
+          _LegendDot(label: 'Strong', color: Palette.green),
+          _LegendDot(label: 'Even', color: Palette.gold),
+          _LegendDot(label: 'Weak', color: Palette.red),
+          _LegendDot(label: 'No Data', color: Palette.statLabel),
         ],
       ),
     );
   }
+}
 
-  static String _fmt(String? iso) {
-    if (iso == null) return '';
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      return '${dt.month}/${dt.day}';
-    } catch (_) {
-      return '';
-    }
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: bodyStyle(size: 10, color: Palette.statLabel)),
+      ],
+    );
+  }
+}
+
+class _HeadToHeadHeatRow extends StatelessWidget {
+  const _HeadToHeadHeatRow({
+    required this.row,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _HeadToHeadRowData row;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final heatColor = _heatColor(row.winRate, row.played);
+    final fill = row.played == 0 ? 0.0 : row.winRate.clamp(0.0, 1.0);
+
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2),
+          color: selected
+              ? Palette.gold.withValues(alpha: 0.08)
+              : Palette.cardBg.withValues(alpha: 0.18),
+          border: Border.all(
+            color: selected
+                ? Palette.gold.withValues(alpha: 0.55)
+                : Palette.border.withValues(alpha: 0.55),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    row.opponentName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle(size: 14, color: Palette.white),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${row.wins}-${row.losses}  ·  ${row.confidence}',
+                    style: bodyStyle(size: 11, color: Palette.statLabel),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 130,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    row.played == 0
+                        ? '--'
+                        : '${(row.winRate * 100).toStringAsFixed(0)}%',
+                    style: bodyStyle(size: 14, color: heatColor),
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: Stack(
+                      children: [
+                        Container(
+                          height: 6,
+                          color: Palette.border.withValues(alpha: 0.4),
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: fill,
+                          child: Container(height: 6, color: heatColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -690,6 +847,103 @@ class _InfoItem {
   final String value;
 }
 
+class _HeadToHeadRowData {
+  const _HeadToHeadRowData({
+    required this.opponentId,
+    required this.opponentName,
+    required this.played,
+    required this.wins,
+    required this.losses,
+    required this.winRate,
+    required this.adjustedWinRate,
+  });
+
+  final String opponentId;
+  final String opponentName;
+  final int played;
+  final int wins;
+  final int losses;
+  final double winRate;
+  final double adjustedWinRate;
+
+  String get confidence {
+    if (played >= 8) return 'High confidence';
+    if (played >= 3) return 'Medium confidence';
+    if (played > 0) return 'Low confidence';
+    return 'No data';
+  }
+}
+
+List<_HeadToHeadRowData> _buildHeadToHeadRows({
+  required String fighterId,
+  required List<Fighter> fighters,
+  required List<Map<String, dynamic>> matches,
+}) {
+  final namesById = <String, String>{};
+  for (final fighter in fighters) {
+    namesById[fighter.id] = fighter.name;
+  }
+
+  final aggregates = <String, _VsAggregate>{};
+  for (final match in matches) {
+    final opponentId = match['opponent_id'] as String?;
+    if (opponentId == null || opponentId.isEmpty) continue;
+    final entry = aggregates.putIfAbsent(opponentId, _VsAggregate.new);
+    final result = (match['result'] as String? ?? '').toUpperCase();
+    entry.played += 1;
+    if (result == 'WIN') {
+      entry.wins += 1;
+    } else if (result == 'LOSS') {
+      entry.losses += 1;
+    }
+  }
+
+  final rows = fighters
+      .where((fighter) => fighter.id != fighterId)
+      .map((fighter) {
+        final agg = aggregates[fighter.id];
+        final played = agg?.played ?? 0;
+        final wins = agg?.wins ?? 0;
+        final losses = agg?.losses ?? 0;
+        final winRate = played > 0 ? wins / played : 0.0;
+        final adjusted = (wins + 2) / (played + 4);
+        return _HeadToHeadRowData(
+          opponentId: fighter.id,
+          opponentName: namesById[fighter.id] ?? 'Unknown',
+          played: played,
+          wins: wins,
+          losses: losses,
+          winRate: winRate,
+          adjustedWinRate: adjusted,
+        );
+      })
+      .toList();
+
+  rows.sort((a, b) {
+    if (a.played == 0 && b.played == 0) {
+      return a.opponentName.compareTo(b.opponentName);
+    }
+    if (a.played == 0) {
+      return 1;
+    }
+    if (b.played == 0) {
+      return -1;
+    }
+    final byAdjusted = b.adjustedWinRate.compareTo(a.adjustedWinRate);
+    if (byAdjusted != 0) {
+      return byAdjusted;
+    }
+    return b.played.compareTo(a.played);
+  });
+  return rows;
+}
+
+class _VsAggregate {
+  int played = 0;
+  int wins = 0;
+  int losses = 0;
+}
+
 int _asInt(dynamic value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
@@ -702,4 +956,28 @@ double _asDouble(dynamic value) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value) ?? 0.0;
   return 0.0;
+}
+
+String _formatBetVolume(Map<String, dynamic>? stats, WalletState wallet) {
+  if (stats == null) return '--';
+  final totalBetVolumeSkr = (stats['total_bet_volume'] as num?)?.toDouble();
+  if (totalBetVolumeSkr == null || !totalBetVolumeSkr.isFinite) return '--';
+  final totalBetVolumeUsd = skrToUsd(totalBetVolumeSkr, wallet);
+  if (totalBetVolumeUsd > 0 || totalBetVolumeSkr == 0) {
+    return '\$${totalBetVolumeUsd.toStringAsFixed(2)}';
+  }
+  return '${totalBetVolumeSkr.toStringAsFixed(2)} ${wallet.seekerSymbol}';
+}
+
+Color _heatColor(double winRate, int played) {
+  if (played == 0) {
+    return Palette.statLabel;
+  }
+  if (winRate >= 0.65) {
+    return Palette.green;
+  }
+  if (winRate >= 0.45) {
+    return Palette.gold;
+  }
+  return Palette.red;
 }

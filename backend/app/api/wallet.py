@@ -1,4 +1,5 @@
 import base64
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -14,15 +15,23 @@ from app.services.privy_wallet import get_wallet_id_and_sign
 from app.services.solana_tx import (
     DEVNET_RPC,
     MAINNET_RPC,
-    SEEKER_MINT,
-    SEEKER_MINT_DEVNET,
     build_sol_transfer,
-    build_spl_transfer,
+    build_spl_transfer_with_optional_dst_ata,
     get_recent_blockhash,
     get_token_account,
 )
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
+
+
+def _amount_to_base_units(amount: float, decimals: int) -> int:
+    try:
+        scaled = (Decimal(str(amount)) * (Decimal(10) ** decimals)).to_integral_value(
+            rounding=ROUND_DOWN
+        )
+        return int(scaled)
+    except (InvalidOperation, ValueError) as exc:
+        raise HTTPException(400, "Invalid amount") from exc
 
 
 class WithdrawRequest(BaseModel):
@@ -65,7 +74,9 @@ async def withdraw(
     raw_jwt = authorization.split(" ", 1)[1]
 
     rpc = DEVNET_RPC if settings.use_devnet else MAINNET_RPC
-    mint = SEEKER_MINT_DEVNET if settings.use_devnet else SEEKER_MINT
+    mint = settings.skr_mint
+    token_symbol = settings.token_symbol
+    token_decimals = int(settings.token_decimals)
 
     # Fetch recent blockhash from Solana RPC
     blockhash = await get_recent_blockhash(rpc)
@@ -84,20 +95,17 @@ async def withdraw(
         dst_ata = await get_token_account(body.to_address, mint, rpc)
 
         if src_ata is None:
-            raise HTTPException(400, "No SEEKER token account found in your wallet")
-        if dst_ata is None:
-            raise HTTPException(
-                400,
-                "Recipient has no SEEKER token account — they need to receive SEEKER first",
-            )
+            raise HTTPException(400, f"No {token_symbol} token account found in your wallet")
 
-        token_amount = int(body.amount * 1_000_000_000)  # 9 decimals
-        tx_bytes = build_spl_transfer(
+        token_amount = _amount_to_base_units(body.amount, token_decimals)
+        tx_bytes = build_spl_transfer_with_optional_dst_ata(
             owner=user.wallet_address,
             src_ata=src_ata,
-            dst_ata=dst_ata,
+            dst_owner=body.to_address,
+            mint=mint,
             amount=token_amount,
             blockhash=blockhash,
+            create_dst_ata_if_missing=dst_ata is None,
         )
 
     # Sign + broadcast via Privy (user-delegated via JWT)
@@ -135,7 +143,10 @@ async def prepare_withdraw(
         raise HTTPException(400, "No wallet address on file — please log in again")
 
     rpc = DEVNET_RPC if settings.use_devnet else MAINNET_RPC
-    mint = SEEKER_MINT_DEVNET if settings.use_devnet else SEEKER_MINT
+    mint = settings.skr_mint
+    token_symbol = settings.token_symbol
+    token_decimals = int(settings.token_decimals)
+    created_destination_ata = False
 
     # Fetch recent blockhash from Solana RPC
     blockhash = await get_recent_blockhash(rpc)
@@ -154,27 +165,33 @@ async def prepare_withdraw(
         dst_ata = await get_token_account(body.to_address, mint, rpc)
 
         if src_ata is None:
-            raise HTTPException(400, "No SEEKER token account found in your wallet")
-        if dst_ata is None:
-            raise HTTPException(
-                400,
-                "Recipient has no SEEKER token account — they need to receive SEEKER first",
-            )
+            raise HTTPException(400, f"No {token_symbol} token account found in your wallet")
 
-        token_amount = int(body.amount * 1_000_000_000)  # 9 decimals
-        tx_bytes = build_spl_transfer(
+        token_amount = _amount_to_base_units(body.amount, token_decimals)
+        created_destination_ata = dst_ata is None
+        tx_bytes = build_spl_transfer_with_optional_dst_ata(
             owner=user.wallet_address,
             src_ata=src_ata,
-            dst_ata=dst_ata,
+            dst_owner=body.to_address,
+            mint=mint,
             amount=token_amount,
             blockhash=blockhash,
+            create_dst_ata_if_missing=created_destination_ata,
         )
 
     # Return unsigned transaction as base64
     tx_b64 = base64.b64encode(tx_bytes).decode()
+    ata_note = (
+        f" Recipient {token_symbol} token account will be created in this transaction."
+        if created_destination_ata
+        else ""
+    )
     return PrepareWithdrawResponse(
         transaction_base64=tx_b64,
-        message=f"Sign this transaction to withdraw {body.amount} {body.token.upper()} to {body.to_address}",
+        message=(
+            f"Sign this transaction to withdraw {body.amount} {body.token.upper()} "
+            f"to {body.to_address}.{ata_note}"
+        ),
     )
 
 

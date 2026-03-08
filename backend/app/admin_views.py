@@ -42,6 +42,18 @@ from app.services.match_runner import get_all_runners, get_runner
 
 router = APIRouter(prefix="/admin", tags=["admin-views"])
 
+_VALID_BUILTIN_AGENT_IDS = frozenset(
+    {"random", "cpu", "lstm", "obj_belief", "disc_rssm", "transformer"}
+)
+_AGENT_STYLE_LABELS = {
+    "disc_rssm": "RSSM",
+    "transformer": "Transformer",
+    "obj_belief": "Belief",
+    "lstm": "LSTM",
+    "cpu": "CPU",
+    "random": "Random",
+}
+
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 _COOKIE_NAME = "imk_admin"
 
@@ -86,6 +98,58 @@ def _discover_savestates() -> list[dict]:
                 "name": str(rel),
             })
     return results
+
+
+def _normalize_slug_for_savestate(slug: str) -> str:
+    return slug.strip().lower().replace(" ", "").replace("-", "")
+
+
+def _resolve_match_savestate(f1: Fighter, f2: Fighter) -> str | None:
+    savestates = _discover_savestates()
+    if not savestates:
+        return None
+
+    by_file = {}
+    for s in savestates:
+        name = Path(s["path"]).name.lower()
+        by_file[name] = s["path"]
+
+    s1 = _normalize_slug_for_savestate(f1.slug)
+    s2 = _normalize_slug_for_savestate(f2.slug)
+    preferred = [
+        f"p1p2_{s1}_{s2}.st",  # exact seat mapping (P1 vs P2)
+        f"p1p2_{s2}_{s1}.st",  # reverse pairing
+    ]
+    for filename in preferred:
+        path = by_file.get(filename.lower())
+        if path:
+            return path
+    return savestates[0]["path"]
+
+
+def _resolve_fighter_agent_for_match(fighter: Fighter) -> tuple[str, str | None, str | None]:
+    """Resolve runtime agent id + optional checkpoint + optional architecture."""
+    if fighter.agent_id is not None and fighter.agent is not None:
+        checkpoint = fighter.agent.checkpoint_path
+        architecture = (fighter.agent.architecture or "").strip().lower() or None
+        if checkpoint and Path(checkpoint).is_file():
+            return f"custom_{fighter.agent.slug}", checkpoint, architecture
+        if architecture in _VALID_BUILTIN_AGENT_IDS:
+            return architecture, None, None
+
+    arch = (fighter.agent_architecture or "").strip().lower()
+    if arch in _VALID_BUILTIN_AGENT_IDS:
+        return arch, None, None
+    return "random", None, None
+
+
+def _fighter_style_label(fighter: Fighter) -> str:
+    if fighter.agent is not None and fighter.agent.architecture:
+        return _AGENT_STYLE_LABELS.get(fighter.agent.architecture, fighter.agent.architecture)
+    arch = (fighter.agent_architecture or "").strip().lower()
+    if arch:
+        return _AGENT_STYLE_LABELS.get(arch, arch)
+    return "Unknown"
 
 
 # ── Helpers ──
@@ -445,6 +509,7 @@ async def match_new_submit(
         p1_agent_id, _, _ = resolve_agent_runtime(f1)
         p2_agent_id, _, _ = resolve_agent_runtime(f2)
 
+        # ── ONLY NOW: create DB row with PDA already set ──
         match = Match(
             fighter1_id=f1.id,
             fighter2_id=f2.id,
@@ -454,6 +519,8 @@ async def match_new_submit(
             label=label,
             savestate_path=savestate_path,
             best_of=best_of,
+            on_chain_match_id=on_chain_id,
+            on_chain_match_pda=on_chain_pda,
         )
         db.add(match)
         await db.flush()
@@ -545,6 +612,7 @@ async def match_start(match_id: UUID):
             match.fighter2, fallback_agent_id=match.p2_agent
         )
 
+        # ONLY NOW: set LIVE in DB (on-chain is already Locked)
         match.status = MatchStatus.LIVE
         match.started_at = datetime.now(timezone.utc)
         if match.stream:
@@ -574,11 +642,21 @@ async def match_start(match_id: UUID):
                 "match_start FAILED for %s: %s\n%s",
                 match_id, exc, traceback.format_exc()
             )
-            match.status = MatchStatus.UPCOMING
-            match.started_at = None
-            if match.stream:
-                match.stream.status = StreamStatus.IDLE
-            await db.commit()
+            from app.services.match_cancel import cancel_match_by_id_contract_first
+            try:
+                await cancel_match_by_id_contract_first(
+                    match_id,
+                    stream_status=StreamStatus.ERROR,
+                    reason="runner_start_failed",
+                )
+            except Exception:
+                _logging.getLogger(__name__).exception(
+                    "Auto-cancel failed after start error for match %s",
+                    match_id,
+                )
+                if match.stream:
+                    match.stream.status = StreamStatus.ERROR
+                await db.commit()
 
         return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
@@ -605,6 +683,8 @@ async def match_stop(match_id: UUID):
 
 @router.post("/matches/{match_id}/cancel")
 async def match_cancel(match_id: UUID):
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
     async for db in _get_db():
         result = await db.execute(
             select(Match).where(Match.id == match_id)
@@ -618,13 +698,22 @@ async def match_cancel(match_id: UUID):
         from app.services.match_runner import stop_match as runner_stop
         await runner_stop(str(match_id))
 
-        match.status = MatchStatus.CANCELLED
-        if match.stream:
-            match.stream.status = StreamStatus.STOPPED
-        for bet in match.bets:
-            if bet.status == BetStatus.ACTIVE:
-                bet.status = BetStatus.CANCELLED
-        await db.commit()
+        from app.services.match_cancel import cancel_match_contract_first
+
+        try:
+            await cancel_match_contract_first(
+                db,
+                match,
+                stream_status=StreamStatus.STOPPED,
+                reason="admin_view_cancel",
+            )
+        except Exception as exc:
+            _logger.error(
+                "On-chain cancel_match failed for %s: %s",
+                match_id, exc, exc_info=True,
+            )
+            # Contract is source of truth — abort if on-chain cancel fails
+            return RedirectResponse(url=f"/admin/matches/{match_id}", status_code=303)
 
     return RedirectResponse(url="/admin/matches", status_code=303)
 

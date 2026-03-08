@@ -324,9 +324,9 @@ pub fn resolve_match(ctx: Context<ResolveMatch>, winner_side: WinnerSide) -> Res
         return Ok(());
     }
 
-    // 5. Branch B: Pool > 0 && Winning Total == 0 (all bets lost)
+    // 5. Branch B: Pool > 0 && Winning Total == 0 (all bets are on the losing side)
     if winning_total == 0 {
-        // Swift justice. All fee + payout goes to treasury.
+        // Sweep all SKR to treasury. There are no winners, so no claim path exists.
         let sweep_amount = fee.checked_add(payout_pool).unwrap();
         
         let cpi_transfer_accounts = anchor_spl::token::Transfer {
@@ -341,7 +341,7 @@ pub fn resolve_match(ctx: Context<ResolveMatch>, winner_side: WinnerSide) -> Res
         );
         anchor_spl::token::transfer(cpi_transfer_ctx, sweep_amount)?;
 
-        // Now vault is empty (minus dust), close ATA and Match to Admin
+        // Vault is now empty, so we can close it immediately.
         let cpi_close_accounts = anchor_spl::token::CloseAccount {
             account: ctx.accounts.vault_ata.to_account_info(),
             destination: ctx.accounts.admin.to_account_info(),
@@ -354,9 +354,9 @@ pub fn resolve_match(ctx: Context<ResolveMatch>, winner_side: WinnerSide) -> Res
         );
         anchor_spl::token::close_account(cpi_close_ctx)?;
 
-        // Close Match PDA safely
-        match_account.close(ctx.accounts.admin.to_account_info())?;
-        
+        // Keep match account alive as RESOLVED so loser bet PDAs can be closed
+        // permissionlessly via close_losing_bet. The final close_losing_bet call
+        // auto-closes this match when all loser bet PDAs are cleaned up.
         return Ok(());
     }
 

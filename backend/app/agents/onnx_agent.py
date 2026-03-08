@@ -9,6 +9,7 @@ output action logits (from which we sample).
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -105,20 +106,28 @@ class OnnxAgent(FighterAgent):
         self.session = ort.InferenceSession(self.model_path, opts, providers=["CPUExecutionProvider"])
 
         # Inspect model inputs/outputs
-        self._input_name = self.session.get_inputs()[0].name
-        self._input_shape = self.session.get_inputs()[0].shape
+        input_meta = self.session.get_inputs()[0]
+        self._input_name = input_meta.name
+        self._input_shape = input_meta.shape
+        self._obs_dim = _infer_obs_dim(self._input_shape)
         self._output_name = self.session.get_outputs()[0].name
 
-        # Frame stacking for MLP-style models
+        # Frame stack automatically follows model obs dim when possible.
         if use_frame_stack:
-            self.frame_stack = FrameStack(obs_dim=RAW_OBS_DIM, n_frames=n_stack_frames)
+            inferred_frames = _infer_stack_frames(self._obs_dim, n_stack_frames)
+            self.frame_stack = (
+                FrameStack(obs_dim=RAW_OBS_DIM, n_frames=inferred_frames)
+                if inferred_frames > 1
+                else None
+            )
         else:
             self.frame_stack = None
 
         logger.info(
-            "ONNX agent loaded: %s (input=%s shape=%s, output=%s, frame_stack=%s)",
+            "ONNX agent loaded: %s (input=%s shape=%s obs_dim=%s output=%s frame_stack=%s)",
             model_path, self._input_name, self._input_shape,
-            self._output_name, use_frame_stack,
+            self._obs_dim, self._output_name,
+            getattr(self.frame_stack, "n_frames", 1),
         )
 
     def choose_action(self, state: FightState, player: int) -> ActionPacket:
@@ -128,6 +137,7 @@ class OnnxAgent(FighterAgent):
             obs = self.frame_stack.push(raw_obs)
         else:
             obs = raw_obs
+        obs = _fit_obs_dim(obs, self._obs_dim)
 
         # Run inference
         obs_array = np.array([obs], dtype=np.float32)
@@ -136,7 +146,7 @@ class OnnxAgent(FighterAgent):
 
         # Sample from the policy distribution (softmax → multinomial)
         probs = _softmax(logits)
-        action_idx = np.random.choice(len(probs), p=probs)
+        action_idx = int(np.random.choice(len(probs), p=probs))
 
         return ActionPacket(
             macro_action=ACTIONS[action_idx],
@@ -221,7 +231,7 @@ class OnnxLstmAgent(FighterAgent):
         self._c = outputs[2]
 
         probs = _softmax(logits)
-        action_idx = np.random.choice(len(probs), p=probs)
+        action_idx = int(np.random.choice(len(probs), p=probs))
 
         return ActionPacket(
             macro_action=ACTIONS[action_idx],
@@ -384,8 +394,12 @@ class OnnxTransformerAgent(FighterAgent):
         if self._input_rank == 3:
             obs_seq = np.expand_dims(obs_seq, axis=0)
 
-        outputs = self.session.run(None, {self._input_name: obs_seq})
-        logits = outputs[0][0]
+        outputs = self.session.run(None, {self._input_name: obs_input})
+        logits_arr = np.asarray(outputs[0], dtype=np.float32)
+        if logits_arr.ndim == 1:
+            logits = logits_arr
+        else:
+            logits = logits_arr.reshape(-1, logits_arr.shape[-1])[-1]
 
         probs = _softmax(logits)
         action_idx = int(np.random.choice(len(probs), p=probs))

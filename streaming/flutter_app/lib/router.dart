@@ -6,6 +6,7 @@ enum ScreenSlug {
   fighterOverview,
   profile,
   fighterDetails,
+  fighterMatchHistory,
   liveMatch,
   postMatch,
 }
@@ -21,6 +22,7 @@ const _routes = <String, ScreenSlug>{
   '/fighter-overview': ScreenSlug.fighterOverview,
   '/profile': ScreenSlug.profile,
   '/fighter-details': ScreenSlug.fighterDetails,
+  '/fighter-match-history': ScreenSlug.fighterMatchHistory,
   '/live-match': ScreenSlug.liveMatch,
   '/post-match': ScreenSlug.postMatch,
 };
