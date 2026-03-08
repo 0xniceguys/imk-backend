@@ -9,7 +9,7 @@ const kFallbackUseDevnet = false;
 //   flutter run --dart-define=API_HOST=10.0.2.2:8000
 const _apiHost = String.fromEnvironment(
   'API_HOST',
-  defaultValue: 'immortalkombat.mercle.ai',
+  defaultValue: 'immortalkombat.timesnap.xyz',
 );
 final _isLocal = _apiHost.contains(
   ':',

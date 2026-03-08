@@ -204,13 +204,13 @@ class PrivyService {
   Future<String?> generateSiwsMessage(String walletAddr) async {
     _log('=== generateSiwsMessage START ===');
     _log('walletAddress: $walletAddr');
-    _log('appDomain: immortalkombat.mercle.ai');
-    _log('appUri: https://immortalkombat.mercle.ai');
+    _log('appDomain: immortalkombat.timesnap.xyz');
+    _log('appUri: https://immortalkombat.timesnap.xyz');
     lastError = null;
     try {
       final params = SiwsMessageParams(
-        appDomain: 'immortalkombat.mercle.ai',
-        appUri: 'https://immortalkombat.mercle.ai',
+        appDomain: 'immortalkombat.timesnap.xyz',
+        appUri: 'https://immortalkombat.timesnap.xyz',
         walletAddress: walletAddr,
       );
       _log('Calling _privy.siws.generateMessage...');
@@ -254,15 +254,15 @@ class PrivyService {
     _log('message FULL:\n$message');
     _log('signature: $signature');
     _log('signature length: ${signature.length}');
-    _log('appDomain: immortalkombat.mercle.ai');
-    _log('appUri: https://immortalkombat.mercle.ai');
+    _log('appDomain: immortalkombat.timesnap.xyz');
+    _log('appUri: https://immortalkombat.timesnap.xyz');
     _log('walletClientType: other');
     _log('connectorType: solana_wallet');
     lastError = null;
     try {
       final params = SiwsMessageParams(
-        appDomain: 'immortalkombat.mercle.ai',
-        appUri: 'https://immortalkombat.mercle.ai',
+        appDomain: 'immortalkombat.timesnap.xyz',
+        appUri: 'https://immortalkombat.timesnap.xyz',
         walletAddress: walletAddr,
       );
       _log('Calling _privy.siws.login...');
