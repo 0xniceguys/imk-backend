@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/constants.dart';
 import '../core/palette.dart';
 import '../core/typography.dart';
 import '../router.dart';
 import '../models/match.dart';
 import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
+import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/arena_card.dart';
@@ -21,11 +23,80 @@ class ArenaListScreen extends ConsumerStatefulWidget {
 
 class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
   bool _autoNavigating = false;
+  String? _preconnectedMatchId; // guard: only preconnect once per match
 
   @override
   void initState() {
     super.initState();
     _listenForLiveMatches();
+    // Start watching match list for a live match immediately
+    _watchMatchListForPreconnect();
+  }
+
+  /// As soon as the match list loads and a LIVE match is found, immediately
+  /// connect the WS and kick off HLS preloading in the background.
+  /// By the time the user taps, VideoPlayerController.initialize() has already
+  /// been running — so playback starts instantly on navigation.
+  void _watchMatchListForPreconnect() {
+    // Watch for live match in the match list
+    ref.listenManual<MatchState>(
+      matchProvider,
+      (_, next) {
+        try {
+          final liveMatch = next.matches.cast<Match?>().firstWhere(
+            (m) => m?.status == MatchStatus.live,
+            orElse: () => null,
+          );
+          if (liveMatch != null) {
+            _preconnectForLiveMatch(liveMatch.id);
+          }
+        } catch (e) {
+          debugPrint('[ArenaList] Error in match preconnect listener: $e');
+        }
+      },
+      fireImmediately: true,
+    );
+
+    // Reset guard when match ends so a same-matchId restart gets fresh preconnect
+    ref.listenManual<AsyncValue<void>>(
+      matchEndProvider,
+      (_, __) {
+        debugPrint('[ArenaList] Match ended — resetting preconnect guard');
+        _preconnectedMatchId = null;
+      },
+    );
+
+    // If HLS preload errored (stream not ready at first attempt), retry as soon
+    // as the WS delivers streaming_state: ready via globalHlsPreloaderProvider.
+    // That provider's streamingStateSub already handles the retry — we just
+    // need to ensure _preconnectedMatchId doesn't block a later attempt if the
+    // match changes. Nothing extra needed here: HlsPlayerService.preload() when
+    // state==error will teardown and reinit correctly.
+  }
+
+  /// Connects the WS and triggers HLS preloading for [matchId].
+  /// Safe to call multiple times — no-ops if already preconnected for this match.
+  void _preconnectForLiveMatch(String matchId) {
+    if (_preconnectedMatchId == matchId) return; // already done
+    _preconnectedMatchId = matchId;
+    debugPrint('[ArenaList] Pre-connecting WS for live match: $matchId');
+    try {
+      // 1. Connect WS → backend will send streaming_state: ready
+      //    → globalHlsPreloaderProvider fires → VideoPlayerController.initialize()
+      ref.read(matchStreamServiceProvider).connect(matchId);
+
+      // 2. Also kick HLS preload directly using the canonical URL so we don't
+      //    have to wait for the streaming_state: ready message to arrive.
+      //    HlsPlayerService handles the "stream not ready" 404 case gracefully
+      //    (fast fail → error state) and globalHlsPreloaderProvider will retry
+      //    when streaming_state: ready arrives from the WS.
+      final hlsUrl = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
+      ref.read(hlsPlayerServiceProvider).preload(matchId, hlsUrl);
+
+      debugPrint('[ArenaList] ✅ Pre-connect + HLS preload started for $matchId');
+    } catch (e) {
+      debugPrint('[ArenaList] ❌ Pre-connect error for $matchId: $e');
+    }
   }
 
   void _listenForLiveMatches() {
@@ -37,12 +108,15 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
           if (event['type'] == 'match_status_changed' &&
               event['status'] == 'live' &&
               !_autoNavigating) {
-            final matchId = event['match_id'];
+            final matchId = event['match_id'] as String?;
             if (matchId != null) {
+              // Pre-connect immediately when we learn the match just went live,
+              // before the navigation delay — gives us ~500ms of head start.
+              _preconnectForLiveMatch(matchId);
+
               _autoNavigating = true;
               debugPrint('[ArenaList] Auto-navigating to live match: $matchId');
 
-              // Show notification
               if (mounted && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -61,11 +135,9 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
                 );
               }
 
-              // Small delay for smooth transition
               Future.delayed(const Duration(milliseconds: 500), () {
                 if (mounted) {
                   widget.onNavigate('/live-match/$matchId');
-                  // Reset flag after navigation
                   Future.delayed(const Duration(seconds: 2), () {
                     if (mounted) _autoNavigating = false;
                   });
