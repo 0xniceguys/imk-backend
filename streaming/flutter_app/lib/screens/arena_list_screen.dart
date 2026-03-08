@@ -25,14 +25,11 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
   @override
   void initState() {
     super.initState();
-    // Start listening to global events when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _listenForLiveMatches();
-    });
+    _listenForLiveMatches();
   }
 
   void _listenForLiveMatches() {
-    ref.listen<AsyncValue<Map<String, dynamic>>>(
+    ref.listenManual<AsyncValue<Map<String, dynamic>>>(
       matchStatusEventsProvider,
       (previous, next) {
         next.whenData((event) {

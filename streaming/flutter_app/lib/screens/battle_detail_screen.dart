@@ -39,6 +39,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   // Pre-connect WebSocket when match is #1 in queue so HLS starts
   // loading in the background before the user navigates to the live screen.
   String? _preConnectedMatchId;
+  DateTime _lastGoLiveRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
   void _maybePreConnect(Match match) {
     if (match.status != MatchStatus.upcoming) return;
     if (match.queuePosition != 1) return;

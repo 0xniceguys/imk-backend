@@ -59,7 +59,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   ProviderSubscription<MatchState>? _matchStateSub;
   ProviderSubscription<AsyncValue<void>>? _matchEndSub;
-  ProviderSubscription<AsyncValue<StreamingStateEvent>>? _streamingStateSub;
+  ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _streamingStateSub;
   ProviderSubscription<AsyncValue<GameState>>? _gameStateSub;
   ProviderSubscription<AsyncValue<bool>>? _wsConnectedSub;
 
@@ -111,7 +111,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _setStreamState(LiveStreamClientState.idle, reason: 'screen-init');
+    _streamState = LiveStreamClientState.idle;
     ref.read(matchProvider.notifier).startFastPolling();
     _setupListeners();
   }
@@ -127,23 +127,26 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       next,
     ) {
       if (!next.hasValue) return;
-      _handleMatchEnded(reason: 'ws-match_ended');
+      _handleMatchEnded();
     });
-    _streamingStateSub = ref.listenManual<AsyncValue<StreamingStateEvent>>(
+    _streamingStateSub = ref.listenManual<AsyncValue<Map<String, dynamic>>>(
       streamingStateProvider,
       (_, next) {
-        final event = next.valueOrNull;
-        if (event == null) return;
-        _onStreamingState(event);
+        final data = next.valueOrNull;
+        if (data == null) return;
+        final state = data['state'] as String?;
+        final hlsUrl = data['hls_url'] as String?;
+        if (state == 'ready' && hlsUrl != null && _activeMatchId != null) {
+          _startHls(_activeMatchId!);
+        }
       },
     );
     _gameStateSub = ref.listenManual<AsyncValue<GameState>>(gameStateProvider, (
       _,
       next,
     ) {
-      final gs = next.valueOrNull;
-      if (gs == null) return;
-      _enqueueHudState(gs);
+      // Force rebuild when new game state arrives so HUD updates
+      if (next.hasValue && mounted) setState(() {});
     });
     _wsConnectedSub = ref.listenManual<AsyncValue<bool>>(wsConnectedProvider, (
       _,
@@ -151,24 +154,56 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     ) {
       final connected = next.valueOrNull;
       if (connected == true &&
-          !_terminal &&
           (_streamState == LiveStreamClientState.idle ||
               _streamState == LiveStreamClientState.error)) {
-        _setStreamState(
-          LiveStreamClientState.wsConnected,
-          reason: 'websocket-connected',
-        );
+        if (mounted) setState(() => _streamState = LiveStreamClientState.wsConnected);
       }
     });
+    // Global match-status events (completed/cancelled) from the backend
+    ref.listenManual<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (_, next) {
+        next.whenData((event) {
+          final eventMatchId = event['match_id'] as String?;
+          final currentMatchId = widget.matchId ?? _lastConnectedMatchId;
+          if (eventMatchId != currentMatchId) return;
+          if (event['type'] == 'match_status_changed') {
+            final status = event['status'] as String?;
+            if (status == 'completed' || status == 'cancelled') {
+              debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
+              _stopHls();
+              if (eventMatchId != null) _navigateToPostMatch(eventMatchId);
+            }
+          }
+        });
+      },
+    );
+  }
+
+  /// Stops any live HLS player and navigates to post-match screen.
+  void _handleMatchEnded() {
+    _stopHls();
+    final matchId = _activeMatchId ?? widget.matchId;
+    if (matchId != null) _navigateToPostMatch(matchId);
+  }
+
+  /// Connects the WebSocket for the current active match.
+  void _connectToMatch() {
+    final matchId = widget.matchId ?? _findLiveMatchId();
+    if (matchId == null) return;
+    if (_lastConnectedMatchId == matchId) return;
+    _lastConnectedMatchId = matchId;
+    _activeMatchId = matchId;
+    ref.read(matchStreamServiceProvider).connect(matchId);
   }
 
   void _onMatchState(MatchState state) {
-    if (_disposed) return;
-    final matchId = _resolveTargetMatchId(state.matches);
+    if (!mounted) return;
+    final matchId = _findLiveMatchId(state.matches) ?? widget.matchId;
     if (matchId == null) return;
 
     if (_activeMatchId != matchId) {
-      _switchMatch(matchId);
+      _activeMatchId = matchId;
     }
 
     final match = ref.read(matchProvider.notifier).matchById(matchId);
@@ -176,7 +211,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
     if (match.status == MatchStatus.completed ||
         match.status == MatchStatus.cancelled) {
-      _handleMatchEnded(reason: 'match-status-${match.status.name}');
+      _handleMatchEnded();
       return;
     }
 
@@ -187,7 +222,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // Connect after first frame — at this point providers may already have data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectToMatch();
-      _listenForGlobalEvents();
       // If the WS was pre-connected from battle_detail_screen and the backend
       // already signalled 'ready', kick off HLS immediately without waiting.
       _checkEarlyStreamReady();
@@ -199,6 +233,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   void _checkEarlyStreamReady() {
     final matchId = widget.matchId ?? _findLiveMatchId();
     if (matchId == null) return;
+    if (_hlsMatchId == matchId) return; // already running for this match
     final currentState = ref.read(streamingStateProvider);
     currentState.whenData((data) {
       final state = data['state'] as String?;
@@ -210,33 +245,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     });
   }
 
-  void _listenForGlobalEvents() {
-    // Listen for match status changes from global events
-    ref.listen<AsyncValue<Map<String, dynamic>>>(
-      matchStatusEventsProvider,
-      (previous, next) {
-        next.whenData((event) {
-          final eventMatchId = event['match_id'] as String?;
-          final currentMatchId = widget.matchId ?? _lastConnectedMatchId;
-
-          // Check if this event is for our current match
-          if (eventMatchId == currentMatchId) {
-            if (event['type'] == 'match_status_changed') {
-              final status = event['status'] as String?;
-
-              if (status == 'completed' || status == 'cancelled') {
-                debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
-                _stopHls();
-                if (eventMatchId != null) {
-                  _navigateToPostMatch(eventMatchId);
-                }
-              }
-            }
-          }
-        });
-      },
-    );
-  }
 
   void _navigateToPostMatch(String matchId) {
     if (_navigatedToPostMatch || !mounted) return;
@@ -249,188 +257,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     });
   }
 
-  bool _canStartHls(String matchId) {
-    if (_playerInitializing) return false;
-    final ctrl = _videoController;
-    if (ctrl == null || _videoMatchId != matchId) return true;
-    return !(ctrl.value.isInitialized || ctrl.value.isPlaying);
-  }
 
-  String _canonicalHlsUrl(String matchId) =>
-      '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
-
-  String _resolveHlsUrl(String matchId, String? hintedHlsUrl) {
-    final canonical = _canonicalHlsUrl(matchId);
-    if (hintedHlsUrl == null || hintedHlsUrl.trim().isEmpty) return canonical;
-
-    final raw = hintedHlsUrl.trim();
-    if (raw.contains('/stream/audio/')) return canonical;
-
-    final uri = Uri.tryParse(raw);
-    if (uri == null) return canonical;
-
-    if (uri.hasScheme) {
-      if (uri.path.contains('/stream/audio/')) return canonical;
-      return uri.toString();
-    }
-
-    if (raw.startsWith('/')) {
-      if (raw.contains('/stream/audio/')) return canonical;
-      return '$kStreamBaseUrl$raw';
-    }
-
-    return canonical;
-  }
-
-  Future<void> _startHls(
-    String matchId, {
-    required String reason,
-    String? hintedHlsUrl,
-  }) async {
-    if (_disposed || _terminal || _activeMatchId != matchId) return;
-    if (!_canStartHls(matchId)) {
-      _log(
-        'PLAYER',
-        'Start skipped (already initializing/playing)',
-        matchId: matchId,
-      );
-      return;
-    }
-
-    final match = ref.read(matchProvider.notifier).matchById(matchId);
-    if (match?.status != MatchStatus.live) {
-      _log(
-        'HLS',
-        'Start skipped because match not live (${match?.status.name})',
-        matchId: matchId,
-      );
-      return;
-    }
-
-    _hlsRetryTimer?.cancel();
-    _hlsRetryTimer = null;
-    _hlsFallbackTimer?.cancel();
-    _hlsFallbackTimer = null;
-
-    _playerInitializing = true;
-    _hlsInitAttempts += 1;
-    _playerInitCount += 1;
-    final attempt = _hlsInitAttempts;
-    final initToken = ++_hlsInitToken;
-    final hlsUrl = _resolveHlsUrl(matchId, hintedHlsUrl);
-    _lastHlsUrl = hlsUrl;
-
-    _setStreamState(
-      LiveStreamClientState.playerInitializing,
-      reason: 'hls-start-$reason-attempt-$attempt',
-    );
-    _log(
-      'HLS',
-      'Initializing ($reason) attempt=$attempt url=$hlsUrl',
-      matchId: matchId,
-    );
-
-    await _pendingControllerDispose;
-    if (!_isInitStillValid(matchId, initToken)) return;
-
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(hlsUrl),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
-    );
-
-    try {
-      await controller.initialize().timeout(const Duration(seconds: 12));
-      if (!_isInitStillValid(matchId, initToken)) {
-        _log('PLAYER', 'Stale initialize completion ignored', matchId: matchId);
-        await controller.dispose();
-        return;
-      }
-      await _disposeVideoController(
-        invalidateInitToken: false,
-        resetInitializing: false,
-      );
-      _videoController = controller;
-      _videoMatchId = matchId;
-      controller.addListener(_onVideoValueChanged);
-      await controller.setVolume(1.0);
-      await controller.play();
-      if (!_isInitStillValid(matchId, initToken)) {
-        await _disposeVideoController(resetInitializing: false);
-        return;
-      }
-      _hlsInitAttempts = 0;
-      _setStreamState(LiveStreamClientState.playing, reason: 'player-playing');
-      _log(
-        'PLAYER',
-        'Playback started (init_count=$_playerInitCount, rebuffer_count=$_rebufferCount)',
-        matchId: matchId,
-      );
-    } catch (e) {
-      await controller.dispose();
-      if (!_isInitStillValid(matchId, initToken)) return;
-      _setStreamState(LiveStreamClientState.error, reason: 'hls-init-failed');
-      _log('HLS', 'Initialize failed: $e', matchId: matchId);
-      _scheduleHlsRetry(matchId, error: e);
-    } finally {
-      if (_activeMatchId == matchId) {
-        _playerInitializing = false;
-      }
-    }
-  }
-
-  bool _isInitStillValid(String matchId, int initToken) {
-    return !_disposed &&
-        !_terminal &&
-        _activeMatchId == matchId &&
-        _hlsInitToken == initToken;
-  }
-
-  void _onVideoValueChanged() {
-    final controller = _videoController;
-    if (controller == null || _disposed || _terminal) return;
-    final value = controller.value;
-    if (_lastIsBuffering != value.isBuffering) {
-      _lastIsBuffering = value.isBuffering;
-      if (value.isBuffering) {
-        _rebufferCount += 1;
-      }
-      _log(
-        'PLAYER',
-        'Buffering=${value.isBuffering} rebuffers=$_rebufferCount pos=${value.position.inMilliseconds}ms',
-        matchId: _videoMatchId,
-      );
-    }
-    if (value.hasError) {
-      _log(
-        'PLAYER',
-        'Controller error: ${value.errorDescription}',
-        matchId: _videoMatchId,
-      );
-      _setStreamState(LiveStreamClientState.error, reason: 'player-error');
-      if (_videoMatchId != null) {
-        final failedMatchId = _videoMatchId!;
-        _disposeVideoController();
-        _scheduleHlsRetry(
-          failedMatchId,
-          error: value.errorDescription ?? 'player-error',
-        );
-      }
-      return;
-    }
-    if (value.isInitialized &&
-        value.isPlaying &&
-        _streamState != LiveStreamClientState.playing) {
-      _setStreamState(
-        LiveStreamClientState.playing,
-        reason: 'listener-playing',
-      );
-    }
-  }
-
-    _lastConnectedMatchId = matchId;
-    ref.read(matchStreamServiceProvider).connect(matchId);
-    // Don't auto-start HLS here — wait for streaming_state: ready from backend
-  }
 
   /// Returns the ID of the first truly LIVE match, or null.
   /// Never falls back to non-live matches to avoid connecting a WS
@@ -456,8 +283,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   void _startHls(String matchId) {
     if (_hlsMatchId == matchId) return; // already initing/playing this match
-    _hlsMatchId = matchId;
-    _stopHls();
+    _stopHls();           // clears _hlsMatchId, controller, etc.
+    _hlsMatchId = matchId; // set AFTER stop so guard in _initHls passes
     _initHls(matchId, attempt: 1);
   }
 
@@ -523,10 +350,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
 
-    // Retry connecting when match list loads or updates (handles the race
-    // where matchProvider is still empty when initState fires).
-    // Also catches the case where REST polling flips the match to completed
-    // after we missed the WS match_ended event (e.g. cold-start onto ended match).
+    // Retry connecting when match list loads / updates. Also detects when
+    // REST polling catches a completed match (missed WS event or cold-start).
     ref.listen<MatchState>(matchProvider, (prev, next) {
       final id = widget.matchId ?? _findLiveMatchId();
       if (id != null) {
@@ -537,8 +362,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         if (updated != null &&
             (updated.status == MatchStatus.completed ||
                 updated.status == MatchStatus.cancelled)) {
-          debugPrint('[LiveMatch] Poll detected match $id ended — navigating to post-match');
-          _navigateToPostMatch(id);
+          _handleMatchEnded();
           return;
         }
       }
@@ -552,34 +376,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             orElse: () => null,
           )
         : null;
-
-    // Listen for match end → stop player then navigate (deduped)
-    ref.listen<AsyncValue<void>>(matchEndProvider, (_, next) {
-      if (next.hasValue) {
-        _stopHls();
-        _navigateToPostMatch(matchId ?? '');
-      }
-    });
-
-    // Listen for streaming state changes → start HLS when ready
-    ref.listen<AsyncValue<Map<String, dynamic>>>(streamingStateProvider, (_, next) {
-      next.whenData((data) {
-        final state = data['state'] as String?;
-        final hlsUrl = data['hls_url'] as String?;
-        final error = data['error'] as String?;
-
-        debugPrint('[LiveMatch] Streaming state: $state');
-
-        if (state == 'ready' && matchId != null && hlsUrl != null) {
-          // Backend confirmed HLS is ready — start player now
-          debugPrint('[LiveMatch] HLS ready signal received — starting player');
-          _startHls(matchId);
-        } else if (state == 'error') {
-          debugPrint('[LiveMatch] HLS error: $error');
-          // Could show error UI here
-        }
-      });
-    });
 
     if (match == null) {
       final isStillLoading = !matchState.hasLoaded;
@@ -612,6 +408,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         _hlsController!.value.isInitialized;
     final isHlsLoading = _hlsInitializing && !isHlsReady;
     final gameStateAsync = ref.watch(gameStateProvider);
+    final gameState = gameStateAsync.valueOrNull;
     final viewerAsync = ref.watch(viewerCountProvider);
     final streamingStateAsync = ref.watch(streamingStateProvider);
 
