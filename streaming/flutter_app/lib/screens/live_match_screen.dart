@@ -186,41 +186,54 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         final state = data['state'] as String?;
         if (state == null) return;
 
+        debugPrint('[LiveMatch] streaming_state received: "$state" | activeMatchId=$_activeMatchId | inRoundTransition=$_inRoundTransition');
+
         // ── Round transition: HLS is intentionally stopping between rounds ─────
         if (state == 'round_transition') {
           final round = (data['round'] as num?)?.toInt() ?? (_nextRound);
-          // Pause the watchdog so the stream gap doesn't look like a freeze.
+          debugPrint('[LiveMatch] round_transition → round $round. Pausing watchdog, showing overlay.');
           ref.read(hlsPlayerServiceProvider).pauseWatchdog();
           if (mounted) setState(() { _inRoundTransition = true; _nextRound = round; });
           return;
         }
 
-        if (state != 'ready' && state != 'playing') return;
-        if (_activeMatchId == null) return;
+        if (state != 'ready' && state != 'playing') {
+          debugPrint('[LiveMatch] Ignoring streaming_state "$state" (not ready/playing)');
+          return;
+        }
+        if (_activeMatchId == null) {
+          debugPrint('[LiveMatch] streaming_state "$state" received but _activeMatchId is null — ignoring');
+          return;
+        }
 
         // Always route through HlsPlayerService — never create a local controller.
-        // This eliminates the dual-controller bug where two ExoPlayer instances
-        // could be active simultaneously with conflicting audio.
         final hlsSvc = ref.read(hlsPlayerServiceProvider);
+        debugPrint('[LiveMatch] streaming_state "$state" | hlsSvc.state=${hlsSvc.state} | hlsSvc.activeMatchId=${hlsSvc.activeMatchId}');
 
         // If we were in a round transition, this 'ready' signal means the new
-        // round's HLS is up — resume the watchdog and hide the overlay.
+        // round's HLS is up. ALWAYS force a fresh preload() here — the service
+        // still shows state=playing from the old dead round-1 HLS, so the
+        // svcHasThisMatch check below would incorrectly skip the reload.
         if (_inRoundTransition) {
+          debugPrint('[LiveMatch] Round transition ended — forcing fresh preload() for new round HLS.');
           hlsSvc.resumeWatchdog();
           if (mounted) setState(() => _inRoundTransition = false);
+          final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
+          hlsSvc.preload(_activeMatchId!, url).then((_) => hlsSvc.unmute());
+          return;
         }
 
         final svcHasThisMatch = hlsSvc.activeMatchId == _activeMatchId &&
             (hlsSvc.state == HlsPreloadState.playing ||
              hlsSvc.state == HlsPreloadState.initializing);
         if (svcHasThisMatch) {
-          // Already handled by global preloader — just ensure it's unmuted
+          debugPrint('[LiveMatch] HlsPlayerService already active for $_activeMatchId (${hlsSvc.state}) — unmuting only');
           hlsSvc.unmute();
           return;
         }
         // Global service not active for this match — trigger it directly
         final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
-        debugPrint('[LiveMatch] Triggering hlsService.preload() via streaming_state=ready');
+        debugPrint('[LiveMatch] HlsPlayerService not active for $_activeMatchId — calling preload() url=$url');
         hlsSvc.preload(_activeMatchId!, url).then((_) => hlsSvc.unmute());
       },
     );
@@ -907,182 +920,6 @@ class _GameHud extends ConsumerWidget {
   }
 }
 
-/// Health bars and timer overlay.
-/// StatefulWidget so it can clamp health monotonically downwards —
-/// if a new value is higher than the last seen, the old value is kept.
-/// This prevents visual glitches from occasional bad reads.
-class _HealthOverlay extends StatefulWidget {
-  const _HealthOverlay({
-    required this.gameState,
-    required this.fighter1Name,
-    required this.fighter2Name,
-  });
-
-  final GameState gameState;
-  final String fighter1Name;
-  final String fighter2Name;
-
-  @override
-  State<_HealthOverlay> createState() => _HealthOverlayState();
-}
-
-class _HealthOverlayState extends State<_HealthOverlay> {
-  double _p1Pct = 1.0;
-  double _p2Pct = 1.0;
-
-  // ── Smooth timer interpolation ──────────────────────────────────────────
-  // The WS sends timer updates at ~5-10Hz which causes visible jumps.
-  // We keep a local _displayTimer that ticks down every second, and
-  // reconcile with backend values when they arrive.
-  int _displayTimer = 99;
-  Timer? _countdownTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayTimer = widget.gameState.timer;
-    _startCountdown();
-  }
-
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        _countdownTimer?.cancel();
-        return;
-      }
-      setState(() {
-        if (_displayTimer > 0) _displayTimer--;
-      });
-    });
-  }
-
-  @override
-  void didUpdateWidget(_HealthOverlay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Health: only allow decreases (monotonic clamp)
-    final newP1 = widget.gameState.p1HealthPct.clamp(0.0, 1.0);
-    final newP2 = widget.gameState.p2HealthPct.clamp(0.0, 1.0);
-    if (newP1 < _p1Pct) _p1Pct = newP1;
-    if (newP2 < _p2Pct) _p2Pct = newP2;
-
-    // Timer reconciliation:
-    // - If backend value is lower → snap down (backend is authoritative)
-    // - If backend value is much higher (>20 diff) → round reset, snap up + restart ticker
-    final backendTimer = widget.gameState.timer;
-    if (backendTimer < _displayTimer) {
-      // Backend is behind our local tick — snap to backend (authoritative)
-      setState(() => _displayTimer = backendTimer);
-    } else if (backendTimer > _displayTimer + 20) {
-      // New round started — health also resets
-      _p1Pct = 1.0;
-      _p2Pct = 1.0;
-      setState(() => _displayTimer = backendTimer);
-      _startCountdown(); // restart 1s ticker from new value
-    }
-  }
-
-  @override
-  void dispose() {
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          // P1 health
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.fighter1Name,
-                  style: bodyStyle(size: 11, color: Palette.secondary),
-                ),
-                const SizedBox(height: 4),
-                _HealthBar(
-                  pct: _p1Pct,
-                  color: const Color(0xFFBB1111), // dark crimson
-                  reversed: false,
-                ),
-              ],
-            ),
-          ),
-          // Timer — shows local interpolated value, not raw WS value
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              '$_displayTimer',
-              style: displayStyle(size: 24, color: Palette.gold),
-            ),
-          ),
-          // P2 health
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  widget.fighter2Name,
-                  style: bodyStyle(size: 11, color: Palette.secondary),
-                ),
-                const SizedBox(height: 4),
-                _HealthBar(
-                  pct: _p2Pct,
-                  color: const Color(0xFF7A0000), // dark blood red
-                  reversed: true,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HealthBar extends StatelessWidget {
-  const _HealthBar({
-    required this.pct,
-    required this.color,
-    required this.reversed,
-  });
-
-  final double pct;
-  final Color color;
-  final bool reversed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 8,
-      // No borderRadius — sharp edges match design style
-      color: const Color(0xFF1A1410),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                left: reversed ? null : 0,
-                right: reversed ? 0 : null,
-                top: 0,
-                bottom: 0,
-                width: constraints.maxWidth * pct.clamp(0.0, 1.0),
-                child: ColoredBox(color: color),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
 
 /// Round score dots — shows filled circles for won rounds.
 class _RoundDots extends StatelessWidget {

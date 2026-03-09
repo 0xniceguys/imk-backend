@@ -29,8 +29,9 @@ class HlsPlayerService {
   static const _watchdogInterval = Duration(seconds: 5);
   static const _stuckTicksBeforeRestart = 2; // 2 × 5s = 10s frozen → restart
 
-  Future<void> preload(String matchId, String hlsUrl) async {
+  Future<void> preload(String matchId, String hlsUrl, {int _attempt = 1}) async {
     if (_disposed) return;
+    const maxAttempts = 3;
 
     final alreadyPlaying =
         activeMatchIdNotifier.value == matchId &&
@@ -55,7 +56,7 @@ class HlsPlayerService {
     activeMatchIdNotifier.value = matchId;
     _setState(HlsPreloadState.initializing);
 
-    debugPrint('[HlsPlayerService] Loading HLS: $matchId — $hlsUrl');
+    debugPrint('[HlsPlayerService] Loading HLS (attempt $_attempt/$maxAttempts): $matchId — $hlsUrl');
 
     VideoPlayerController? ctrl;
     try {
@@ -73,7 +74,6 @@ class HlsPlayerService {
       }
 
       // Pre-load muted — audio only starts when user opens the live screen.
-      // This prevents background audio leaking while user is browsing other tabs.
       await ctrl.setVolume(0.0);
       await ctrl.play();
 
@@ -86,21 +86,36 @@ class HlsPlayerService {
       controllerNotifier.value = ctrl;
       _setState(HlsPreloadState.playing);
       _startWatchdog(matchId, hlsUrl);
-      // If live screen entered while we were still initializing, unmute now.
       if (_wantsAudio) {
         await ctrl.setVolume(1.0);
-        debugPrint('[HlsPlayerService] ✅ Playing $matchId (with audio — wantsAudio=true)');
+        debugPrint('[HlsPlayerService] ✅ Playing $matchId (with audio)');
       } else {
-        debugPrint('[HlsPlayerService] ✅ Playing $matchId (muted — live screen not open)');
+        debugPrint('[HlsPlayerService] ✅ Playing $matchId (muted)');
       }
     } on TimeoutException {
-      debugPrint('[HlsPlayerService] ⏰ Timeout initializing HLS $matchId');
+      debugPrint('[HlsPlayerService] ⏰ Timeout initializing HLS $matchId (attempt $_attempt)');
       await _safeDispose(ctrl);
-      if (!_disposed && _initToken == token) _setState(HlsPreloadState.error);
+      if (_disposed || _initToken != token) return;
+      if (_attempt < maxAttempts) {
+        debugPrint('[HlsPlayerService] Retrying in 2s (attempt ${_attempt + 1}/$maxAttempts)…');
+        await Future.delayed(const Duration(seconds: 2));
+        if (!_disposed) preload(matchId, hlsUrl, _attempt: _attempt + 1);
+      } else {
+        debugPrint('[HlsPlayerService] ❌ Giving up after $maxAttempts attempts for $matchId');
+        _setState(HlsPreloadState.error);
+      }
     } catch (e, st) {
-      debugPrint('[HlsPlayerService] ❌ Init error $matchId: $e\n$st');
+      debugPrint('[HlsPlayerService] ❌ Init error $matchId (attempt $_attempt): $e\n$st');
       await _safeDispose(ctrl);
-      if (!_disposed && _initToken == token) _setState(HlsPreloadState.error);
+      if (_disposed || _initToken != token) return;
+      if (_attempt < maxAttempts) {
+        debugPrint('[HlsPlayerService] Retrying in 2s (attempt ${_attempt + 1}/$maxAttempts)…');
+        await Future.delayed(const Duration(seconds: 2));
+        if (!_disposed) preload(matchId, hlsUrl, _attempt: _attempt + 1);
+      } else {
+        debugPrint('[HlsPlayerService] ❌ Giving up after $maxAttempts attempts for $matchId');
+        _setState(HlsPreloadState.error);
+      }
     } finally {
       if (_initToken == token) _initializing = false;
     }
