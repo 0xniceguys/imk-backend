@@ -111,12 +111,16 @@ async def match_websocket(ws: WebSocket, match_id: str):
                 "match_ended": False,
                 "game_state": cached_state,
             })
-            # Emit streaming_state: ready so Flutter HLS preloader fires
-            await ws.send_json({
-                "type": "streaming_state",
-                "state": "ready",
-                "hls_url": f"/stream/{match_id}/stream.m3u8",
-            })
+            # Emit streaming_state: ready so Flutter preloader fires
+            from app.config import settings as _cfg
+            ss_msg: dict = {"type": "streaming_state", "state": "ready"}
+            if _cfg.use_webrtc:
+                ss_msg["mode"] = "livekit"
+                ss_msg["room"] = match_id
+                ss_msg["token_url"] = f"/stream/{match_id}/livekit/token"
+            else:
+                ss_msg["hls_url"] = f"/stream/{match_id}/stream.m3u8"
+            await ws.send_json(ss_msg)
         except Exception:
             manager.disconnect(ws, match_id)
             return
@@ -164,7 +168,7 @@ async def match_websocket(ws: WebSocket, match_id: str):
     cached_state = await _get_cached_state(match_id) or runner.latest_snapshot.to_dict()
 
     try:
-        await ws.send_json({
+        connected_msg = {
             "type": "connected",
             "match_id": match_id,
             "viewer_count": manager.viewer_count(match_id),
@@ -172,14 +176,23 @@ async def match_websocket(ws: WebSocket, match_id: str):
             "streaming_state": runner.streaming_state.value,
             "match_ended": is_ended,
             "game_state": cached_state,
-        })
+        }
+        if runner._webrtc_capture is not None:
+            connected_msg["mode"] = "livekit"
+        await ws.send_json(connected_msg)
         # Send current streaming state separately so Flutter's stream listener picks it up
         if runner.streaming_state.value in ("ready", "playing"):
-            await ws.send_json({
+            msg = {
                 "type": "streaming_state",
                 "state": runner.streaming_state.value,
-                "hls_url": f"/stream/{match_id}/stream.m3u8",
-            })
+            }
+            if runner._webrtc_capture is not None:
+                msg["mode"] = "livekit"
+                msg["room"] = match_id
+                msg["token_url"] = f"/stream/{match_id}/livekit/token"
+            else:
+                msg["hls_url"] = f"/stream/{match_id}/stream.m3u8"
+            await ws.send_json(msg)
         elif runner.streaming_state.value != "not_started":
             await ws.send_json({
                 "type": "streaming_state",
