@@ -9,10 +9,11 @@ import '../models/game_state.dart';
 
 /// Manages a WebSocket connection to a live match.
 ///
-/// Since video+audio is now served via HLS, the WebSocket carries only:
-///   - JSON text: game_state, viewer_count, round_end, match_ended, connected, pong
+/// The WebSocket carries JSON signaling only:
+///   - game_state, viewer_count, round_end, match_ended, connected, pong
+///   - streaming_state (triggers LiveKit connection)
 ///
-/// Binary messages are ignored (they may arrive from old backend versions).
+/// Binary messages are ignored.
 class MatchStreamService {
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
@@ -102,7 +103,7 @@ class MatchStreamService {
     if (message is String) {
       _handleText(message);
     }
-    // Binary messages ignored — video+audio served via HLS
+    // Binary messages ignored — video+audio served via LiveKit WebRTC
   }
 
   void _handleText(String text) {
@@ -125,18 +126,18 @@ class MatchStreamService {
               }
             }
 
-            // Forward streaming state so globalHlsPreloaderProvider fires on
-            // cold opens / reconnects (the backend includes this in the
+            // Forward streaming state so the live screen can connect LiveKit
+            // on cold opens / reconnects (backend includes this in the
             // connected handshake when a stream is already ready).
             final streamingState = json['streaming_state'] as String?;
             if (streamingState != null) {
-              debugPrint('[Stream] 📺 Initial streaming state from connected: $streamingState');
+              debugPrint('[Stream] Initial streaming state from connected: $streamingState');
               if (streamingState == 'ready' && _matchId != null) {
-                // Build a canonical hls_url so the preloader has everything it needs.
-                final hlsUrlHint = '/stream/$_matchId/stream.m3u8';
                 _streamingStateCtrl.add({
                   'state': streamingState,
-                  'hls_url': hlsUrlHint,
+                  'mode': 'livekit',
+                  'room': _matchId,
+                  'token_url': '/stream/$_matchId/livekit/token',
                 });
               } else if (streamingState == 'initializing' || streamingState == 'error') {
                 _streamingStateCtrl.add({'state': streamingState});
@@ -154,9 +155,8 @@ class MatchStreamService {
 
         case 'streaming_state':
           final state = json['state'] as String?;
-          final hlsUrl = json['hls_url'] as String?;
           final error = json['error'] as String?;
-          debugPrint('[Stream] 📺 Streaming state: $state ${hlsUrl != null ? "($hlsUrl)" : ""}${error != null ? " ERROR: $error" : ""}');
+          debugPrint('[Stream] Streaming state: $state${error != null ? " ERROR: $error" : ""}');
           _streamingStateCtrl.add(json);
 
         case 'round_end':

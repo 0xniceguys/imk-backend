@@ -60,11 +60,8 @@ class _ImmortalKombatAppState extends ConsumerState<ImmortalKombatApp> {
   Widget build(BuildContext context) {
     // Watch auth to rebuild on changes; navigate reactively via listener
     ref.watch(authProvider);
-    // Keep the global HLS preloader alive at all times so the video controller
-    // starts initialising the moment backend signals streaming_state=ready.
-    ref.watch(globalHlsPreloaderProvider);
-    // Auto-connect WS + preload HLS the moment a live match appears in the
-    // match list — no matter which screen the user is on.
+    // Auto-connect WS the moment a live match appears in the match list —
+    // no matter which screen the user is on.
     ref.watch(autoWsPreconnectProvider);
 
     ref.listen<AuthState>(authProvider, (prev, next) {

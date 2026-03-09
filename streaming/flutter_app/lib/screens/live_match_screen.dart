@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_player/video_player.dart';
 
 import '../core/constants.dart';
 import '../core/palette.dart';
@@ -10,12 +8,10 @@ import '../core/runtime_client_config.dart';
 import '../core/typography.dart';
 import '../router.dart';
 import '../models/match.dart';
-import '../models/game_state.dart';
 import '../providers/bet_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
-import '../services/hls_player_service.dart';
 import '../services/webrtc_player_service.dart';
 import 'package:livekit_client/livekit_client.dart';
 import '../app.dart' show routeObserver;
@@ -72,35 +68,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   String? _activeMatchId;
   LiveStreamClientState _streamState = LiveStreamClientState.idle;
 
-  // Combined HLS player: video + audio in one stream
-  VideoPlayerController? _hlsController;
-  String? _hlsMatchId; // guard against double-init for the same match
-  bool _hlsInitializing = false;
-
-  // LiveKit player — active when backend signals mode=livekit
+  // LiveKit player — connects when backend signals streaming ready
   LiveKitPlayerService? _livekitSvc;
-  bool _livekitActive = false;
-  // FPS readout driven by VideoPlayerController listener
-  int _fps = 0;
-  int _lastFpsCheck = 0;
-  int _fpsFrameCount = 0;
-  // Guard: _checkEarlyStreamReady() fires from two code paths on entry (initState
-  // postFrameCallback + _onMatchState postFrameCallback). This flag prevents the
-  // second call from starting a duplicate preload before the first one completes.
-  bool _earlyStartAttempted = false;
-
-  void _onPlayerUpdate() {
-    // Track FPS from VideoPlayer positions advancing (used for internal diagnostics).
-    // No setState here — avoids a 1/s rebuild; the fps value was only used by the
-    // debug overlay which has been removed.
-    final now = DateTime.now().millisecondsSinceEpoch;
-    _fpsFrameCount++;
-    if (now - _lastFpsCheck >= 1000) {
-      _fps = _fpsFrameCount;
-      _fpsFrameCount = 0;
-      _lastFpsCheck = now;
-    }
-  }
 
   @override
   void initState() {
@@ -114,19 +83,12 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _setupListeners();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // Unmute HLS audio now that the live screen is visible.
-      try {
-        ref.read(hlsPlayerServiceProvider).requestAudio();
-      } catch (_) {}
       // If we have an explicit matchId, connect the WS immediately without
       // waiting for the REST poll to confirm match.status == live.
       // The WS rejects with 4004 if not ready yet and retries automatically.
-      // This removes the stale-status delay (up to 2s) that occurred when
-      // the cached match status was still 'upcoming' after navigation.
       if (widget.matchId != null) {
         _activeMatchId = widget.matchId;
         _connectToMatch();
-        _checkEarlyStreamReady();
       }
     });
   }
@@ -144,39 +106,24 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   // ── RouteAware: fires at the START of navigation, before animation ──────────
 
-  /// User pressed back — mute IMMEDIATELY (before the 300ms exit animation).
   @override
   void didPop() {
-    debugPrint('[LiveMatch] RouteAware: didPop — silencing audio immediately');
-    _silenceNow();
+    debugPrint('[LiveMatch] RouteAware: didPop');
   }
 
-  /// Another screen pushed on top — mute immediately.
   @override
   void didPushNext() {
-    debugPrint('[LiveMatch] RouteAware: didPushNext — silencing audio immediately');
-    _silenceNow();
+    debugPrint('[LiveMatch] RouteAware: didPushNext');
   }
 
-  /// Screen came back into view — restore audio.
   @override
   void didPopNext() {
-    debugPrint('[LiveMatch] RouteAware: didPopNext — restoring audio');
-    try {
-      ref.read(hlsPlayerServiceProvider).requestAudio();
-    } catch (_) {}
+    debugPrint('[LiveMatch] RouteAware: didPopNext');
   }
 
   @override
   void didPush() {
     debugPrint('[LiveMatch] RouteAware: didPush');
-  }
-
-  void _silenceNow() {
-    debugPrint('[LiveMatch] _silenceNow() — calling silenceAndReset on HlsPlayerService');
-    try {
-      ref.read(hlsPlayerServiceProvider).silenceAndReset();
-    } catch (_) {}
   }
 
   void _setupListeners() {
@@ -202,11 +149,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
         debugPrint('[LiveMatch] streaming_state received: "$state" | activeMatchId=$_activeMatchId | inRoundTransition=$_inRoundTransition');
 
-        // ── Round transition: HLS is intentionally stopping between rounds ─────
+        // ── Round transition overlay ─────
         if (state == 'round_transition') {
           final round = (data['round'] as num?)?.toInt() ?? (_nextRound);
-          debugPrint('[LiveMatch] round_transition → round $round. Pausing watchdog, showing overlay.');
-          ref.read(hlsPlayerServiceProvider).pauseWatchdog();
+          debugPrint('[LiveMatch] round_transition → round $round');
           if (mounted) setState(() { _inRoundTransition = true; _nextRound = round; });
           return;
         }
@@ -220,56 +166,46 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           return;
         }
 
-        // Always route through HlsPlayerService — never create a local controller.
-        final hlsSvc = ref.read(hlsPlayerServiceProvider);
-        debugPrint('[LiveMatch] streaming_state "$state" | hlsSvc.state=${hlsSvc.state} | hlsSvc.activeMatchId=${hlsSvc.activeMatchId}');
-
-        // If we were in a round transition, this 'ready' signal means the new
-        // round's HLS is up. ALWAYS force a fresh preload() here — the service
-        // still shows state=playing from the old dead round-1 HLS, so the
-        // svcHasThisMatch check below would incorrectly skip the reload.
+        // Clear round transition overlay when new round stream is ready
         if (_inRoundTransition) {
-          debugPrint('[LiveMatch] Round transition ended — forcing fresh reload() for new round HLS.');
-          hlsSvc.resumeWatchdog();
+          debugPrint('[LiveMatch] Round transition ended — stream ready for new round');
           if (mounted) setState(() => _inRoundTransition = false);
-          final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
-          hlsSvc.forceReload(_activeMatchId!, url).then((_) {
-            if (mounted) {
-              debugPrint('[LiveMatch] forceReload() resolved — unmuting for round 2 (mounted=true)');
-              hlsSvc.unmute();
-            } else {
-              debugPrint('[LiveMatch] forceReload() resolved but widget unmounted — skipping unmute');
-            }
-          });
-          return;
         }
 
-        // Check if backend is using LiveKit mode
-        final mode = data['mode'] as String?;
-        if (mode == 'livekit') {
-          debugPrint('[LiveMatch] LiveKit mode detected for match=$_activeMatchId');
-          _livekitSvc?.dispose();
-          final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
-          _livekitSvc = svc;
-          if (mounted) setState(() => _livekitActive = true);
-          svc.connect(_activeMatchId!).then((_) {
-            if (mounted && svc.state == LiveKitPlayerState.connected) {
-              debugPrint('[LiveMatch] LiveKit ✅ connected match=$_activeMatchId');
-              // Trigger rebuild to show video track
-              if (mounted) setState(() {});
-            }
-          });
-          // Listen for video track changes
-          svc.videoTrackNotifier.addListener(() {
+        // Connect LiveKit
+        debugPrint('[LiveMatch] LiveKit mode — connecting for match=$_activeMatchId');
+        _stopLiveKit(); // clean up any existing instance
+        final matchId = _activeMatchId!;
+        final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
+        _livekitSvc = svc;
+        if (mounted) setState(() {});
+        svc.connect(matchId).then((_) {
+          if (mounted && svc.state == LiveKitPlayerState.connected) {
+            debugPrint('[LiveMatch] LiveKit connected match=$matchId');
             if (mounted) setState(() {});
-          });
-          return;
-        }
-
-        // Never call preload() from here — globalHlsPreloaderProvider handles that.
-        // We only unmute so audio starts when the user is on the live screen.
-        debugPrint('[LiveMatch] streaming_state "$state" — unmuting (preload handled by globalHlsPreloader)');
-        hlsSvc.unmute();
+          }
+        });
+        // Listen for video track changes
+        svc.videoTrackNotifier.addListener(() {
+          if (mounted) setState(() {});
+        });
+        // Auto-reconnect on error (unless match has ended)
+        svc.stateNotifier.addListener(() {
+          if (svc.state == LiveKitPlayerState.error && !_matchEndScheduled && mounted) {
+            debugPrint('[LiveMatch] LiveKit error — reconnecting in 2s');
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted && !_matchEndScheduled && _livekitSvc == svc) {
+                svc.dispose();
+                final newSvc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
+                _livekitSvc = newSvc;
+                newSvc.connect(matchId);
+                newSvc.videoTrackNotifier.addListener(() {
+                  if (mounted) setState(() {});
+                });
+              }
+            });
+          }
+        });
       },
     );
 
@@ -296,7 +232,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             final status = event['status'] as String?;
             if (status == 'completed' || status == 'cancelled') {
               debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
-              _stopHls();
+              _stopLiveKit();
               if (eventMatchId != null) _navigateToPostMatch(eventMatchId);
             }
           }
@@ -330,7 +266,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
       debugPrint('[LiveMatch] Post-match delay complete — navigating');
-      _stopHls();
+      _stopLiveKit();
       _navigateToPostMatch(matchId);
     });
   }
@@ -371,32 +307,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // Connect after first frame — at this point providers may already have data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectToMatch();
-      // If the WS was pre-connected from battle_detail_screen and the backend
-      // already signalled 'ready', kick off HLS immediately without waiting.
-      _checkEarlyStreamReady();
     });
-  }
-
-  /// If the globalHlsPreloader already has a controller playing for this match,
-  /// unmute it. Never calls preload() directly — that's globalHlsPreloader's job.
-  void _checkEarlyStreamReady() {
-    if (_earlyStartAttempted) return;
-    if (_matchEndScheduled) {
-      debugPrint('[LiveMatch] _checkEarlyStreamReady() skipped — match already ended');
-      return;
-    }
-    _earlyStartAttempted = true;
-    final matchId = widget.matchId ?? _findLiveMatchId();
-    if (matchId == null) return;
-    final hlsSvc = ref.read(hlsPlayerServiceProvider);
-    if (hlsSvc.activeMatchId == matchId &&
-        (hlsSvc.state == HlsPreloadState.playing ||
-         hlsSvc.state == HlsPreloadState.initializing)) {
-      debugPrint('[LiveMatch] Early unmute — globalHlsPreloader already active for $matchId');
-      hlsSvc.unmute();
-    } else {
-      debugPrint('[LiveMatch] _checkEarlyStreamReady() — no active preload yet, waiting for globalHlsPreloader');
-    }
   }
 
 
@@ -426,95 +337,21 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   @override
   void dispose() {
-    debugPrint('[LiveMatch] dispose() — muting audio FIRST (matchId=$_activeMatchId)');
-    // ── Mute FIRST — before anything else, so audio never bleeds regardless
-    // of how we got here (RouteAware callback, programmatic navigation, etc.)
-    try {
-      final hlsSvc = ref.read(hlsPlayerServiceProvider);
-      hlsSvc.silenceAndReset(); // synchronous — instant audio cut
-      hlsSvc.stop();            // async fire-and-forget — full ExoPlayer disposal
-    } catch (_) {
-      // ref may be invalidated on hot restart — ignore
-    }
-
+    debugPrint('[LiveMatch] dispose() (matchId=$_activeMatchId)');
     _fastPollTimer?.cancel();
     _pulseCtrl.dispose();
-    _stopHls(); // stops local _hlsController (no-op if already stopped above)
-
+    _stopLiveKit();
     routeObserver.unsubscribe(this);
     debugPrint('[LiveMatch] dispose() complete');
     super.dispose();
   }
 
-  // ── HLS player helpers ──────────────────────────────────────────────────────
-
-  void _startHls(String matchId) {
-    if (_hlsMatchId == matchId) return; // already initing/playing this match
-    _stopHls();           // clears _hlsMatchId, controller, etc.
-    _hlsMatchId = matchId; // set AFTER stop so guard in _initHls passes
-    _initHls(matchId, attempt: 1);
-  }
-
-  Future<void> _initHls(String matchId, {required int attempt}) async {
-    if (!mounted || _hlsMatchId != matchId) return;
-    _hlsInitializing = true;
-
-    // Backend signals when HLS is ready, so we should be able to init immediately.
-    // Still allow retries for network issues, but fewer and with shorter delays.
-    final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
-
-    if (attempt > 1) {
-      // Retry delay: 1s (network hiccup recovery)
-      await Future.delayed(const Duration(seconds: 1));
+  void _stopLiveKit() {
+    if (_livekitSvc != null) {
+      debugPrint('[LiveMatch] Stopping LiveKit player');
+      _livekitSvc!.dispose();
+      _livekitSvc = null;
     }
-    if (!mounted || _hlsMatchId != matchId) return;
-
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(url),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
-    );
-    _hlsController = controller;
-    controller.addListener(_onPlayerUpdate);
-
-    try {
-      await controller.initialize();
-      if (!mounted || _hlsMatchId != matchId) {
-        controller.dispose();
-        return;
-      }
-      controller.setVolume(1.0);
-      controller.play();
-      _hlsInitializing = false;
-      if (mounted) setState(() {});
-      debugPrint('[HLS] ▶ Playing $url (attempt $attempt)');
-    } catch (e) {
-      debugPrint('[HLS] ✗ Init failed (attempt $attempt): $e');
-      controller.removeListener(_onPlayerUpdate);
-      controller.dispose();
-      if (!mounted || _hlsMatchId != matchId) return;
-      if (attempt < 3) {
-        debugPrint('[HLS] Retrying in 1s (attempt ${attempt + 1}/3)...');
-        _initHls(matchId, attempt: attempt + 1);
-      } else {
-        debugPrint('[HLS] ✗ Giving up after $attempt attempts for $matchId');
-        _hlsInitializing = false;
-        if (mounted) setState(() {});
-      }
-    }
-  }
-
-  void _stopHls() {
-    _hlsMatchId = null;
-    _hlsInitializing = false;
-    final ctrl = _hlsController;
-    _hlsController = null;
-    ctrl?.removeListener(_onPlayerUpdate);
-    ctrl?.dispose();
-    // Also stop the global service to ensure full cleanup regardless of
-    // which path triggered the stop (match end event, navigation, etc.)
-    try {
-      ref.read(hlsPlayerServiceProvider).stop();
-    } catch (_) {}
   }
 
   @override
@@ -579,21 +416,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     final viewerAsync = ref.watch(viewerCountProvider);
     final streamingStateAsync = ref.watch(streamingStateProvider);
 
-    // Reactive: rebuilds when pre-loaded global controller appears or changes
-    final hlsCtrlAsync = ref.watch(hlsControllerProvider);
-    final hlsStateAsync = ref.watch(hlsPreloadStateProvider);
-    final preloadedCtrl = hlsCtrlAsync.valueOrNull;
-    // Exclusively use global controller — no local fallback
-    final hlsCtrl = (preloadedCtrl != null && preloadedCtrl.value.isInitialized)
-        ? preloadedCtrl
-        : null;
-    final isGlobalHlsReady = hlsCtrl != null;
-    final hlsPreloadState = hlsStateAsync.valueOrNull ?? HlsPreloadState.idle;
-    // Error = explicit failure (timeout/init crash). All other non-playing states
-    // (idle, initializing, stopped) are normal startup gaps — show a spinner, not an error.
-    final isHlsError = hlsPreloadState == HlsPreloadState.error;
-
     // Determine what message to show when stream isn't playing
+    final hasLiveKitVideo = _livekitSvc?.videoTrack != null;
+    final isLiveKitError = _livekitSvc?.state == LiveKitPlayerState.error;
     String streamStatusMessage = 'Stream starting...';
     streamingStateAsync.whenData((data) {
       final state = data['state'] as String?;
@@ -603,7 +428,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           streamStatusMessage = 'Initializing stream...';
           break;
         case 'ready':
-          streamStatusMessage = 'Stream ready, loading...';
+        case 'playing':
+          streamStatusMessage = _livekitSvc != null
+              ? 'Connecting to stream...'
+              : 'Stream ready, loading...';
           break;
         case 'error':
           streamStatusMessage = error ?? 'Stream error';
@@ -667,7 +495,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           ),
           const SizedBox(height: 8),
 
-          // Combined HLS video+audio player (with round transition overlay on top)
+          // LiveKit video player (with round transition overlay on top)
           Stack(
             children: [
               // ── Video layer ──
@@ -677,22 +505,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                     aspectRatio: 4 / 3,
                     child: Container(
                       color: Palette.black,
-                      child: _livekitActive && _livekitSvc?.videoTrack != null
+                      child: hasLiveKitVideo
                           ? VideoTrackRenderer(_livekitSvc!.videoTrack!)
-                          : isGlobalHlsReady
-                          ? VideoPlayer(hlsCtrl!)
                           : Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Only show dead camera on explicit HLS error.
-                                  // All other gaps (idle, initializing, stopped) show a spinner.
-                                  if (!isHlsError) const IKLoader(size: 44)
+                                  if (!isLiveKitError) const IKLoader(size: 44)
                                   else const Icon(Icons.videocam_off,
                                       color: Palette.muted, size: 36),
                                   const SizedBox(height: 12),
                                   Text(
-                                    isHlsError
+                                    isLiveKitError
                                         ? 'Stream unavailable'
                                         : streamStatusMessage,
                                     style: const TextStyle(

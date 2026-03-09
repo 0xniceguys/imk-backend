@@ -19,10 +19,7 @@ dependencies:
   http: ^1.2.2
   web_socket_channel: ^3.0.1
 
-  # Video player (HLS live streams)
-  video_player: ^2.9.2
-
-  # WebRTC live streams via LiveKit (replaces video_player when use_webrtc=true)
+  # WebRTC live streams via LiveKit
   livekit_client: ^2.3.4
 
   # Auth + embedded wallets

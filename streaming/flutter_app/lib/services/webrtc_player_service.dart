@@ -14,8 +14,7 @@ enum LiveKitPlayerState {
 }
 
 /// Service that connects to a LiveKit room and renders the publisher's
-/// video+audio tracks. Replaces [HlsPlayerService] when the backend
-/// signals mode=livekit.
+/// video+audio tracks via LiveKit WebRTC.
 ///
 /// Usage:
 ///   final svc = LiveKitPlayerService(baseUrl: 'https://...');
