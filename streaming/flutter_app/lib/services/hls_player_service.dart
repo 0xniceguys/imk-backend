@@ -33,6 +33,11 @@ class HlsPlayerService {
   static const _bufferingTicksBeforeRestart = 2; // 2 × 5s = 10s buffering → restart
   static const _watchdogGraceTicks = 3;           // skip first 15s (live buffer warmup)
 
+  /// Called instead of restarting if set when the stream fatally errors or
+  /// freezes. Used by live_match_screen to navigate after match end once the
+  /// buffered video plays out and the stream naturally 404s.
+  VoidCallback? onStreamDied;
+
   Future<void> preload(String matchId, String hlsUrl, {int attempt_ = 1}) async {
     if (_disposed) return;
     const maxAttempts = 3;
@@ -169,9 +174,14 @@ class HlsPlayerService {
         final isBuffering = ctrl.value.isBuffering;
 
         if (hasError) {
-          debugPrint('[HlsPlayerService] 🔴 Controller error detected — restarting');
+          debugPrint('[HlsPlayerService] 🔴 Controller error detected');
           _stopWatchdog();
-          preload(matchId, hlsUrl);
+          if (onStreamDied != null) {
+            debugPrint('[HlsPlayerService] → calling onStreamDied (match ended mode)');
+            onStreamDied!();
+          } else {
+            preload(matchId, hlsUrl);
+          }
           return;
         }
 
@@ -205,9 +215,14 @@ class HlsPlayerService {
             '[HlsPlayerService] ⚠️ Position stuck at $pos (tick $_stuckTicks/$_stuckTicksBeforeRestart)',
           );
           if (_stuckTicks >= _stuckTicksBeforeRestart) {
-            debugPrint('[HlsPlayerService] 🔄 Stream frozen — restarting controller');
+            debugPrint('[HlsPlayerService] 🔄 Stream frozen — checking onStreamDied');
             _stopWatchdog();
-            preload(matchId, hlsUrl);
+            if (onStreamDied != null) {
+              debugPrint('[HlsPlayerService] → calling onStreamDied (frozen in match-ended mode)');
+              onStreamDied!();
+            } else {
+              preload(matchId, hlsUrl);
+            }
           }
         } else {
           _stuckTicks = 0;
@@ -276,6 +291,7 @@ class HlsPlayerService {
   Future<void> stop() async {
     debugPrint('[HlsPlayerService] stop() — match ${activeMatchIdNotifier.value}');
     _wantsAudio = false; // clear flag so restart doesn't unmute in background
+    onStreamDied = null;  // clear callback — never leak into next match session
     _stopWatchdog();
     await _teardown();
     // Use 'stopped' (not 'idle') so globalHlsPreloaderProvider knows the user

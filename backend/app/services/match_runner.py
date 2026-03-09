@@ -768,14 +768,15 @@ class MatchRunner:
                     )
                     await ws_manager.broadcast_json(self.match_id, ended_payload)
 
-                    # Cache terminal event in Redis so cold-start rejoins get it
-                    try:
-                        from app.services.redis_client import cache_match_ended
-                        await cache_match_ended(self.match_id, ended_payload)
-                    except Exception:
-                        pass
-
-                    await self._auto_settle(winner_player)
+                    # Keep HLS stream alive while Flutter drains its buffer.
+                    # The video is ~15-30 s behind the live edge due to HLS
+                    # buffering, so clients would see a premature cut if we
+                    # stopped the stream immediately.  Run settlement in
+                    # parallel with the drain window — no extra wall-clock cost.
+                    await asyncio.gather(
+                        self._auto_settle(winner_player),
+                        asyncio.sleep(12),          # HLS drain window
+                    )
                     break
 
                 # More rounds to play — reload savestate.

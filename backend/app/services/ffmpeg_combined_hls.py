@@ -91,14 +91,14 @@ class FFmpegCombinedHls:
             # Generate PTS when an input packet lacks timestamps.
             "-fflags", "+genpts",
             # ── Video input: Xvfb virtual display ──────────────────────────
-            "-thread_queue_size", "2048",
+            "-thread_queue_size", "4096",
             "-use_wallclock_as_timestamps", "1",
             "-f", "x11grab",
             "-video_size", f"{CAPTURE_WIDTH}x{CAPTURE_HEIGHT}",
             "-framerate", str(CAPTURE_FPS),
             "-i", XVFB_DISPLAY,
             # ── Audio input: PulseAudio null-sink monitor ───────────────────
-            "-thread_queue_size", "2048",
+            "-thread_queue_size", "4096",
             "-use_wallclock_as_timestamps", "1",
             "-f", "pulse",
             "-i", PULSE_MONITOR_SOURCE,
@@ -134,7 +134,7 @@ class FFmpegCombinedHls:
             "-ac", "2",
             # ── MPEG-TS muxer settings  ─────────────────────────────────────
             "-mpegts_flags", "resend_headers",  # PAT/PMT at segment start
-            "-max_interleave_delta", "1000000",
+            "-max_interleave_delta", "500000000",  # 500ms — enough room for bursty video/audio interleave
             "-muxpreload", "0",
             "-muxdelay", "0",
             "-avoid_negative_ts", "make_zero",

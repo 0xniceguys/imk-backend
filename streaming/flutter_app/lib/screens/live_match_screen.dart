@@ -274,18 +274,55 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     );
   }
 
-  /// Lets the final KO clip play for 2.5 seconds before stopping HLS and
-  /// navigating to the post-match screen. Guard flag prevents double-fire.
+  /// Waits for the HLS stream to naturally die (backend stops FFmpeg ~12s after
+  /// match end) before navigating to post-match.  This ensures the user sees
+  /// the full fight — the video is 15-30 s behind live, so a fixed 2.5 s delay
+  /// would cut away before the KO clip finishes.
+  ///
+  /// Flow:
+  ///   1. Register onStreamDied on the watchdog → fires when stream 404s/freezes.
+  ///   2. Set a 20 s safety timeout in case the stream never errors cleanly.
+  ///   3. Whichever fires first calls _doPostMatchNav().
   void _handleMatchEnded() {
     if (_matchEndScheduled) return;
     _matchEndScheduled = true;
     final matchId = _activeMatchId ?? widget.matchId;
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    if (matchId == null) return;
+
+    debugPrint('[LiveMatch] match ended — waiting for stream to drain before navigating');
+
+    // Safety timeout: if the stream never cleanly 404s (e.g. the watchdog
+    // grace period is still running), navigate anyway after 20 s.
+    Timer? safetyTimer;
+    bool navigated = false;
+
+    void doNav() {
+      if (navigated) return;
+      navigated = true;
+      safetyTimer?.cancel();
+      // Clear the callback so the service doesn't hold a stale reference.
+      try { ref.read(hlsPlayerServiceProvider).onStreamDied = null; } catch (_) {}
       if (!mounted) return;
       _stopHls();
-      if (matchId != null) _navigateToPostMatch(matchId);
+      _navigateToPostMatch(matchId);
+    }
+
+    safetyTimer = Timer(const Duration(seconds: 20), () {
+      debugPrint('[LiveMatch] Safety timeout fired — navigating to post-match');
+      doNav();
     });
+
+    // Register watchdog callback: fires when stream errors (404) or freezes.
+    try {
+      ref.read(hlsPlayerServiceProvider).onStreamDied = () {
+        debugPrint('[LiveMatch] onStreamDied fired — stream drained, navigating');
+        doNav();
+      };
+    } catch (_) {
+      // If service is already disposed, fall back to safety timer only.
+    }
   }
+
 
   /// Connects the WebSocket for the current active match.
   void _connectToMatch() {
