@@ -204,15 +204,43 @@ async def livekit_token(match_id: str, participant: str = "viewer"):
     if not settings.use_webrtc:
         return JSONResponse(status_code=404, content={"error": "WebRTC not enabled"})
 
-    from app.services.match_runner import get_runner
-    runner = get_runner(match_id)
-    if not runner or not runner._webrtc_capture:
-        return JSONResponse(status_code=404, content={"error": "No active LiveKit publisher"})
+    # First check Redis for WebRTC runner info (works across all workers)
+    from app.services.redis_client import get_webrtc_runner
+    webrtc_info = await get_webrtc_runner(match_id)
 
-    token = runner._webrtc_capture.make_subscriber_token(participant)
+    if not webrtc_info:
+        # Fallback to checking in-memory runner (same worker only)
+        from app.services.match_runner import get_runner
+        runner = get_runner(match_id)
+        if not runner or not runner._webrtc_capture:
+            return JSONResponse(status_code=404, content={"error": "No active LiveKit publisher"})
+        token = runner._webrtc_capture.make_subscriber_token(participant)
+    else:
+        # Generate token directly using LiveKit SDK
+        import jwt
+        import time
+
+        claims = {
+            "sub": participant,
+            "iss": settings.livekit_api_key,
+            "exp": int(time.time()) + 3600,  # 1 hour expiry
+            "nbf": int(time.time()),
+            "jti": participant,
+            "name": participant,
+            "video": {
+                "room": match_id,
+                "roomJoin": True,
+                "canSubscribe": True,
+                "canPublish": False,
+                "canPublishData": False,
+            }
+        }
+
+        token = jwt.encode(claims, settings.livekit_api_secret, algorithm="HS256")
+
     return {
         "token": token,
-        "url": settings.livekit_url.replace("ws://", "wss://").replace("localhost", "immortalkombat.timesnap.xyz"),
+        "url": "wss://immortalkombat.timesnap.xyz/livekit/",
     }
 
 
@@ -273,3 +301,35 @@ async def health_detailed():
         pass
 
     return health
+
+
+@app.get("/debug/runners")
+async def debug_runners():
+    """Debug endpoint to inspect active runners and their LiveKit state."""
+    from app.services.match_runner import get_all_runners
+
+    runners = get_all_runners()
+    debug_info = {}
+
+    for match_id, runner in runners.items():
+        debug_info[match_id] = {
+            "status": runner.status.value if hasattr(runner, 'status') else "unknown",
+            "streaming_state": runner.streaming_state.value if hasattr(runner, 'streaming_state') else "unknown",
+            "has_webrtc_capture": runner._webrtc_capture is not None,
+            "webrtc_capture_type": type(runner._webrtc_capture).__name__ if runner._webrtc_capture else None,
+        }
+
+        # If WebRTC capture exists, add more details
+        if runner._webrtc_capture:
+            try:
+                debug_info[match_id]["webrtc_details"] = {
+                    "room_name": getattr(runner._webrtc_capture, 'room_name', None),
+                    "is_connected": getattr(runner._webrtc_capture, 'is_connected', None),
+                }
+            except Exception as e:
+                debug_info[match_id]["webrtc_error"] = str(e)
+
+    return {
+        "active_runners_count": len(runners),
+        "runners": debug_info
+    }

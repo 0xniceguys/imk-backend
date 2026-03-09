@@ -129,3 +129,42 @@ async def publish_bytes(match_id: str, data: bytes) -> None:
         await r.publish(frames_channel(match_id), data)
     except Exception:
         logger.debug("Redis publish_bytes failed for %s (non-fatal)", match_id)
+
+
+# ── WebRTC/LiveKit runner tracking ──────────────────────────────────────────
+
+async def register_webrtc_runner(match_id: str, room_name: str) -> None:
+    """Register that a match has an active WebRTC/LiveKit publisher."""
+    try:
+        r = get_redis()
+        data = {
+            "match_id": match_id,
+            "room_name": room_name,
+            "has_webrtc": True,
+        }
+        # TTL of 10 minutes - matches shouldn't run longer than that
+        await r.set(f"match:{match_id}:webrtc_runner", json.dumps(data), ex=600)
+        logger.debug("Registered WebRTC runner for match %s", match_id)
+    except Exception:
+        logger.exception("Redis register_webrtc_runner failed for %s", match_id)
+
+
+async def get_webrtc_runner(match_id: str) -> dict | None:
+    """Get WebRTC runner info for a match, or None if not found."""
+    try:
+        r = get_redis()
+        raw = await r.get(f"match:{match_id}:webrtc_runner")
+        return json.loads(raw) if raw else None
+    except Exception:
+        logger.debug("Redis get_webrtc_runner failed for %s", match_id)
+        return None
+
+
+async def unregister_webrtc_runner(match_id: str) -> None:
+    """Remove WebRTC runner registration when match ends."""
+    try:
+        r = get_redis()
+        await r.delete(f"match:{match_id}:webrtc_runner")
+        logger.debug("Unregistered WebRTC runner for match %s", match_id)
+    except Exception:
+        logger.debug("Redis unregister_webrtc_runner failed for %s", match_id)

@@ -516,6 +516,11 @@ class MatchRunner:
                 "[MatchRunner] ✅ LiveKit publisher started match=%s",
                 self.match_id,
             )
+
+            # Register in Redis so other workers can find this WebRTC runner
+            from app.services.redis_client import register_webrtc_runner
+            await register_webrtc_runner(self.match_id, self.match_id)
+
             # No playlist polling needed — LiveKit is ready immediately.
             self.streaming_state = StreamingState.READY
             await ws_manager.broadcast_json(self.match_id, {
@@ -633,6 +638,9 @@ class MatchRunner:
         # Stop capture (HLS or WebRTC depending on mode)
         if self._webrtc_capture is not None:
             await self._webrtc_capture.stop()
+            # Unregister from Redis
+            from app.services.redis_client import unregister_webrtc_runner
+            await unregister_webrtc_runner(self.match_id)
         else:
             await self._hls_capture.stop()
 

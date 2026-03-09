@@ -118,16 +118,22 @@ class LiveKitPublisher:
         env.setdefault("DISPLAY", XVFB_DISPLAY)
         env.setdefault("PULSE_SERVER", f"unix:/run/user/{uid}/pulse/native")
 
+        video_cmd = self._video_cmd()
+        audio_cmd = self._audio_cmd()
+        logger.info("[LiveKit] Video cmd: %s", " ".join(video_cmd))
+        logger.info("[LiveKit] Audio cmd: %s", " ".join(audio_cmd))
+        logger.info("[LiveKit] DISPLAY=%s PULSE_SERVER=%s", env.get("DISPLAY"), env.get("PULSE_SERVER"))
+
         self._video_proc = await asyncio.create_subprocess_exec(
-            *self._video_cmd(),
+            *video_cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
             env=env,
         )
         self._audio_proc = await asyncio.create_subprocess_exec(
-            *self._audio_cmd(),
+            *audio_cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
             env=env,
         )
 
@@ -139,6 +145,9 @@ class LiveKitPublisher:
             self._pump_audio(audio_source),
             name=f"lk-audio-{self.match_id}",
         )
+        # Drain stderr so we can see FFmpeg errors
+        asyncio.create_task(self._drain_stderr(self._video_proc, "video"), name=f"lk-vstderr-{self.match_id}")
+        asyncio.create_task(self._drain_stderr(self._audio_proc, "audio"), name=f"lk-astderr-{self.match_id}")
         logger.info("[LiveKit] Frame pumps started for match=%s", self.match_id)
 
     async def stop(self) -> None:
@@ -182,6 +191,18 @@ class LiveKitPublisher:
         return token.to_jwt()
 
     # ── Internals ────────────────────────────────────────────────────────────
+
+    async def _drain_stderr(self, proc: asyncio.subprocess.Process, label: str) -> None:
+        """Log FFmpeg stderr for debugging."""
+        if not proc or not proc.stderr:
+            return
+        try:
+            async for line in proc.stderr:
+                txt = line.decode(errors="replace").rstrip()
+                if txt:
+                    logger.warning("[LiveKit|FFmpeg-%s] %s | match=%s", label, txt, self.match_id)
+        except Exception:
+            pass
 
     def _make_publisher_token(self) -> str:
         token = api.AccessToken(self.api_key, self.api_secret)
