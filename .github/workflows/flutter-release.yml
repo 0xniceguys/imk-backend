@@ -163,14 +163,14 @@ jobs:
         working-directory: ${{ env.FLUTTER_APP_DIR }}
         run: flutter pub get
 
-      - name: Build release APKs
+      - name: Build release APK
         working-directory: ${{ env.FLUTTER_APP_DIR }}
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-apks-${{ steps.meta.outputs.tag }}
+          name: release-apk-${{ steps.meta.outputs.tag }}
           path: ${{ env.FLUTTER_APP_DIR }}/build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 30
@@ -187,10 +187,8 @@ jobs:
 
             Flutter version: `${{ steps.meta.outputs.version }}+${{ steps.meta.outputs.build_number }}`
 
-            Included APKs:
-            - `app-arm64-v8a-release.apk`
-            - `app-armeabi-v7a-release.apk`
-            - `app-x86_64-release.apk`
+            Included APK:
+            - `app-release.apk`
           files: ${{ env.FLUTTER_APP_DIR }}/build/app/outputs/flutter-apk/*.apk
           fail_on_unmatched_files: true
           draft: false
