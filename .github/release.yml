@@ -1,0 +1,28 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Mobile App
+      labels:
+        - flutter
+        - mobile
+        - app
+    - title: Backend
+      labels:
+        - backend
+        - api
+    - title: Training and AI
+      labels:
+        - training
+        - ai
+        - ml
+    - title: Chain and Contracts
+      labels:
+        - solana
+        - contracts
+    - title: Docs and Developer Experience
+      labels:
+        - docs
+        - ci
+        - github

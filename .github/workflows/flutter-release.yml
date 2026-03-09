@@ -191,6 +191,7 @@ jobs:
             - `app-release.apk`
           files: ${{ env.FLUTTER_APP_DIR }}/build/app/outputs/flutter-apk/*.apk
           fail_on_unmatched_files: true
+          generate_release_notes: true
           draft: false
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           make_latest: true

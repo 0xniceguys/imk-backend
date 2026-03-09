@@ -19,13 +19,11 @@
 
 ## 📱 Download
 
-| APK | Recommended For |
-|-----|----------------|
-| [`app-arm64-v8a-release.apk`](../../releases/latest) | Most modern Android phones ✅ |
-| [`app-armeabi-v7a-release.apk`](../../releases/latest) | Older 32-bit Android |
-| [`app-x86_64-release.apk`](../../releases/latest) | Android emulators |
+| APK | Notes |
+|-----|-------|
+| [`app-release.apk`](../../releases/latest/download/app-release.apk) | Universal Android APK from the latest GitHub release |
 
-**Install:** Enable *"Install from unknown sources"* in Android settings → tap the APK.
+**Install:** Enable *"Install from unknown sources"* in Android settings, then open the downloaded APK.
 
 ---
 
@@ -409,3 +407,10 @@ See [`backend/.env.example`](backend/.env.example) for the full list.
 | `GEMINI_API_KEY` | For Gemini coaching (optional) |
 
 ---
+
+## 🤝 Open Source
+
+- Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- Security reporting: [`SECURITY.md`](SECURITY.md)
+- License: [`LICENSE`](LICENSE)
