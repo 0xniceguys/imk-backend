@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../core/constants.dart';
 import '../core/palette.dart';
+import '../core/runtime_client_config.dart';
 import '../core/typography.dart';
 import '../router.dart';
 import '../models/match.dart';
@@ -54,14 +55,14 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   ProviderSubscription<AsyncValue<void>>? _matchEndSub;
   // ignore: unused_field
   ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _streamingStateSub;
-  // ignore: unused_field
-  ProviderSubscription<AsyncValue<GameState>>? _gameStateSub;
+
   // ignore: unused_field
   ProviderSubscription<AsyncValue<bool>>? _wsConnectedSub;
 
   String? _lastConnectedMatchId;
   bool _navigatedToPostMatch = false;
   bool _waitingForResult = false; // shows loader overlay when match ends
+  bool _matchEndScheduled = false; // guard against firing the 2.5s delay twice
   Timer? _fastPollTimer;
 
   // Active match tracking
@@ -79,14 +80,15 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   int _fpsFrameCount = 0;
 
   void _onPlayerUpdate() {
-    // Track FPS from VideoPlayer positions advancing
+    // Track FPS from VideoPlayer positions advancing (used for internal diagnostics).
+    // No setState here — avoids a 1/s rebuild; the fps value was only used by the
+    // debug overlay which has been removed.
     final now = DateTime.now().millisecondsSinceEpoch;
     _fpsFrameCount++;
     if (now - _lastFpsCheck >= 1000) {
-      final newFps = _fpsFrameCount;
+      _fps = _fpsFrameCount;
       _fpsFrameCount = 0;
       _lastFpsCheck = now;
-      if (mounted) setState(() => _fps = newFps);
     }
   }
 
@@ -100,15 +102,21 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _streamState = LiveStreamClientState.idle;
     ref.read(matchProvider.notifier).startFastPolling();
     _setupListeners();
-    // Signal the HlsPlayerService that audio is wanted.
-    // requestAudio() sets wantsAudio=true:
-    //   - If the controller is already initialized → unmutes immediately
-    //   - If preload is still in progress → preload() will unmute once done
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        try {
-          ref.read(hlsPlayerServiceProvider).requestAudio();
-        } catch (_) {}
+      if (!mounted) return;
+      // Unmute HLS audio now that the live screen is visible.
+      try {
+        ref.read(hlsPlayerServiceProvider).requestAudio();
+      } catch (_) {}
+      // If we have an explicit matchId, connect the WS immediately without
+      // waiting for the REST poll to confirm match.status == live.
+      // The WS rejects with 4004 if not ready yet and retries automatically.
+      // This removes the stale-status delay (up to 2s) that occurred when
+      // the cached match status was still 'upcoming' after navigation.
+      if (widget.matchId != null) {
+        _activeMatchId = widget.matchId;
+        _connectToMatch();
+        _checkEarlyStreamReady();
       }
     });
   }
@@ -195,13 +203,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         hlsSvc.preload(_activeMatchId!, url).then((_) => hlsSvc.unmute());
       },
     );
-    _gameStateSub = ref.listenManual<AsyncValue<GameState>>(gameStateProvider, (
-      _,
-      next,
-    ) {
-      // Force rebuild when new game state arrives so HUD updates
-      if (next.hasValue && mounted) setState(() {});
-    });
+
     _wsConnectedSub = ref.listenManual<AsyncValue<bool>>(wsConnectedProvider, (
       _,
       next,
@@ -234,11 +236,17 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     );
   }
 
-  /// Stops any live HLS player and navigates to post-match screen.
+  /// Lets the final KO clip play for 2.5 seconds before stopping HLS and
+  /// navigating to the post-match screen. Guard flag prevents double-fire.
   void _handleMatchEnded() {
-    _stopHls();
+    if (_matchEndScheduled) return;
+    _matchEndScheduled = true;
     final matchId = _activeMatchId ?? widget.matchId;
-    if (matchId != null) _navigateToPostMatch(matchId);
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (!mounted) return;
+      _stopHls();
+      if (matchId != null) _navigateToPostMatch(matchId);
+    });
   }
 
   /// Connects the WebSocket for the current active match.
@@ -485,8 +493,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       );
     }
 
-    final gameStateAsync = ref.watch(gameStateProvider);
-    final gameState = gameStateAsync.valueOrNull;
     final viewerAsync = ref.watch(viewerCountProvider);
     final streamingStateAsync = ref.watch(streamingStateProvider);
 
@@ -499,7 +505,11 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         ? preloadedCtrl
         : null;
     final isGlobalHlsReady = hlsCtrl != null;
-    final isAnyHlsLoading = hlsStateAsync.valueOrNull == HlsPreloadState.initializing;
+    final hlsPreloadState = hlsStateAsync.valueOrNull ?? HlsPreloadState.idle;
+    // Error = explicit failure (timeout/init crash). All other non-playing states
+    // (idle, initializing, stopped) are normal startup gaps — show a spinner, not an error.
+    final isHlsError = hlsPreloadState == HlsPreloadState.error;
+    final isAnyHlsLoading = !isGlobalHlsReady && !isHlsError;
 
     // Determine what message to show when stream isn't playing
     String streamStatusMessage = 'Stream starting...';
@@ -613,14 +623,16 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (isAnyHlsLoading) const IKLoader(size: 44)
+                              // Only show dead camera on explicit HLS error.
+                              // All other gaps (idle, initializing, stopped) show a spinner.
+                              if (!isHlsError) const IKLoader(size: 44)
                               else const Icon(Icons.videocam_off,
                                   color: Palette.muted, size: 36),
                               const SizedBox(height: 12),
                               Text(
-                                isAnyHlsLoading
-                                    ? streamStatusMessage
-                                    : 'Stream unavailable',
+                                isHlsError
+                                    ? 'Stream unavailable'
+                                    : streamStatusMessage,
                                 style: const TextStyle(
                                     color: Palette.muted, fontSize: 13),
                               ),
@@ -665,50 +677,12 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                   );
                 },
               ),
-              if (kDebugMode && matchId != null)
-                Positioned(
-                  top: 6, right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: _fps >= 20
-                            ? Colors.greenAccent
-                            : _fps >= 10
-                                ? Colors.yellow
-                                : Colors.redAccent,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      _streamState.name,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _fps >= 20
-                            ? Colors.greenAccent
-                            : _fps >= 10
-                                ? Colors.yellow
-                                : Colors.redAccent,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 8),
 
-          // Round score dots
-          if (gameState != null)
-            _RoundDots(
-              bestOf: gameState.bestOf,
-              roundsWonP1: gameState.roundsWonP1,
-              roundsWonP2: gameState.roundsWonP2,
-              currentRound: gameState.currentRound,
-            ),
+          // HUD: round dots — self-updating, never rebuilds parent screen
+          const _GameHud(),
           const SizedBox(height: 6),
 
           // Fighter names
@@ -722,6 +696,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
             '${match.fighter1?.llmModel ?? ''} vs ${match.fighter2?.llmModel ?? ''}',
             style: bodyStyle(size: 14, color: Palette.secondary),
           ),
+          const SizedBox(height: 12),
+
+          // Bet pool breakdown — both sides always visible during live match
+          _LiveBetPools(match: match),
           const SizedBox(height: 12),
 
           // Place Bet button (only if betting is open)
@@ -745,6 +723,141 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   }
 }
 
+
+/// Compact bet pool breakdown shown during live matches.
+/// Shows both fighters' pool percentages and SKR amounts at a glance.
+class _LiveBetPools extends StatelessWidget {
+  const _LiveBetPools({required this.match});
+  final Match match;
+
+  String _fmt(double v) {
+    final s = v.toStringAsFixed(2);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final token = RuntimeClientConfig.instance.tokenSymbol;
+    final odds = match.odds;
+    final sideAPool = odds.fighter1Pool > 0
+        ? odds.fighter1Pool
+        : match.totalPool * odds.fighter1PoolPct;
+    final sideBPool = odds.fighter2Pool > 0
+        ? odds.fighter2Pool
+        : match.totalPool * odds.fighter2PoolPct;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _PoolSide(
+                  name: match.fighter1?.name ?? 'Fighter 1',
+                  pool: sideAPool,
+                  pct: odds.fighter1PoolPct,
+                  token: token,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 48,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: Palette.border,
+              ),
+              Expanded(
+                child: _PoolSide(
+                  name: match.fighter2?.name ?? 'Fighter 2',
+                  pool: sideBPool,
+                  pct: odds.fighter2PoolPct,
+                  token: token,
+                  alignRight: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_fmt(match.totalPool)} $token total · ${match.activeBets} bets',
+            style: bodyStyle(size: 11, color: Palette.muted),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PoolSide extends StatelessWidget {
+  const _PoolSide({
+    required this.name,
+    required this.pool,
+    required this.pct,
+    required this.token,
+    this.alignRight = false,
+  });
+
+  final String name;
+  final double pool;
+  final double pct;
+  final String token;
+  final bool alignRight;
+
+  @override
+  Widget build(BuildContext context) {
+    final align = alignRight ? TextAlign.right : TextAlign.left;
+    final crossAlign =
+        alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final poolStr = pool > 0 ? '${pool.toStringAsFixed(1)} $token' : '—';
+    return Column(
+      crossAxisAlignment: crossAlign,
+      children: [
+        Text(
+          name.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: align,
+          style: bodyStyle(size: 10, color: Palette.muted, letterSpacing: 0.5),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          '${(pct * 100).toStringAsFixed(1)}%',
+          textAlign: align,
+          style: bodyStyle(
+            size: 20,
+            color: Palette.gold,
+            weight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          poolStr,
+          textAlign: align,
+          style: bodyStyle(size: 12, color: Palette.secondary),
+        ),
+      ],
+    );
+  }
+}
+
+/// Isolated HUD ConsumerWidget: watches [gameStateProvider] directly so that
+/// 5Hz game-state updates never trigger a rebuild of [LiveMatchScreen].
+class _GameHud extends ConsumerWidget {
+  const _GameHud();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameState = ref.watch(gameStateProvider).valueOrNull;
+    if (gameState == null) return const SizedBox.shrink();
+    return _RoundDots(
+      bestOf: gameState.bestOf,
+      roundsWonP1: gameState.roundsWonP1,
+      roundsWonP2: gameState.roundsWonP2,
+      currentRound: gameState.currentRound,
+    );
+  }
+}
 
 /// Health bars and timer overlay.
 /// StatefulWidget so it can clamp health monotonically downwards —

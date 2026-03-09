@@ -5,7 +5,6 @@ import '../core/palette.dart';
 import '../core/typography.dart';
 import '../router.dart';
 import '../models/match.dart';
-import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
@@ -99,47 +98,54 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
       matchStatusEventsProvider,
       (previous, next) {
         next.whenData((event) {
-          // Check if a match just went live
-          if (event['type'] == 'match_status_changed' &&
-              event['status'] == 'live' &&
-              !_autoNavigating) {
-            final matchId = event['match_id'] as String?;
-            if (matchId != null) {
-              // Pre-connect immediately when we learn the match just went live,
-              // before the navigation delay — gives us ~500ms of head start.
-              _preconnectForLiveMatch(matchId);
+          if (event['type'] != 'match_status_changed') return;
+          if (event['status'] != 'live') return;
+          if (_autoNavigating) return;
 
-              _autoNavigating = true;
-              debugPrint('[ArenaList] Auto-navigating to live match: $matchId');
-
-              if (mounted && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Match is starting! Redirecting to live stream...',
-                      style: bodyStyle(size: 14, color: Palette.white),
-                    ),
-                    backgroundColor: Palette.gold.withValues(alpha: 0.9),
-                    duration: const Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                );
-              }
-
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (mounted) {
-                  widget.onNavigate('/live-match/$matchId');
-                  Future.delayed(const Duration(seconds: 2), () {
-                    if (mounted) _autoNavigating = false;
-                  });
-                }
-              });
+          // ── Stale event guard (fix #15) ──────────────────────────────────
+          // The backend includes a Unix timestamp on every live event.
+          // If it's more than 10s old, this is a reconnect replay — ignore it.
+          final ts = event['timestamp'] as num?;
+          if (ts != null) {
+            final eventTime = DateTime.fromMillisecondsSinceEpoch(
+              (ts * 1000).toInt(),
+            );
+            if (DateTime.now().difference(eventTime).inSeconds > 10) {
+              debugPrint('[ArenaList] Ignoring stale live event (age > 10s)');
+              return;
             }
           }
+
+          final matchId = event['match_id'] as String?;
+          if (matchId == null) return;
+
+          // Mark sticky so reconnect replays never re-fire for this matchId.
+          _autoNavigating = true;
+
+          _preconnectForLiveMatch(matchId);
+          debugPrint('[ArenaList] Auto-navigating to live match: $matchId');
+
+          if (mounted && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Match is starting! Redirecting to live stream...',
+                  style: bodyStyle(size: 14, color: Palette.white),
+                ),
+                backgroundColor: Palette.gold.withValues(alpha: 0.9),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            );
+          }
+
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) widget.onNavigate('/live-match/$matchId');
+          });
         });
       },
     );
@@ -147,7 +153,6 @@ class _ArenaListScreenState extends ConsumerState<ArenaListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(clockTickProvider);
     final matchState = ref.watch(matchProvider);
     final allMatches = matchState.matches;
     final feed = _sortedFeed(allMatches);

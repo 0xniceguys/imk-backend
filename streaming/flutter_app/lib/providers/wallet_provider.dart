@@ -301,38 +301,54 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   // ── Orchestrator ────────────────────────────────────────────────────────
 
+  /// Race multiple price sources in parallel. Returns the first non-zero
+  /// result, or 0 if all fail or all return 0. Worst case = 1 timeout window
+  /// (6 s), not N × timeout (up to 36 s with a sequential loop).
+  Future<double> _racePrice(
+    Map<String, Future<double> Function()> sources,
+    String label,
+  ) async {
+    if (sources.isEmpty) return 0;
+
+    final completer = Completer<double>();
+    var remaining = sources.length;
+
+    for (final entry in sources.entries) {
+      entry.value().then((p) {
+        if (p > 0 && !completer.isCompleted) {
+          debugPrint('[Wallet] $label price via ${entry.key}: \$$p');
+          completer.complete(p);
+        }
+      }).catchError((e) {
+        debugPrint('[Wallet] $label price ${entry.key} error: $e');
+      }).whenComplete(() {
+        remaining--;
+        if (remaining == 0 && !completer.isCompleted) {
+          // All sources returned 0 or failed.
+          completer.complete(0.0);
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
   Future<Map<String, double>> _fetchTokenPrices({
     required String seekerMint,
   }) async {
-    double solPrice = 0;
-    double seekerPrice = 0;
+    // ── SOL: race all sources in parallel ────────────────────────────────
+    var solPrice = await _racePrice(
+      {
+        'Jupiter': _solPriceJupiter,
+        'CoinGecko': _solPriceCoinGecko,
+        'Binance': _solPriceBinance,
+        'Kraken': _solPriceKraken,
+        'DexScreener': _solPriceDexScreener,
+        'CoinPaprika': _solPriceCoinPaprika,
+      },
+      'SOL',
+    );
 
-    // ── SOL: try each source in order, stop on first non-zero result ──────
-    final solSources = <String, Future<double> Function()>{
-      'Jupiter': _solPriceJupiter,
-      'CoinGecko': _solPriceCoinGecko,
-      'Binance': _solPriceBinance,
-      'Kraken': _solPriceKraken,
-      'DexScreener': _solPriceDexScreener,
-      'CoinPaprika': _solPriceCoinPaprika,
-    };
-
-    for (final entry in solSources.entries) {
-      if (solPrice > 0) break;
-      try {
-        final p = await entry.value();
-        if (p > 0) {
-          solPrice = p;
-          debugPrint('[Wallet] SOL price via ${entry.key}: \$$solPrice');
-        } else {
-          debugPrint('[Wallet] SOL price ${entry.key}: no data');
-        }
-      } catch (e) {
-        debugPrint('[Wallet] SOL price ${entry.key} error: $e');
-      }
-    }
-
-    // Fall back to last known good price
     if (solPrice <= 0 && _lastKnownSolPrice > 0) {
       solPrice = _lastKnownSolPrice;
       debugPrint('[Wallet] SOL price: using cached \$$solPrice');
@@ -340,33 +356,21 @@ class WalletNotifier extends StateNotifier<WalletState> {
       _lastKnownSolPrice = solPrice;
     }
 
-    // ── SKR: try each source, stop on first non-zero result ────────────────
+    // ── SKR: race all sources in parallel ────────────────────────────────
+    double seekerPrice;
     if (_isDevnet) {
-      // Devnet SKR has no reliable market feed; use a fixed testing price.
       seekerPrice = kDevnetSkrPriceUsd;
     } else {
-      final seekerSources = <String, Future<double> Function()>{
-        'Jupiter': _skrPriceJupiter,
-        'DexScreener': _skrPriceDexScreener,
-        'GeckoTerminal': _skrPriceGeckoTerminal,
-        'Raydium': _skrPriceRaydium,
-        'CoinPaprika': _skrPriceCoinPaprika,
-      };
-
-      for (final entry in seekerSources.entries) {
-        if (seekerPrice > 0) break;
-        try {
-          final p = await entry.value();
-          if (p > 0) {
-            seekerPrice = p;
-            debugPrint('[Wallet] SKR price via ${entry.key}: \$$seekerPrice');
-          } else {
-            debugPrint('[Wallet] SKR price ${entry.key}: no data');
-          }
-        } catch (e) {
-          debugPrint('[Wallet] SKR price ${entry.key} error: $e');
-        }
-      }
+      seekerPrice = await _racePrice(
+        {
+          'Jupiter': _skrPriceJupiter,
+          'DexScreener': _skrPriceDexScreener,
+          'GeckoTerminal': _skrPriceGeckoTerminal,
+          'Raydium': _skrPriceRaydium,
+          'CoinPaprika': _skrPriceCoinPaprika,
+        },
+        'SKR',
+      );
 
       if (seekerPrice <= 0 && _lastKnownSeekerPrice > 0) {
         seekerPrice = _lastKnownSeekerPrice;

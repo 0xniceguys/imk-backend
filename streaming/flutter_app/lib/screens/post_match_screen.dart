@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/palette.dart';
@@ -15,25 +16,54 @@ import '../widgets/shared/ornate_button.dart';
 import '../widgets/shared/gold_gradient_divider.dart';
 import '../widgets/fighter/fighter_image.dart';
 
-class PostMatchScreen extends ConsumerWidget {
+class PostMatchScreen extends ConsumerStatefulWidget {
   const PostMatchScreen({super.key, required this.onNavigate, this.matchId});
   final void Function(String) onNavigate;
   final String? matchId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PostMatchScreen> createState() => _PostMatchScreenState();
+}
+
+class _PostMatchScreenState extends ConsumerState<PostMatchScreen> {
+  Timer? _settlementPoller;
+
+  @override
+  void dispose() {
+    _settlementPoller?.cancel();
+    super.dispose();
+  }
+
+  /// Starts polling every 1.5s until the match is settled.
+  /// Called when the screen shows "Preparing Result".
+  void _startSettlementPolling() {
+    if (_settlementPoller?.isActive ?? false) return;
+    _settlementPoller = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+      if (!mounted) { _settlementPoller?.cancel(); return; }
+      ref.read(matchProvider.notifier).refresh();
+    });
+  }
+
+  void _stopSettlementPolling() {
+    _settlementPoller?.cancel();
+    _settlementPoller = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
     final bets = ref.watch(betProvider);
 
     Match? match;
     Match? requestedMatch;
-    if (matchId != null) {
+    if (widget.matchId != null) {
       requestedMatch = matches.cast<Match?>().firstWhere(
-        (m) => m?.id == matchId,
+        (m) => m?.id == widget.matchId,
         orElse: () => null,
       );
       if (requestedMatch == null) {
+        _stopSettlementPolling();
         return _statusShell(
           title: 'Match not found',
           subtitle: 'The requested match is no longer available.',
@@ -44,6 +74,7 @@ class PostMatchScreen extends ConsumerWidget {
     match ??= _latestSettledMatch(matches);
 
     if (match == null) {
+      _stopSettlementPolling();
       return _statusShell(
         title: 'Result not available',
         subtitle: 'No completed matches yet.',
@@ -55,12 +86,17 @@ class PostMatchScreen extends ConsumerWidget {
         resolvedMatch.status == MatchStatus.completed ||
         resolvedMatch.status == MatchStatus.cancelled;
     if (!isSettled) {
+      // Match exists but isn't settled yet — poll aggressively.
+      _startSettlementPolling();
       return _statusShell(
         title: 'Preparing Result',
         subtitle: 'Settling the final result for this match.',
         showLoader: true,
       );
     }
+
+    // Match is settled — stop polling.
+    _stopSettlementPolling();
 
     final winner = _resolveWinner(resolvedMatch);
 
@@ -72,7 +108,7 @@ class PostMatchScreen extends ConsumerWidget {
 
     return AppShell(
       activeTab: NavTab.arena,
-      onNavigate: (slug) => onNavigate(routeFor(slug)),
+      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       scrollable: true,
       contentBottomPadding: 180,
       content: Column(
@@ -169,7 +205,7 @@ class PostMatchScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           OrnateButton(
             label: 'Back to Arena',
-            onTap: () => onNavigate('/arena-list'),
+            onTap: () => widget.onNavigate('/arena-list'),
           ),
           const SizedBox(height: 16),
         ],
@@ -184,7 +220,7 @@ class PostMatchScreen extends ConsumerWidget {
   }) {
     return AppShell(
       activeTab: NavTab.arena,
-      onNavigate: (slug) => onNavigate(routeFor(slug)),
+      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
       content: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -199,7 +235,7 @@ class PostMatchScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             OrnateButton(
               label: 'Back to Arena',
-              onTap: () => onNavigate('/arena-list'),
+              onTap: () => widget.onNavigate('/arena-list'),
             ),
           ],
         ),
@@ -287,7 +323,7 @@ class _NoBetPlaced extends StatelessWidget {
         border: Border.all(color: Palette.border),
       ),
       child: Text(
-        'No bet(S) placed on this match',
+        'No bets placed on this match',
         style: bodyStyle(size: 14, color: Palette.muted),
         textAlign: TextAlign.center,
       ),

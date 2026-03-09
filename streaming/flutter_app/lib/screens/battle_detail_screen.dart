@@ -8,7 +8,6 @@ import '../core/runtime_client_config.dart';
 import '../core/typography.dart';
 import '../models/match.dart';
 import '../models/match_bet_feed_item.dart';
-import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
@@ -41,6 +40,10 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   // loading in the background before the user navigates to the live screen.
   String? _preConnectedMatchId;
   DateTime _lastGoLiveRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // Rapid-poll timer activated at T≤2s so we don't depend on clockTickProvider
+  // to trigger _maybeRefreshAroundGoLive after the countdown hits zero.
+  Timer? _rapidPollTimer;
 
   @override
   void initState() {
@@ -75,7 +78,21 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   @override
   void dispose() {
     _matchStateSub?.close();
+    _rapidPollTimer?.cancel();
     super.dispose();
+  }
+
+  void _startRapidPoll() {
+    if (_rapidPollTimer?.isActive ?? false) return;
+    _rapidPollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) { _rapidPollTimer?.cancel(); return; }
+      ref.read(matchProvider.notifier).refresh();
+    });
+  }
+
+  void _stopRapidPoll() {
+    _rapidPollTimer?.cancel();
+    _rapidPollTimer = null;
   }
   void _maybePreConnect(Match match) {
     if (match.status != MatchStatus.upcoming) return;
@@ -109,6 +126,9 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     final match = _resolveMatch(next.matches);
     if (match == null || match.status != MatchStatus.live) return;
 
+    // Match went live — stop the rapid poll timer immediately.
+    _stopRapidPoll();
+
     final streamSvc = ref.read(matchStreamServiceProvider);
     if (streamSvc.matchId != match.id) {
       streamSvc.connect(match.id);
@@ -126,25 +146,9 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(clockTickProvider);
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
     final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
-
-    // Auto-navigate to live screen when this upcoming match becomes live
-    ref.listen<MatchState>(matchProvider, (prev, next) {
-      if (_navigatedToLive || !mounted) return;
-      if (widget.matchId == null) return;
-      final updated = next.matches.cast<Match?>().firstWhere(
-        (m) => m?.id == widget.matchId,
-        orElse: () => null,
-      );
-      if (updated != null && updated.status == MatchStatus.live) {
-        _navigatedToLive = true;
-        debugPrint('[BattleDetail] Match ${widget.matchId} went live — auto-navigating');
-        widget.onNavigate('/live-match/${widget.matchId}');
-      }
-    });
 
     if (!matchState.hasLoaded) {
       return const Scaffold(
@@ -353,29 +357,31 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
 
   Match? _resolveMatch(List<Match> matches) {
     if (matches.isEmpty) return null;
-    if (widget.matchId == null) return matches.first;
-    return matches.cast<Match?>().firstWhere(
-          (m) => m?.id == widget.matchId,
-          orElse: () => matches.first,
-        ) ??
-        matches.first;
+    // If a specific matchId was requested but not found, return null rather
+    // than silently showing a different match.
+    if (widget.matchId != null) {
+      return matches.cast<Match?>().firstWhere(
+        (m) => m?.id == widget.matchId,
+        orElse: () => null,
+      );
+    }
+    return matches.first;
   }
 
   void _maybeRefreshAroundGoLive(Match match) {
     if (match.status != MatchStatus.upcoming || match.queuePosition != 1) {
+      _stopRapidPoll();
       return;
     }
     final startsAt = match.queueStartsAt;
-    if (startsAt == null) return;
+    if (startsAt == null) { _stopRapidPoll(); return; }
     final remain = startsAt.difference(DateTime.now()).inSeconds;
-    if (remain > 2) return;
 
-    final now = DateTime.now();
-    if (now.difference(_lastGoLiveRefreshAt) < const Duration(seconds: 1)) {
-      return;
-    }
-    _lastGoLiveRefreshAt = now;
-    unawaited(ref.read(matchProvider.notifier).refresh());
+    if (remain > 2) return; // not yet — don't start timer
+
+    // T≤2: activate the 500ms rapid-poll Timer (idempotent start).
+    // The timer directly calls refresh() so we don't depend on rebuild ticks.
+    _startRapidPoll();
   }
 
   Future<void> _pickSideAndOpenBet(int side, Match match) async {

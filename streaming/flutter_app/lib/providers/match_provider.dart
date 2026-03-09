@@ -106,17 +106,14 @@ class MatchNotifier extends StateNotifier<MatchState> {
       _failureCount = 0;
       state = state.copyWith(matches: matches, hasLoaded: true);
     } else {
-      // Empty list could be a real empty result OR a network failure.
-      // Either way, mark hasLoaded = true so UI doesn't spin forever.
-      if (state.matches.isNotEmpty) {
-        // Network may be down — keep old data, backoff
-        _failureCount = (_failureCount + 1).clamp(0, 4);
-        state = state.copyWith(hasLoaded: true);
-      } else {
-        // First load returned empty — no matches in DB, not an error
-        _failureCount = 0;
-        state = state.copyWith(matches: [], hasLoaded: true);
-      }
+      // Empty list is a valid response (no matches in DB yet).
+      // Never treat it as a network failure — keep polling at normal rate.
+      _failureCount = 0;
+      // Preserve previously loaded matches so UI doesn't flicker to empty.
+      state = state.copyWith(
+        matches: state.matches.isEmpty ? [] : state.matches,
+        hasLoaded: true,
+      );
     }
   }
 

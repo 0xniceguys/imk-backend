@@ -1043,9 +1043,18 @@ class MatchRunner:
             logger.info("Successfully settled match %s with winner player %d", self.match_id, winner_player)
         except Exception as e:
             logger.exception("Auto-settle failed for match %s: %s", self.match_id, str(e))
-            # Even if settlement fails, we should still mark the match as completed
-            # to prevent it from being stuck in LIVE status
+            # Even if settlement fails, mark the match completed so it doesn't stay LIVE
             await self._mark_match_completed_fallback(winner_player)
+
+        # Broadcast global completed event so Flutter post-match screen knows
+        # instantly without waiting for the next REST poll (fixes timing gap where
+        # match_ended fires before DB is updated to completed status).
+        await ws_manager.broadcast_global_event({
+            "type": "match_status_changed",
+            "match_id": self.match_id,
+            "status": "completed",
+            "timestamp": time.time(),
+        })
 
     async def _mark_match_completed_fallback(self, winner_player: int) -> None:
         """Fallback to mark match as completed in DB when settlement fails."""

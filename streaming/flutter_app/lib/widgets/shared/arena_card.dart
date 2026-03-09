@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/palette.dart';
 import '../../core/runtime_client_config.dart';
 import '../../core/typography.dart';
 import '../../models/match.dart';
+import '../../providers/clock_provider.dart';
 import '../fighter/fighter_image.dart';
 import 'gold_gradient_divider.dart';
 
-class ArenaCard extends StatelessWidget {
+class ArenaCard extends ConsumerWidget {
   const ArenaCard({super.key, required this.match, required this.onTap});
 
   final Match match;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Only watched for queue-#1 upcoming matches that have a live countdown.
+    // This lets the card self-update without forcing the whole list to rebuild.
+    final needsClock = match.status == MatchStatus.upcoming &&
+        match.queuePosition == 1 &&
+        match.queueStartsAt != null;
+    if (needsClock) ref.watch(clockTickProvider);
     final isLive = match.status == MatchStatus.live;
     final queueLabel = _queueText(match);
     final fighterVs =
