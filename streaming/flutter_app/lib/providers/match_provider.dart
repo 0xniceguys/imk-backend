@@ -101,7 +101,7 @@ class MatchNotifier extends StateNotifier<MatchState> {
   }
 
   Future<void> refresh() async {
-    final matches = await _api.fetchMatches();
+    final matches = await _api.fetchMatches(status: 'upcoming,live,completed');
     if (matches.isNotEmpty) {
       _failureCount = 0;
       state = state.copyWith(matches: matches, hasLoaded: true);

@@ -52,7 +52,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   // Subscription references kept to prevent premature GC of listenManual subs.
   ProviderSubscription<MatchState>? _matchStateSub;
   // ignore: unused_field
-  ProviderSubscription<AsyncValue<void>>? _matchEndSub;
+  ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _matchEndSub;
   // ignore: unused_field
   ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _streamingStateSub;
 
@@ -61,8 +61,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   String? _lastConnectedMatchId;
   bool _navigatedToPostMatch = false;
-  bool _waitingForResult = false; // shows loader overlay when match ends
-  bool _matchEndScheduled = false; // guard against firing the 2.5s delay twice
+  bool _matchEndScheduled = false; // guard against firing the drain+nav flow twice
   bool _inRoundTransition = false; // shows round overlay between rounds
   int _nextRound = 2; // round number to display in the overlay
   Timer? _fastPollTimer;
@@ -181,7 +180,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       (prev, next) => _onMatchState(next),
       fireImmediately: true,
     );
-    _matchEndSub = ref.listenManual<AsyncValue<void>>(matchEndProvider, (
+    _matchEndSub = ref.listenManual<AsyncValue<Map<String, dynamic>>>(matchEndProvider, (
       _,
       next,
     ) {
@@ -240,25 +239,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           return;
         }
 
-        final svcHasThisMatch = hlsSvc.activeMatchId == _activeMatchId &&
-            (hlsSvc.state == HlsPreloadState.playing ||
-             hlsSvc.state == HlsPreloadState.initializing);
-        if (svcHasThisMatch) {
-          debugPrint('[LiveMatch] HlsPlayerService already active for $_activeMatchId (${hlsSvc.state}) — unmuting only');
-          hlsSvc.unmute();
-          return;
-        }
-        // Global service not active for this match — trigger it directly
-        final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
-        debugPrint('[LiveMatch] HlsPlayerService not active for $_activeMatchId — calling preload() url=$url');
-        hlsSvc.preload(_activeMatchId!, url).then((_) {
-          if (mounted) {
-            debugPrint('[LiveMatch] preload() resolved — unmuting (mounted=true)');
-            hlsSvc.unmute();
-          } else {
-            debugPrint('[LiveMatch] preload() resolved but widget unmounted — skipping unmute');
-          }
-        });
+        // Never call preload() from here — globalHlsPreloaderProvider handles that.
+        // We only unmute so audio starts when the user is on the live screen.
+        debugPrint('[LiveMatch] streaming_state "$state" — unmuting (preload handled by globalHlsPreloader)');
+        hlsSvc.unmute();
       },
     );
 
@@ -294,53 +278,34 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     );
   }
 
-  /// Waits for the HLS stream to naturally die (backend stops FFmpeg ~12s after
-  /// match end) before navigating to post-match.  This ensures the user sees
-  /// the full fight — the video is 15-30 s behind live, so a fixed 2.5 s delay
-  /// would cut away before the KO clip finishes.
+  /// Handles match completion with a deterministic post-match transition.
   ///
-  /// Flow:
-  ///   1. Register onStreamDied on the watchdog → fires when stream 404s/freezes.
-  ///   2. Set a 20 s safety timeout in case the stream never errors cleanly.
-  ///   3. Whichever fires first calls _doPostMatchNav().
+  /// The backend keeps FFmpeg alive for 35s after sending match_ended, so the
+  /// HLS stream continues playing during our delay. Flow:
+  ///   1. Prefetch result data (bets + match) immediately.
+  ///   2. Wait 5s so the user sees the final action on screen.
+  ///   3. Stop HLS and navigate to post-match (result already cached).
   void _handleMatchEnded() {
     if (_matchEndScheduled) return;
     _matchEndScheduled = true;
     final matchId = _activeMatchId ?? widget.matchId;
     if (matchId == null) return;
 
-    debugPrint('[LiveMatch] match ended — waiting for stream to drain before navigating');
+    debugPrint('[LiveMatch] match ended — prefetching result, navigating in 5s');
 
-    // Safety timeout: if the stream never cleanly 404s (e.g. the watchdog
-    // grace period is still running), navigate anyway after 20 s.
-    Timer? safetyTimer;
-    bool navigated = false;
+    // Prefetch result data while the user watches the last few seconds.
+    ref.read(betProvider.notifier).refresh();
+    ref.read(matchProvider.notifier).refresh();
 
-    void doNav() {
-      if (navigated) return;
-      navigated = true;
-      safetyTimer?.cancel();
-      // Clear the callback so the service doesn't hold a stale reference.
-      try { ref.read(hlsPlayerServiceProvider).onStreamDied = null; } catch (_) {}
+    // Fixed 5s delay: the match_ended WS fires ~instantly after the KO/win,
+    // and the backend keeps FFmpeg alive for 35s, so the stream keeps playing.
+    // 5s is enough to see the final blow land, then we transition cleanly.
+    Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
+      debugPrint('[LiveMatch] Post-match delay complete — navigating');
       _stopHls();
       _navigateToPostMatch(matchId);
-    }
-
-    safetyTimer = Timer(const Duration(seconds: 20), () {
-      debugPrint('[LiveMatch] Safety timeout fired — navigating to post-match');
-      doNav();
     });
-
-    // Register watchdog callback: fires when stream errors (404) or freezes.
-    try {
-      ref.read(hlsPlayerServiceProvider).onStreamDied = () {
-        debugPrint('[LiveMatch] onStreamDied fired — stream drained, navigating');
-        doNav();
-      };
-    } catch (_) {
-      // If service is already disposed, fall back to safety timer only.
-    }
   }
 
 
@@ -385,48 +350,26 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     });
   }
 
-  /// Eagerly starts HLS if the pre-connected WebSocket already received a
-  /// 'ready' signal before the user navigated to this screen.
+  /// If the globalHlsPreloader already has a controller playing for this match,
+  /// unmute it. Never calls preload() directly — that's globalHlsPreloader's job.
   void _checkEarlyStreamReady() {
-    // Guard: this method is called from two postFrameCallbacks on every navigation
-    // (initState + _onMatchState with fireImmediately). Without this flag both
-    // would race to call hlsSvc.preload() concurrently before the first one's
-    // await _teardown() completes, causing two ExoPlayer instances to be created.
     if (_earlyStartAttempted) return;
-    // Guard: if match already ended, don't try to restart a dead HLS stream.
-    // This fires when a bottom sheet is dismissed after match-end (didPopNext →
-    // postFrameCallback), but the stream is already stopped.
     if (_matchEndScheduled) {
       debugPrint('[LiveMatch] _checkEarlyStreamReady() skipped — match already ended');
       return;
     }
+    _earlyStartAttempted = true;
     final matchId = widget.matchId ?? _findLiveMatchId();
     if (matchId == null) return;
-    final currentState = ref.read(streamingStateProvider);
-    currentState.whenData((data) {
-      final state = data['state'] as String?;
-      if (state != 'ready') return;
-      // Always route through HlsPlayerService to avoid dual-controller conflict
-      final hlsSvc = ref.read(hlsPlayerServiceProvider);
-      if (hlsSvc.activeMatchId == matchId &&
-          (hlsSvc.state == HlsPreloadState.playing ||
-           hlsSvc.state == HlsPreloadState.initializing)) {
-        // Already handled — just unmute
-        hlsSvc.unmute();
-        return;
-      }
-      final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
-      debugPrint('[LiveMatch] Early HLS start via hlsService (stream was ready on entry)');
-      _earlyStartAttempted = true; // must be set BEFORE the async call
-      hlsSvc.preload(matchId, url).then((_) {
-        if (mounted) {
-          debugPrint('[LiveMatch] Early preload() resolved — unmuting (mounted=true)');
-          hlsSvc.unmute();
-        } else {
-          debugPrint('[LiveMatch] Early preload() resolved but widget unmounted — skipping unmute');
-        }
-      });
-    });
+    final hlsSvc = ref.read(hlsPlayerServiceProvider);
+    if (hlsSvc.activeMatchId == matchId &&
+        (hlsSvc.state == HlsPreloadState.playing ||
+         hlsSvc.state == HlsPreloadState.initializing)) {
+      debugPrint('[LiveMatch] Early unmute — globalHlsPreloader already active for $matchId');
+      hlsSvc.unmute();
+    } else {
+      debugPrint('[LiveMatch] _checkEarlyStreamReady() — no active preload yet, waiting for globalHlsPreloader');
+    }
   }
 
 
@@ -434,13 +377,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     if (_navigatedToPostMatch || !mounted) return;
     _navigatedToPostMatch = true;
     _fastPollTimer?.cancel();
-    // Show "Calculating results..." overlay immediately
-    if (mounted) setState(() => _waitingForResult = true);
-    ref.read(betProvider.notifier).refresh();
-    ref.read(matchProvider.notifier).refresh();
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) widget.onNavigate('/post-match/$matchId');
-    });
+    // Data was already prefetched in _handleMatchEnded while the stream was
+    // draining — navigate immediately, no "Calculating Results" delay needed.
+    debugPrint('[LiveMatch] Navigating to post-match (result already prefetched)');
+    if (mounted) widget.onNavigate('/post-match/$matchId');
   }
 
 
@@ -645,31 +585,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           streamStatusMessage = 'Stream starting...';
       }
     });
-
-    // ── Waiting-for-result overlay (shown immediately when match ends) ─────────
-    if (_waitingForResult) {
-      return Container(
-        color: Palette.black,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const IKLoader(size: 48),
-              const SizedBox(height: 20),
-              Text(
-                'Calculating Results...',
-                style: displayStyle(size: 22, color: Palette.gold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please wait',
-                style: bodyStyle(size: 14, color: Palette.muted),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return AppShell(
       activeTab: NavTab.arena,

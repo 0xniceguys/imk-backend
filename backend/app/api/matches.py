@@ -136,8 +136,10 @@ def _match_to_out(
 @router.get("/", response_model=list[MatchOut])
 async def list_matches(
     status: str | None = None,
+    limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
+    safe_limit = max(1, min(limit, 200))
     query = (
         select(Match)
         .options(
@@ -147,6 +149,7 @@ async def list_matches(
             selectinload(Match.stream),
         )
         .order_by(Match.scheduled_at.desc())
+        .limit(safe_limit)
     )
 
     if status:

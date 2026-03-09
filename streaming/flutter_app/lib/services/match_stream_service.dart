@@ -27,14 +27,14 @@ class MatchStreamService {
   // Stream controllers for different message types
   final _gameStateCtrl = StreamController<GameState>.broadcast();
   final _viewerCountCtrl = StreamController<int>.broadcast();
-  final _matchEndCtrl = StreamController<void>.broadcast();
+  final _matchEndCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _roundEndCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _streamingStateCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionCtrl = StreamController<bool>.broadcast();
 
   Stream<GameState> get gameStateStream => _gameStateCtrl.stream;
   Stream<int> get viewerCountStream => _viewerCountCtrl.stream;
-  Stream<void> get matchEndStream => _matchEndCtrl.stream;
+  Stream<Map<String, dynamic>> get matchEndStream => _matchEndCtrl.stream;
   Stream<Map<String, dynamic>> get roundEndStream => _roundEndCtrl.stream;
   Stream<Map<String, dynamic>> get streamingStateStream => _streamingStateCtrl.stream;
   Stream<bool> get connectionStream => _connectionCtrl.stream;
@@ -172,7 +172,7 @@ class MatchStreamService {
         case 'match_ended':
           debugPrint('[Stream] 🏁 match_ended received at ${DateTime.now().toIso8601String()} — marking terminal, no more reconnects');
           _isTerminal = true;
-          _matchEndCtrl.add(null);
+          _matchEndCtrl.add(json);
 
         case 'pong':
           break;
@@ -231,7 +231,7 @@ class MatchStreamService {
         '[Stream] 4004 after $_upcoming4004Count attempts — '
         'runner never started, treating as match ended',
       );
-      _matchEndCtrl.add(null);
+      _matchEndCtrl.add({'type': 'match_ended', 'match_id': _matchId});
       return;
     }
 

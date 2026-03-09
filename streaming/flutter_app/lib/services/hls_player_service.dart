@@ -248,9 +248,14 @@ class HlsPlayerService {
             '[HlsPlayerService] ⏳ Buffering stall tick $_bufferingTicks/$_bufferingTicksBeforeRestart',
           );
           if (_bufferingTicks >= _bufferingTicksBeforeRestart) {
-            debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 2}s) — restarting stream via forceReload');
             _stopWatchdog();
-            forceReload(matchId, hlsUrl);
+            if (onStreamDied != null) {
+              debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 2}s) — calling onStreamDied (match ended, stream drained)');
+              onStreamDied!();
+            } else {
+              debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 2}s) — restarting stream via forceReload');
+              forceReload(matchId, hlsUrl);
+            }
           }
           return;
         } else {
@@ -264,20 +269,34 @@ class HlsPlayerService {
         }
 
         if (pos == _lastPosition) {
-          _stuckTicks++;
-          debugPrint(
-            '[HlsWatchdog] ⚠️ STUCK pos=$pos tick=$_stuckTicks/$_stuckTicksBeforeRestart '
-            'playing=$isPlaying buffering=$isBuffering error=$hasError',
-          );
-          if (_stuckTicks >= _stuckTicksBeforeRestart) {
-            debugPrint('[HlsWatchdog] 🔄 Stream frozen for ${_stuckTicks * 2}s — restarting');
-            _stopWatchdog();
-            if (onStreamDied != null) {
-              debugPrint('[HlsWatchdog] → calling onStreamDied (frozen in match-ended mode)');
-              onStreamDied!();
-            } else {
-              debugPrint('[HlsWatchdog] 🔄 Restarting stream via forceReload (stuck recovery)');
-              forceReload(matchId, hlsUrl);
+          // On some Android devices (e.g. OnePlus CPH2649), the position
+          // getter returns stale values while ExoPlayer is actively decoding
+          // at full fps. If the controller reports playing=true AND
+          // buffering=false, the stream is healthy — only the position
+          // reporting is lagging. Don't count these ticks toward the stuck
+          // threshold to avoid tearing down a working stream.
+          if (isPlaying && !isBuffering) {
+            _stuckTicks = 0; // reset — stream is healthy
+            debugPrint(
+              '[HlsWatchdog] ℹ️ Position stale but player healthy '
+              'pos=$pos playing=$isPlaying buffering=$isBuffering — ignoring',
+            );
+          } else {
+            _stuckTicks++;
+            debugPrint(
+              '[HlsWatchdog] ⚠️ STUCK pos=$pos tick=$_stuckTicks/$_stuckTicksBeforeRestart '
+              'playing=$isPlaying buffering=$isBuffering error=$hasError',
+            );
+            if (_stuckTicks >= _stuckTicksBeforeRestart) {
+              debugPrint('[HlsWatchdog] 🔄 Stream frozen for ${_stuckTicks * 2}s — restarting');
+              _stopWatchdog();
+              if (onStreamDied != null) {
+                debugPrint('[HlsWatchdog] → calling onStreamDied (frozen in match-ended mode)');
+                onStreamDied!();
+              } else {
+                debugPrint('[HlsWatchdog] 🔄 Restarting stream via forceReload (stuck recovery)');
+                forceReload(matchId, hlsUrl);
+              }
             }
           }
         } else {

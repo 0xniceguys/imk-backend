@@ -35,8 +35,8 @@ final wsConnectedProvider = StreamProvider<bool>((ref) {
   return service.connectionStream;
 });
 
-/// Fires when the match ends.
-final matchEndProvider = StreamProvider<void>((ref) {
+/// Fires when the match ends — payload includes winner_player, rounds_won_p1/p2.
+final matchEndProvider = StreamProvider<Map<String, dynamic>>((ref) {
   final service = ref.watch(matchStreamServiceProvider);
   return service.matchEndStream;
 });
@@ -127,10 +127,13 @@ final globalHlsPreloaderProvider = Provider<void>((ref) {
   final hlsService = ref.watch(hlsPlayerServiceProvider);
   final wsService = ref.watch(matchStreamServiceProvider);
 
-  // ── Match-end: clean up the pre-loaded controller ──────────────────────
-  final matchEndSub = wsService.matchEndStream.listen((_) {
-    debugPrint('[GlobalHlsPreloader] Match ended — stopping HLS preload');
-    hlsService.stop();
+  // ── Match-end: do NOT stop HLS here. The live screen has a drain flow
+  // that waits for the buffered video to finish playing (HLS is 15-30s behind
+  // live). Killing the player immediately would cut off the last seconds of
+  // the match. The live screen's _handleMatchEnded() + onStreamDied callback
+  // handles graceful cleanup once the stream naturally 404s or freezes.
+  final matchEndSub = wsService.matchEndStream.listen((payload) {
+    debugPrint('[GlobalHlsPreloader] Match ended — letting live screen drain the stream (winner=${payload['winner_player']})');
   });
 
   // ── Streaming-state: trigger preload on "ready" ─────────────────────────
