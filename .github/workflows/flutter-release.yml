@@ -151,6 +151,7 @@ jobs:
         with:
           distribution: zulu
           java-version: "17"
+          cache: gradle
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -158,6 +159,14 @@ jobs:
           channel: stable
           flutter-version: "3.38.9"
           cache: true
+
+      - name: Cache Flutter pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-flutter-pub-${{ hashFiles('streaming/flutter_app/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-pub-
 
       - name: Install Flutter dependencies
         working-directory: ${{ env.FLUTTER_APP_DIR }}
@@ -172,12 +181,15 @@ jobs:
           mkdir -p release
           cp "${FLUTTER_APP_DIR}/build/app/outputs/flutter-apk/app-release.apk" \
             release/immortal-kombat-android.apk
+          sha256sum release/immortal-kombat-android.apk > release/SHA256SUMS.txt
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: immortal-kombat-android-${{ steps.meta.outputs.tag }}
-          path: release/immortal-kombat-android.apk
+          path: |
+            release/immortal-kombat-android.apk
+            release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -189,16 +201,25 @@ jobs:
           target_commitish: ${{ steps.meta.outputs.release_sha }}
           name: ${{ steps.meta.outputs.release_name }}
           body: |
-            Android APK release for `${{ steps.meta.outputs.tag }}`.
+            Android release for `${{ steps.meta.outputs.tag }}`.
 
-            Flutter version: `${{ steps.meta.outputs.version }}+${{ steps.meta.outputs.build_number }}`
+            Version: `${{ steps.meta.outputs.version }}+${{ steps.meta.outputs.build_number }}`
 
-            Included APK:
-            - `immortal-kombat-android.apk`
-          files: release/immortal-kombat-android.apk
+            Assets:
+            - `immortal-kombat-android.apk` — universal Android APK for sideload install
+            - `SHA256SUMS.txt` — checksum file for verifying the download
+
+            Install:
+            1. Download `immortal-kombat-android.apk`
+            2. Allow installs from unknown sources on your Android device
+            3. Open the APK and complete the install
+          files: |
+            release/immortal-kombat-android.apk
+            release/SHA256SUMS.txt
           fail_on_unmatched_files: true
           generate_release_notes: true
           draft: false
+          overwrite_files: true
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           make_latest: true
 
