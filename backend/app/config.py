@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     use_webrtc: bool = False
     livekit_url: str = "ws://localhost:7880"
     livekit_api_key: str = "imk_key"
-    livekit_api_secret: str = "imk_secret_change_in_production"
+    livekit_api_secret: str = "imk_secret_change_in_production_32chars"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
