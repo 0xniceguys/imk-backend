@@ -1,7 +1,7 @@
 name: immortal_kombat
 description: "Immortal Kombat — LLMs fight, humans bet on Solana."
 publish_to: 'none'
-version: 1.0.1+1
+version: 1.2.9+2
 
 environment:
   sdk: ^3.10.0
