@@ -159,13 +159,17 @@ class MatchStreamService {
           _streamingStateCtrl.add(json);
 
         case 'round_end':
+          final p1Won = json['p1_won'] == true;
+          final roundNum = json['current_round'];
+          final matchOver = json['match_over'] == true;
           debugPrint(
-            '[Stream] 🥊 Round ended: ${json['p1_won'] == true ? "P1" : "P2"} won',
+            '[Stream] 🥊 Round $roundNum ended: ${p1Won ? "P1" : "P2"} won '
+            '(match_over=$matchOver, timestamp=${DateTime.now().toIso8601String()})',
           );
           _roundEndCtrl.add(json);
 
         case 'match_ended':
-          debugPrint('[Stream] 🏁 Match ended');
+          debugPrint('[Stream] 🏁 match_ended received at ${DateTime.now().toIso8601String()} — Flutter will wait for stream to 404 before navigating');
           _matchEndCtrl.add(null);
 
         case 'pong':

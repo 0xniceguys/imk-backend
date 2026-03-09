@@ -138,6 +138,8 @@ final globalHlsPreloaderProvider = Provider<void>((ref) {
       final rawUrl = event['hls_url'] as String?;
       final matchId = wsService.matchId;
 
+      debugPrint('[GlobalHlsPreloader] streaming_state=$state (match=$matchId)');
+
       if (state != 'ready') return;
       if (matchId == null) {
         debugPrint('[GlobalHlsPreloader] streaming_state=ready but no matchId — skipping');

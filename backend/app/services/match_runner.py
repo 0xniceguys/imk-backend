@@ -410,7 +410,11 @@ class MatchRunner:
             )
 
         self.state = RunnerState.STARTING
-        logger.info("Starting match runner %s (instance=%s)", self.match_id, self.instance_id)
+        logger.info(
+            "[MatchRunner] 🚀 Starting match %s (instance=%s, best_of=%d, p1=%s, p2=%s)",
+            self.match_id, self.instance_id, self.best_of,
+            self.p1_agent.__class__.__name__, self.p2_agent.__class__.__name__,
+        )
         logger.info("RAM debug trace: %s", self._ram_debug.file_path)
         self._ram_debug.record_event(
             "runner_starting",
@@ -444,8 +448,10 @@ class MatchRunner:
             self.p2_agent.reset()
 
             self.state = RunnerState.RUNNING
+            t_live = time.monotonic()
 
             # Broadcast global event that match is going live
+            logger.info("[MatchRunner] 📡 Broadcasting match_status_changed → live (match=%s)", self.match_id)
             await ws_manager.broadcast_global_event({
                 "type": "match_status_changed",
                 "match_id": self.match_id,
@@ -477,28 +483,24 @@ class MatchRunner:
             raise
 
     async def _start_free_running(self) -> None:
-        """Let the emulator run freely and start combined H.264+AAC HLS capture.
-
-        Video and audio are both captured by a single FFmpeg process and muxed
-        into HLS segments. Flutter's VideoPlayer plays stream.m3u8 directly,
-        giving perfect A/V sync with no extra pipeline complexity.
-        """
+        """Let the emulator run freely and start combined H.264+AAC HLS capture."""
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._bridge.debugger_command, "run")
-        logger.info("Emulator set to free-running mode")
+        logger.info("[MatchRunner] Emulator set to free-running mode (match=%s)", self.match_id)
 
         # Give the video plugin time to render the first frame before FFmpeg starts
         await asyncio.sleep(1.5)
 
         # Update streaming state and notify clients
         self.streaming_state = StreamingState.INITIALIZING
+        logger.info("[MatchRunner] Streaming state: INITIALIZING (match=%s) — starting FFmpeg HLS", self.match_id)
         await ws_manager.broadcast_json(self.match_id, {
             "type": "streaming_state",
             "state": self.streaming_state.value,
         })
 
         await self._hls_capture.start()
-        logger.info("Combined HLS capture started for match %s", self.match_id)
+        logger.info("[MatchRunner] FFmpeg HLS capture started (match=%s, pid will appear in ffmpeg logs)", self.match_id)
 
         # Start monitoring for HLS playlist ready
         self._stream_monitor_task = asyncio.create_task(
@@ -510,11 +512,16 @@ class MatchRunner:
         max_wait = 20  # seconds
         poll_interval = 0.5
         elapsed = 0.0
+        t_start = time.monotonic()
 
         while elapsed < max_wait:
             if self._hls_capture.ready_for_playback():
+                t_ready = time.monotonic() - t_start
                 self.streaming_state = StreamingState.READY
-                logger.info("HLS stream ready for match %s", self.match_id)
+                logger.info(
+                    "[MatchRunner] ✅ HLS READY after %.1fs (match=%s) — broadcasting streaming_state=ready",
+                    t_ready, self.match_id,
+                )
                 await ws_manager.broadcast_json(self.match_id, {
                     "type": "streaming_state",
                     "state": self.streaming_state.value,
@@ -527,7 +534,10 @@ class MatchRunner:
 
         # Timeout — stream failed to initialize
         self.streaming_state = StreamingState.ERROR
-        logger.error("HLS stream failed to initialize for match %s", self.match_id)
+        logger.error(
+            "[MatchRunner] ❌ HLS TIMEOUT after %ds — stream never became ready (match=%s)",
+            max_wait, self.match_id,
+        )
         await ws_manager.broadcast_json(self.match_id, {
             "type": "streaming_state",
             "state": self.streaming_state.value,
@@ -537,7 +547,7 @@ class MatchRunner:
 
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
-        logger.info("Stopping match runner %s", self.match_id)
+        logger.info("[MatchRunner] 🛑 stop() called for match=%s (current state=%s)", self.match_id, self.state)
         self.state = RunnerState.STOPPED
         self.streaming_state = StreamingState.STOPPED
 
@@ -694,9 +704,10 @@ class MatchRunner:
         try:
             while self.state == RunnerState.RUNNING:
                 logger.info(
-                    "Round %d/%d starting (P1=%d, P2=%d)",
+                    "[MatchRunner] 🥊 Round %d/%d starting (P1=%d wins, P2=%d wins, match=%s)",
                     self.current_round, self.best_of,
                     self.rounds_won_p1, self.rounds_won_p2,
+                    self.match_id,
                 )
                 self._ram_debug.record_event(
                     "round_started",
@@ -748,8 +759,8 @@ class MatchRunner:
                 if match_over:
                     winner_player = 1 if self.rounds_won_p1 >= self.rounds_to_win else 2
                     logger.info(
-                        "Match over! P%d wins (%d-%d)",
-                        winner_player, self.rounds_won_p1, self.rounds_won_p2,
+                        "[MatchRunner] 🏆 Match OVER! P%d wins (%d-%d) match=%s",
+                        winner_player, self.rounds_won_p1, self.rounds_won_p2, self.match_id,
                     )
                     self.state = RunnerState.COMPLETED
 
@@ -769,26 +780,46 @@ class MatchRunner:
                     await ws_manager.broadcast_json(self.match_id, ended_payload)
 
                     # Keep HLS stream alive while Flutter drains its buffer.
-                    # The video is ~15-30 s behind the live edge due to HLS
-                    # buffering, so clients would see a premature cut if we
-                    # stopped the stream immediately.  Run settlement in
-                    # parallel with the drain window — no extra wall-clock cost.
+                    # HLS has HLS_LIST_SIZE=30 segments × 1s each = 30s behind the
+                    # live edge.  Clients will see a premature cut if we stop FFmpeg
+                    # too early.  Run settlement in parallel with the drain window.
+                    #
+                    # ⚠️  BUG HISTORY: was 12s — not enough to cover the 30s HLS buffer.
+                    # Increased to 35s so the full match plays out on client before
+                    # the stream 404s and onStreamDied fires.
+                    drain_seconds = 35
+                    logger.info(
+                        "[MatchRunner] ⏳ HLS drain window: keeping FFmpeg alive for %ds "
+                        "(HLS buffer is ~30s behind live) match=%s",
+                        drain_seconds, self.match_id,
+                    )
                     await asyncio.gather(
                         self._auto_settle(winner_player),
-                        asyncio.sleep(12),          # HLS drain window
+                        asyncio.sleep(drain_seconds),
+                    )
+                    logger.info(
+                        "[MatchRunner] ✅ HLS drain window complete — stopping FFmpeg (match=%s)",
+                        self.match_id,
                     )
                     break
 
                 # More rounds to play — reload savestate.
                 self.current_round += 1
                 next_round = self.current_round
-                logger.info("Between rounds — reloading savestate for round %d", next_round)
+                logger.info(
+                    "[MatchRunner] 🔄 Between rounds — reloading savestate for round %d (match=%s)",
+                    next_round, self.match_id,
+                )
 
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, self._bridge.debugger_command, "pause")
 
                 # Notify Flutter BEFORE stopping HLS so it can show a "Round N
                 # starting..." overlay and pause the stuck-position watchdog.
+                logger.info(
+                    "[MatchRunner] 📡 Broadcasting round_transition → round %d (match=%s)",
+                    next_round, self.match_id,
+                )
                 await ws_manager.broadcast_json(self.match_id, {
                     "type": "streaming_state",
                     "state": "round_transition",

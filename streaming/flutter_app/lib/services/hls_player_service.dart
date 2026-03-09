@@ -112,6 +112,10 @@ class HlsPlayerService {
       } else {
         debugPrint('[HlsPlayerService] ❌ Giving up after $maxAttempts attempts for $matchId');
         _setState(HlsPreloadState.error);
+        if (onStreamDied != null) {
+          debugPrint('[HlsPlayerService] → stream exhausted all retries — calling onStreamDied');
+          onStreamDied!();
+        }
       }
     } catch (e, st) {
       debugPrint('[HlsPlayerService] ❌ Init error $matchId (attempt $attempt_): $e\n$st');
@@ -124,6 +128,10 @@ class HlsPlayerService {
       } else {
         debugPrint('[HlsPlayerService] ❌ Giving up after $maxAttempts attempts for $matchId');
         _setState(HlsPreloadState.error);
+        if (onStreamDied != null) {
+          debugPrint('[HlsPlayerService] → stream exhausted all retries — calling onStreamDied');
+          onStreamDied!();
+        }
       }
     } finally {
       if (_initToken == token) _initializing = false;
@@ -262,6 +270,7 @@ class HlsPlayerService {
   /// If init is still in progress, sets wantsAudio=true so preload() will
   /// unmute automatically once the controller is ready.
   void requestAudio() {
+    debugPrint('[HlsPlayerService] requestAudio() — wantsAudio=true, hasCtrl=${controllerNotifier.value != null}');
     _wantsAudio = true;
     try {
       controllerNotifier.value?.setVolume(1.0);
@@ -272,6 +281,7 @@ class HlsPlayerService {
 
   /// Mutes and clears the wantsAudio flag — called when user leaves the live screen.
   void silenceAndReset() {
+    debugPrint('[HlsPlayerService] silenceAndReset() — muting, wantsAudio=false, match=${activeMatchIdNotifier.value}');
     _wantsAudio = false;
     try {
       controllerNotifier.value?.setVolume(0.0);
@@ -285,6 +295,21 @@ class HlsPlayerService {
 
   /// Legacy alias kept for call sites that already use mute().
   void mute() => silenceAndReset();
+
+  /// Force a clean reload of the HLS stream for [matchId], even if a
+  /// controller is already playing that match.
+  ///
+  /// Used for round transitions where the matchId is unchanged but the backend
+  /// has reset the HLS segment sequence — the normal preload() guard would
+  /// incorrectly skip the reload, leaving the client stuck on the dead
+  /// round-1 stream.
+  Future<void> forceReload(String matchId, String hlsUrl) async {
+    debugPrint('[HlsPlayerService] forceReload() for $matchId — tearing down existing controller (was=${activeMatchIdNotifier.value}, state=$state)');
+    await _teardown();
+    if (_disposed) return;
+    debugPrint('[HlsPlayerService] forceReload() teardown complete — starting fresh preload');
+    await preload(matchId, hlsUrl);
+  }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 

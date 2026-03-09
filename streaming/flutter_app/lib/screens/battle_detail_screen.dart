@@ -84,6 +84,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
 
   void _startRapidPoll() {
     if (_rapidPollTimer?.isActive ?? false) return;
+    debugPrint('[BattleDetail] ⏱️ Starting rapid poll (500ms) for go-live detection');
     _rapidPollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) { _rapidPollTimer?.cancel(); return; }
       ref.read(matchProvider.notifier).refresh();
@@ -91,6 +92,9 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   }
 
   void _stopRapidPoll() {
+    if (_rapidPollTimer?.isActive ?? false) {
+      debugPrint('[BattleDetail] ⏹️ Stopping rapid poll');
+    }
     _rapidPollTimer?.cancel();
     _rapidPollTimer = null;
   }
@@ -99,7 +103,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     if (match.queuePosition != 1) return;
     if (_preConnectedMatchId == match.id) return;
     _preConnectedMatchId = match.id;
-    debugPrint('[BattleDetail] Pre-connecting WS for match ${match.id} (queue #1)');
+    debugPrint('[BattleDetail] 🔌 Pre-connecting WS for match ${match.id} (queue #1, scheduled at ${match.queueStartsAt})');
     ref.read(matchStreamServiceProvider).connect(match.id);
   }
 
@@ -126,20 +130,30 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     final match = _resolveMatch(next.matches);
     if (match == null || match.status != MatchStatus.live) return;
 
+    debugPrint('[BattleDetail] 🟢 Match ${match.id} went LIVE via REST poll — ensuring WS connected');
+
     // Match went live — stop the rapid poll timer immediately.
     _stopRapidPoll();
 
     final streamSvc = ref.read(matchStreamServiceProvider);
     if (streamSvc.matchId != match.id) {
+      debugPrint('[BattleDetail] 🔌 Connecting WS to newly-live match ${match.id}');
       streamSvc.connect(match.id);
     } else if (!streamSvc.isConnected && !streamSvc.isConnecting) {
+      debugPrint('[BattleDetail] 🔄 WS for ${match.id} exists but disconnected — reconnecting');
       streamSvc.connect(match.id);
+    } else {
+      debugPrint('[BattleDetail] ✅ WS already connected to ${match.id} (isConnected=${streamSvc.isConnected})');
     }
 
     if (_navigatedToLive) return;
     final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
-    if (!isCurrentRoute) return;
+    if (!isCurrentRoute) {
+      debugPrint('[BattleDetail] ⚠️ Not current route — skipping navigation to live (isCurrentRoute=$isCurrentRoute)');
+      return;
+    }
 
+    debugPrint('[BattleDetail] 🚦 Navigating to /live-match/${match.id} (triggered by REST poll)');
     _navigatedToLive = true;
     Future.microtask(() => widget.onNavigate('/live-match/${match.id}'));
   }
@@ -389,7 +403,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     if (remain > 2) return; // not yet — don't start timer
 
     // T≤2: activate the 500ms rapid-poll Timer (idempotent start).
-    // The timer directly calls refresh() so we don't depend on rebuild ticks.
+    debugPrint('[BattleDetail] ⏳ ${remain}s to go-live — activating rapid poll (match=${match.id})');
     _startRapidPoll();
   }
 
@@ -400,6 +414,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   }
 
   Future<void> _openBetSheet(Match match) async {
+    debugPrint('[BattleDetail] 💸 Opening bet sheet for match ${match.id} (bettingOpen=${match.bettingOpen})');
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -410,6 +425,7 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
       ),
     );
     if (!mounted) return;
+    debugPrint('[BattleDetail] 💸 Bet sheet closed — refreshing match state');
     await ref.read(matchProvider.notifier).refresh();
     _refreshBetFeed(match.id);
   }

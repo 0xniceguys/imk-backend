@@ -143,27 +143,33 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   /// User pressed back — mute IMMEDIATELY (before the 300ms exit animation).
   @override
   void didPop() {
+    debugPrint('[LiveMatch] RouteAware: didPop — silencing audio immediately');
     _silenceNow();
   }
 
   /// Another screen pushed on top — mute immediately.
   @override
   void didPushNext() {
+    debugPrint('[LiveMatch] RouteAware: didPushNext — silencing audio immediately');
     _silenceNow();
   }
 
   /// Screen came back into view — restore audio.
   @override
   void didPopNext() {
+    debugPrint('[LiveMatch] RouteAware: didPopNext — restoring audio');
     try {
       ref.read(hlsPlayerServiceProvider).requestAudio();
     } catch (_) {}
   }
 
   @override
-  void didPush() {} // no-op
+  void didPush() {
+    debugPrint('[LiveMatch] RouteAware: didPush');
+  }
 
   void _silenceNow() {
+    debugPrint('[LiveMatch] _silenceNow() — calling silenceAndReset on HlsPlayerService');
     try {
       ref.read(hlsPlayerServiceProvider).silenceAndReset();
     } catch (_) {}
@@ -219,11 +225,18 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         // still shows state=playing from the old dead round-1 HLS, so the
         // svcHasThisMatch check below would incorrectly skip the reload.
         if (_inRoundTransition) {
-          debugPrint('[LiveMatch] Round transition ended — forcing fresh preload() for new round HLS.');
+          debugPrint('[LiveMatch] Round transition ended — forcing fresh reload() for new round HLS.');
           hlsSvc.resumeWatchdog();
           if (mounted) setState(() => _inRoundTransition = false);
           final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
-          hlsSvc.preload(_activeMatchId!, url).then((_) { if (mounted) hlsSvc.unmute(); });
+          hlsSvc.forceReload(_activeMatchId!, url).then((_) {
+            if (mounted) {
+              debugPrint('[LiveMatch] forceReload() resolved — unmuting for round 2 (mounted=true)');
+              hlsSvc.unmute();
+            } else {
+              debugPrint('[LiveMatch] forceReload() resolved but widget unmounted — skipping unmute');
+            }
+          });
           return;
         }
 
@@ -238,7 +251,14 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         // Global service not active for this match — trigger it directly
         final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
         debugPrint('[LiveMatch] HlsPlayerService not active for $_activeMatchId — calling preload() url=$url');
-        hlsSvc.preload(_activeMatchId!, url).then((_) { if (mounted) hlsSvc.unmute(); });
+        hlsSvc.preload(_activeMatchId!, url).then((_) {
+          if (mounted) {
+            debugPrint('[LiveMatch] preload() resolved — unmuting (mounted=true)');
+            hlsSvc.unmute();
+          } else {
+            debugPrint('[LiveMatch] preload() resolved but widget unmounted — skipping unmute');
+          }
+        });
       },
     );
 
@@ -373,6 +393,13 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // would race to call hlsSvc.preload() concurrently before the first one's
     // await _teardown() completes, causing two ExoPlayer instances to be created.
     if (_earlyStartAttempted) return;
+    // Guard: if match already ended, don't try to restart a dead HLS stream.
+    // This fires when a bottom sheet is dismissed after match-end (didPopNext →
+    // postFrameCallback), but the stream is already stopped.
+    if (_matchEndScheduled) {
+      debugPrint('[LiveMatch] _checkEarlyStreamReady() skipped — match already ended');
+      return;
+    }
     final matchId = widget.matchId ?? _findLiveMatchId();
     if (matchId == null) return;
     final currentState = ref.read(streamingStateProvider);
@@ -391,7 +418,14 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
       debugPrint('[LiveMatch] Early HLS start via hlsService (stream was ready on entry)');
       _earlyStartAttempted = true; // must be set BEFORE the async call
-      hlsSvc.preload(matchId, url).then((_) { if (mounted) hlsSvc.unmute(); });
+      hlsSvc.preload(matchId, url).then((_) {
+        if (mounted) {
+          debugPrint('[LiveMatch] Early preload() resolved — unmuting (mounted=true)');
+          hlsSvc.unmute();
+        } else {
+          debugPrint('[LiveMatch] Early preload() resolved but widget unmounted — skipping unmute');
+        }
+      });
     });
   }
 
@@ -425,6 +459,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   @override
   void dispose() {
+    debugPrint('[LiveMatch] dispose() — muting audio FIRST (matchId=$_activeMatchId)');
     // ── Mute FIRST — before anything else, so audio never bleeds regardless
     // of how we got here (RouteAware callback, programmatic navigation, etc.)
     try {
@@ -440,6 +475,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     _stopHls(); // stops local _hlsController (no-op if already stopped above)
 
     routeObserver.unsubscribe(this);
+    debugPrint('[LiveMatch] dispose() complete');
     super.dispose();
   }
 
