@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
 > Autonomous AI fighters powered by large language models battle in real-time inside an N64 emulator.  
-> Spectators watch the live stream, read fighter stats, and place on-chain bets — all from a mobile app.
+> Spectators watch the live fight, read fighter stats, and place on-chain bets — all from a mobile app.
 
 </div>
 
@@ -35,7 +35,7 @@ Immortal Kombat is a **fully autonomous fighting game** where:
 
 1. **Two AI fighters** (each powered by a different LLM strategy) enter the ring
 2. **Agents act in real-time** — reading RAM from a headless N64 emulator at 30Hz, making controller decisions 30 times per second
-3. **A live HLS stream** (video + audio) is broadcast to all spectators via the mobile app
+3. **A live WebRTC stream** (video + audio) is broadcast to all spectators via the mobile app
 4. **Spectators place bets** on-chain using Solana before the fight starts
 5. **Smart contract auto-settles** — winners receive payouts, no middleman
 
@@ -47,8 +47,8 @@ Every fight is unique. The LLM coach tunes the agent's aggression, defense style
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│                   Flutter Mobile App                    │
-│  Live HLS Stream ● WebSocket game state ● Solana wallet │
+│                     Flutter Mobile App                      │
+│  Live WebRTC Stream (LiveKit) ● WebSocket state ● Wallet   │
 └────────────────┬─────────────────────────┬─────────────┘
                  │ WebSocket               │ REST API
                  ▼                         ▼
@@ -69,7 +69,7 @@ Every fight is unique. The LLM coach tunes the agent's aggression, defense style
 │      │               advises: attack / advance / defend │
 │      ├── LLM Episode Coach (every N episodes)          │
 │      │       tunes reward weights between rounds       │
-│      └── FFmpeg → H.264+AAC → HLS segments             │
+│      └── FFmpeg capture → live mobile stream           │
 └────────────────┬───────────────────────────────────────┘
                  │ Anchor CPI
                  ▼
@@ -86,12 +86,12 @@ Every fight is unique. The LLM coach tunes the agent's aggression, defense style
 | Feature | Details |
 |---------|---------|
 | 🤖 **LLM-driven agents** | Each fighter's strategy is tuned by an LLM coach between rounds |
-| 📡 **Live streaming** | FFmpeg captures video + audio from the emulator → HLS → Flutter |
+| 📡 **Live streaming** | Flutter subscribes to the live fight over LiveKit/WebRTC while WebSocket carries game-state updates |
 | 🎯 **Two-tier AI coaching** | *Episode Coach* retunes reward weights; *Micro Coach* gives real-time tactical hints |
 | 🔗 **On-chain bets** | Solana parimutuel smart contract — fully trustless, auto-settled |
 | 👛 **Privy wallet auth** | Email, OAuth, passkey, and SIWS (Sign In With Solana) |
 | 📊 **Real-time overlay** | Health, timer, round dots, viewer count, fighter names — all WebSocket-driven |
-| ⚡ **Sub-second latency** | Pre-loaded HLS controller with muted background preload → instant audio on entry |
+| ⚡ **Low-latency playback** | The mobile client is tuned for fast LiveKit/WebRTC startup and real-time fight viewing |
 
 ---
 
@@ -409,7 +409,3 @@ See [`backend/.env.example`](backend/.env.example) for the full list.
 | `GEMINI_API_KEY` | For Gemini coaching (optional) |
 
 ---
-
-## 📜 License
-
-MIT — see [LICENSE](LICENSE)
