@@ -36,6 +36,7 @@ class LiveKitPlayerService {
   VideoTrack? get videoTrack => videoTrackNotifier.value;
 
   Room? _room;
+  EventsListener<RoomEvent>? _listener;
   bool _disposed = false;
 
   /// Connect to the match's LiveKit room as a subscriber.
@@ -57,40 +58,43 @@ class LiveKitPlayerService {
 
       debugPrint('[LiveKitPlayer] 🔑 Token received, connecting to $url room=$matchId');
 
-      // 2. Create room and connect
-      _room = Room();
-
-      // Listen for tracks from the publisher
-      _room!.addListener(_RoomListener(
-        onTrackSubscribed: (RemoteTrackPublication pub, RemoteParticipant participant) {
-          if (pub.track is VideoTrack) {
-            videoTrackNotifier.value = pub.track as VideoTrack;
-            debugPrint('[LiveKitPlayer] 🎥 Video track subscribed from ${participant.identity}');
-          }
-          if (pub.track is AudioTrack) {
-            debugPrint('[LiveKitPlayer] 🔊 Audio track subscribed from ${participant.identity}');
-          }
-        },
-        onConnected: () {
-          _setState(LiveKitPlayerState.connected);
-          debugPrint('[LiveKitPlayer] ✅ Connected to room=$matchId');
-        },
-        onDisconnected: (DisconnectReason? reason) {
-          debugPrint('[LiveKitPlayer] ❌ Disconnected: $reason');
-          if (!_disposed) _setError('Disconnected: $reason');
-        },
-      ));
-
-      // 3. Connect to LiveKit
-      await _room!.connect(
-        url,
-        token,
+      // 2. Create room and set up event listener
+      _room = Room(
         roomOptions: const RoomOptions(
           adaptiveStream: true,
           dynacast: true,
           defaultAudioPublishOptions: AudioPublishOptions(dtx: true),
         ),
       );
+      _listener = _room!.createListener();
+
+      _listener!
+        ..on<RoomConnectedEvent>((_) {
+          _setState(LiveKitPlayerState.connected);
+          debugPrint('[LiveKitPlayer] ✅ Connected to room=$matchId');
+        })
+        ..on<RoomDisconnectedEvent>((event) {
+          debugPrint('[LiveKitPlayer] ❌ Disconnected: ${event.reason}');
+          if (!_disposed) _setError('Disconnected: ${event.reason}');
+        })
+        ..on<TrackSubscribedEvent>((event) {
+          if (event.track is VideoTrack) {
+            videoTrackNotifier.value = event.track as VideoTrack;
+            debugPrint('[LiveKitPlayer] 🎥 Video track subscribed from ${event.participant.identity}');
+          }
+          if (event.track is AudioTrack) {
+            debugPrint('[LiveKitPlayer] 🔊 Audio track subscribed from ${event.participant.identity}');
+          }
+        })
+        ..on<TrackUnsubscribedEvent>((event) {
+          if (event.track is VideoTrack && videoTrackNotifier.value == event.track) {
+            videoTrackNotifier.value = null;
+            debugPrint('[LiveKitPlayer] 🎥 Video track unsubscribed');
+          }
+        });
+
+      // 3. Connect to LiveKit
+      await _room!.connect(url, token);
 
       // Check if publisher already has tracks (connected before us)
       for (final p in _room!.remoteParticipants.values) {
@@ -120,6 +124,8 @@ class LiveKitPlayerService {
   Future<void> dispose() async {
     _disposed = true;
     _setState(LiveKitPlayerState.disposed);
+    _listener?.dispose();
+    _listener = null;
     try { await _room?.disconnect(); } catch (_) {}
     try { await _room?.dispose(); } catch (_) {}
     _room = null;
@@ -127,17 +133,4 @@ class LiveKitPlayerService {
     errorNotifier.dispose();
     videoTrackNotifier.dispose();
   }
-}
-
-/// Simple room event listener.
-class _RoomListener extends RoomListener {
-  _RoomListener({
-    this.onTrackSubscribed,
-    this.onConnected,
-    this.onDisconnected,
-  });
-
-  final void Function(RemoteTrackPublication, RemoteParticipant)? onTrackSubscribed;
-  final void Function()? onConnected;
-  final void Function(DisconnectReason?)? onDisconnected;
 }
