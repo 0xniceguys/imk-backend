@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #FFC500;
+  --gold-dim: #997700;
+  --gold-dark: #1a1500;
+  --card: #161616;
+  --card2: #1f1f1f;
+  --border: #2a2a2a;
+  --border2: #333;
+  --muted: #666;
+  --secondary: #999;
+  --green: #00FB60;
+  --red: #D70000;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: #080808;
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+.cinzel { font-family: 'Cinzel', serif; }
+
+/* --- Keyframes --- */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(0px) scaleX(-1); }
+  50%       { transform: translateY(-10px) scaleX(-1); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,251,96,0.4); }
+  50%       { opacity: 0.6; box-shadow: 0 0 0 6px rgba(0,251,96,0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.float  { animation: float  4s ease-in-out infinite; }
+.float2 { animation: float2 4s ease-in-out 2.2s infinite; }
+
+.pulse-dot {
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+.fade-up   { animation: fadeUp 0.8s ease both; }
+.fade-up-1 { animation: fadeUp 0.8s 0.1s ease both; }
+.fade-up-2 { animation: fadeUp 0.8s 0.2s ease both; }
+.fade-up-3 { animation: fadeUp 0.8s 0.35s ease both; }
+.fade-up-4 { animation: fadeUp 0.8s 0.5s ease both; }
+
+/* Gold gradient text */
+.gold-text {
+  background: linear-gradient(135deg, #FFC500 0%, #FFE066 50%, #CC9900 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glow effects */
+.gold-glow {
+  box-shadow: 0 0 30px rgba(255,197,0,0.2), 0 0 60px rgba(255,197,0,0.06);
+}
+.gold-glow-text {
+  text-shadow: 0 0 40px rgba(255,197,0,0.35);
+}
