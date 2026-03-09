@@ -199,22 +199,123 @@ class FFmpegCombinedHls:
             )
 
     async def _drain_stderr(self) -> None:
+        """Drain FFmpeg stderr, parsing and surfacing diagnostics in real time.
+
+        Categories logged at WARNING (always visible):
+          • PES / start-code corruption   → likely muxer interleave issue
+          • Input queue overflow          → x11grab can't keep up
+          • Encoding errors               → codec/bitrate problem
+
+        Categories logged at INFO (visible at normal log level):
+          • Frame drops / duplicates      → emulator render stutter
+          • Audio sync corrections        → aresample doing heavy work
+          • Segment written               → confirms HLS output is flowing
+
+        Everything else → DEBUG (suppressed in production).
+        """
         if not self._process or not self._process.stderr:
             return
+
+        import re
+        _progress_re = re.compile(
+            r"frame=\s*(\d+).*?fps=\s*([\d.]+).*?speed=\s*([\d.]+)x"
+        )
+        _dup_drop_re = re.compile(r"dup=\s*(\d+).*?drop=\s*(\d+)")
+
+        # Throttle: emit an FPS/drop summary at most once per N progress lines.
+        _progress_count = 0
+        _PROGRESS_REPORT_EVERY = 10   # log summary every ~10 progress updates
+
         try:
             async for line in self._process.stderr:
+                if not self._running:
+                    break
                 txt = line.decode(errors="replace").rstrip()
-                if txt and self._running:
-                    # Surface errors/warnings at INFO so they're visible in normal logs
-                    lower = txt.lower()
-                    if "error" in lower or "fatal" in lower or "overrun" in lower:
-                        logger.warning("FFmpegHLS[%s]: %s", self.match_id, txt)
-                    elif "dropping" in lower or "queue" in lower or "overflow" in lower:
-                        logger.info("FFmpegHLS[%s]: %s", self.match_id, txt)
+                if not txt:
+                    continue
+
+                lower = txt.lower()
+
+                # ── High-priority warnings ────────────────────────────────────
+                if any(kw in lower for kw in (
+                    "start code", "unexpected", "pes header", "corrupt",
+                    "invalid data", "invalid nal",
+                )):
+                    logger.warning(
+                        "[FFmpeg|PES] %s | match=%s", txt, self.match_id
+                    )
+
+                elif any(kw in lower for kw in (
+                    "queue overflow", "buffer queue", "overrun",
+                    "thread message queue blocker",
+                )):
+                    logger.warning(
+                        "[FFmpeg|QUEUE] %s | match=%s", txt, self.match_id
+                    )
+
+                elif "error" in lower or "fatal" in lower:
+                    logger.warning(
+                        "[FFmpeg|ERROR] %s | match=%s", txt, self.match_id
+                    )
+
+                # ── Frame drop / duplicate detection ─────────────────────────
+                elif "dropping" in lower or "dup=" in lower or "drop=" in lower:
+                    dd = _dup_drop_re.search(txt)
+                    if dd:
+                        dups  = int(dd.group(1))
+                        drops = int(dd.group(2))
+                        if drops > 0 or dups > 5:          # only log when non-trivial
+                            logger.info(
+                                "[FFmpeg|FRAMES] dup=%d drop=%d | match=%s | %s",
+                                dups, drops, self.match_id, txt,
+                            )
                     else:
-                        logger.debug("FFmpegHLS[%s]: %s", self.match_id, txt)
+                        logger.info(
+                            "[FFmpeg|FRAMES] %s | match=%s", txt, self.match_id
+                        )
+
+                # ── Audio sync / aresample ────────────────────────────────────
+                elif any(kw in lower for kw in (
+                    "aresample", "async", "audio drift", "pts discontinuity",
+                    "non monotonous", "dts", "out of order",
+                )):
+                    logger.info(
+                        "[FFmpeg|AV-SYNC] %s | match=%s", txt, self.match_id
+                    )
+
+                # ── Progress line: periodic FPS / drop summary ────────────────
+                elif "frame=" in lower and "fps=" in lower:
+                    _progress_count += 1
+                    if _progress_count % _PROGRESS_REPORT_EVERY == 0:
+                        m = _progress_re.search(txt)
+                        dd = _dup_drop_re.search(txt)
+                        if m:
+                            frame = m.group(1)
+                            fps   = m.group(2)
+                            speed = m.group(3)
+                            dups  = int(dd.group(1)) if dd else 0
+                            drops = int(dd.group(2)) if dd else 0
+                            logger.info(
+                                "[FFmpeg|PROGRESS] frame=%s fps=%s speed=%sx "
+                                "dup=%d drop=%d | match=%s",
+                                frame, fps, speed, dups, drops, self.match_id,
+                            )
+
+                # ── Segment written ───────────────────────────────────────────
+                elif ".ts" in txt and ("open" in lower or "mux" in lower or "seg" in lower):
+                    logger.debug(
+                        "[FFmpeg|SEG] %s | match=%s", txt, self.match_id
+                    )
+
+                # ── Everything else: debug only ───────────────────────────────
+                else:
+                    logger.debug(
+                        "[FFmpeg|DBG] %s | match=%s", txt, self.match_id
+                    )
+
         except Exception:
             pass
+
 
     async def stop(self) -> None:
         self._running = False

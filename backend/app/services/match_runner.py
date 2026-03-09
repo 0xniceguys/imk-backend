@@ -935,6 +935,13 @@ class MatchRunner:
         consecutive_errors = 0
         agent_interval_sec = 1.0 / 10.0  # 100ms between reads
 
+        # Health telemetry accumulators (reset every 100 steps)
+        _bridge_ms_total = 0.0
+        _step_overruns = 0
+        _OVERRUN_THRESHOLD_SEC = 0.15  # warn if a step takes >150ms
+        _BRIDGE_SLOW_THRESHOLD_MS = 200  # warn if single bridge read >200ms
+        _TELEMETRY_INTERVAL = 100       # log summary every N steps
+
         # Grace period: skip round-over detection for first N steps.
         # Use 30 steps (~3s) to allow health addresses to stabilise after
         # savestate load.
@@ -950,12 +957,20 @@ class MatchRunner:
                     self._round_context_reset_requested = False
 
 
-                # 1. Read game state from RAM (free-running — parse fix handles correct values)
+                # 1. Read game state from RAM (free-running)
                 async with self._bridge_lock:
                     loop = asyncio.get_running_loop()
+                    _bridge_t0 = time.monotonic()
                     state = await loop.run_in_executor(
                         None, read_fight_state, self._bridge, step_count, previous_state
                     )
+                    _bridge_ms = (time.monotonic() - _bridge_t0) * 1000
+                    _bridge_ms_total += _bridge_ms
+                    if _bridge_ms > _BRIDGE_SLOW_THRESHOLD_MS:
+                        logger.warning(
+                            "[MatchHealth|BRIDGE] Slow RAM read %.0fms (step=%d round=%d match=%s)",
+                            _bridge_ms, step_count, self.current_round, self.match_id,
+                        )
                 previous_state = state
 
                 # 3. Agent decisions, unless a player is under manual control.
@@ -985,15 +1000,32 @@ class MatchRunner:
 
                 step_count += 1
 
-                # Debug log every 30 steps (~3s)
+                # ── Periodic health telemetry (every 30 steps ~3s) ─────────────
                 if step_count % 30 == 0:
                     logger.info(
-                        "R%d Brain step %d: P1=%s P2=%s | HP %d-%d T=%d",
+                        "[MatchHealth] R%d step=%d HP=%d/%d T=%d | P1=%s P2=%s | ko_streaks=%s | match=%s",
                         self.current_round, step_count,
+                        state.p1_health, state.p2_health, state.timer,
                         self._control_source_label(1, getattr(p1_action, "macro_action", None)),
                         self._control_source_label(2, getattr(p2_action, "macro_action", None)),
-                        state.p1_health, state.p2_health, state.timer,
+                        {k: v for k, v in ko_streaks.items() if v > 0} or "none",
+                        self.match_id,
                     )
+
+                # ── Timing telemetry (every 100 steps ~10s) ─────────────────────
+                if step_count % _TELEMETRY_INTERVAL == 0:
+                    _avg_bridge_ms = _bridge_ms_total / _TELEMETRY_INTERVAL
+                    logger.info(
+                        "[MatchHealth|TIMING] R%d steps=%d avg_bridge=%.1fms overruns=%d/100 match=%s",
+                        self.current_round, step_count, _avg_bridge_ms, _step_overruns, self.match_id,
+                    )
+                    if _avg_bridge_ms > 80:
+                        logger.warning(
+                            "[MatchHealth|TIMING] ⚠️ Avg bridge read %.1fms > 80ms — emulator or CPU may be overloaded (match=%s)",
+                            _avg_bridge_ms, self.match_id,
+                        )
+                    _bridge_ms_total = 0.0
+                    _step_overruns = 0
 
                 # 5. Check round status (grace period set above)
                 if step_count > ROUND_OVER_GRACE_STEPS:
@@ -1010,6 +1042,15 @@ class MatchRunner:
                     round_over_reason=raw_round_over_reason,
                     ko_streaks=ko_streaks,
                 )
+
+                # ── KO streak progress ─────────────────────────────────────────
+                for reason, streak in ko_streaks.items():
+                    if 0 < streak < KO_CONFIRM_FRAMES:
+                        logger.info(
+                            "[MatchHealth|KO] %s streak=%d/%d HP=%d/%d T=%d match=%s",
+                            reason, streak, KO_CONFIRM_FRAMES,
+                            state.p1_health, state.p2_health, state.timer, self.match_id,
+                        )
 
                 # 5. Update snapshot and broadcast game state
                 self.latest_snapshot = GameSnapshot(
@@ -1108,6 +1149,12 @@ class MatchRunner:
                 consecutive_errors = 0
 
                 elapsed = time.monotonic() - step_start
+                if elapsed > _OVERRUN_THRESHOLD_SEC:
+                    _step_overruns += 1
+                    logger.warning(
+                        "[MatchHealth|TIMING] ⚠️ Step overrun %.0fms (step=%d round=%d match=%s)",
+                        elapsed * 1000, step_count, self.current_round, self.match_id,
+                    )
                 sleep_time = agent_interval_sec - elapsed
                 if sleep_time > 0:
                     await asyncio.sleep(sleep_time)
@@ -1115,12 +1162,22 @@ class MatchRunner:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("Error in agent brain loop")
                 consecutive_errors += 1
+                logger.exception(
+                    "[MatchHealth|ERROR] Agent brain error #%d (step=%d round=%d match=%s)",
+                    consecutive_errors, step_count, self.current_round, self.match_id,
+                )
+                if consecutive_errors >= 3:
+                    logger.error(
+                        "[MatchHealth|ERROR] 🔴 %d consecutive errors — bridge may be broken (match=%s)",
+                        consecutive_errors, self.match_id,
+                    )
                 if consecutive_errors >= 10:
-                    logger.error("Agent brain: %d consecutive errors — aborting", consecutive_errors)
+                    logger.error(
+                        "[MatchHealth|ERROR] 🛑 %d consecutive errors — aborting match (match=%s)",
+                        consecutive_errors, self.match_id,
+                    )
                     self.state = RunnerState.ERROR
-                    # ✅ FIX: Update DB to reflect runner failure
                     await self._mark_match_errored()
                     break
                 await asyncio.sleep(0.5)
