@@ -63,6 +63,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   bool _navigatedToPostMatch = false;
   bool _waitingForResult = false; // shows loader overlay when match ends
   bool _matchEndScheduled = false; // guard against firing the 2.5s delay twice
+  bool _inRoundTransition = false; // shows round overlay between rounds
+  int _nextRound = 2; // round number to display in the overlay
   Timer? _fastPollTimer;
 
   // Active match tracking
@@ -182,6 +184,17 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         final data = next.valueOrNull;
         if (data == null) return;
         final state = data['state'] as String?;
+        if (state == null) return;
+
+        // ── Round transition: HLS is intentionally stopping between rounds ─────
+        if (state == 'round_transition') {
+          final round = (data['round'] as num?)?.toInt() ?? (_nextRound);
+          // Pause the watchdog so the stream gap doesn't look like a freeze.
+          ref.read(hlsPlayerServiceProvider).pauseWatchdog();
+          if (mounted) setState(() { _inRoundTransition = true; _nextRound = round; });
+          return;
+        }
+
         if (state != 'ready' && state != 'playing') return;
         if (_activeMatchId == null) return;
 
@@ -189,6 +202,14 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         // This eliminates the dual-controller bug where two ExoPlayer instances
         // could be active simultaneously with conflicting audio.
         final hlsSvc = ref.read(hlsPlayerServiceProvider);
+
+        // If we were in a round transition, this 'ready' signal means the new
+        // round's HLS is up — resume the watchdog and hide the overlay.
+        if (_inRoundTransition) {
+          hlsSvc.resumeWatchdog();
+          if (mounted) setState(() => _inRoundTransition = false);
+        }
+
         final svcHasThisMatch = hlsSvc.activeMatchId == _activeMatchId &&
             (hlsSvc.state == HlsPreloadState.playing ||
              hlsSvc.state == HlsPreloadState.initializing);
@@ -509,7 +530,6 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // Error = explicit failure (timeout/init crash). All other non-playing states
     // (idle, initializing, stopped) are normal startup gaps — show a spinner, not an error.
     final isHlsError = hlsPreloadState == HlsPreloadState.error;
-    final isAnyHlsLoading = !isGlobalHlsReady && !isHlsError;
 
     // Determine what message to show when stream isn't playing
     String streamStatusMessage = 'Stream starting...';
@@ -679,6 +699,34 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
               ),
             ],
           ),
+
+          // ── Round-transition overlay ──────────────────────────────────────
+          // Covers the video area during the HLS gap between rounds.
+          // Hides automatically when streaming_state: ready fires for the new round.
+          if (_inRoundTransition)
+            SizedBox(
+              height: MediaQuery.of(context).size.width * 9 / 16,
+              child: Container(
+                color: Palette.black.withValues(alpha: 0.92),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const IKLoader(size: 40),
+                    const SizedBox(height: 16),
+                    Text(
+                      'ROUND $_nextRound',
+                      style: displayStyle(size: 28, color: Palette.gold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'starting…',
+                      style: bodyStyle(size: 14, color: Palette.secondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           const SizedBox(height: 8),
 
           // HUD: round dots — self-updating, never rebuilds parent screen

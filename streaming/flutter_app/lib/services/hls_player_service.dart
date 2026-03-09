@@ -25,6 +25,7 @@ class HlsPlayerService {
   Timer? _watchdogTimer;
   Duration _lastPosition = Duration.zero;
   int _stuckTicks = 0; // consecutive 5s ticks with no position advance
+  bool _watchdogPaused = false; // paused during known round-transition gaps
   static const _watchdogInterval = Duration(seconds: 5);
   static const _stuckTicksBeforeRestart = 2; // 2 × 5s = 10s frozen → restart
 
@@ -123,6 +124,13 @@ class HlsPlayerService {
         return;
       }
 
+      // Skip tick entirely during known round-transition gaps so the stream
+      // gap doesn't look like a stuck stream and cause a spurious restart.
+      if (_watchdogPaused) {
+        debugPrint('[HlsPlayerService] Watchdog tick skipped (round transition paused)');
+        return;
+      }
+
       try {
         final pos = ctrl.value.position;
         final isPlaying = ctrl.value.isPlaying;
@@ -165,6 +173,23 @@ class HlsPlayerService {
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _stuckTicks = 0;
+    _watchdogPaused = false;
+  }
+
+  /// Pauses the stuck-position watchdog during a known round-transition gap.
+  /// Call this when receiving streaming_state: round_transition from the backend.
+  void pauseWatchdog() {
+    _watchdogPaused = true;
+    _stuckTicks = 0; // reset so transition time doesn't count toward stuck threshold
+    debugPrint('[HlsPlayerService] Watchdog paused (round transition)');
+  }
+
+  /// Resumes the watchdog after HLS restarts for the new round.
+  void resumeWatchdog() {
+    _watchdogPaused = false;
+    _stuckTicks = 0;
+    _lastPosition = Duration.zero; // clear stale position so new round starts clean
+    debugPrint('[HlsPlayerService] Watchdog resumed (new round)');
   }
 
   /// Unmutes — called when user enters the live screen.

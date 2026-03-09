@@ -39,7 +39,6 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   // Pre-connect WebSocket when match is #1 in queue so HLS starts
   // loading in the background before the user navigates to the live screen.
   String? _preConnectedMatchId;
-  DateTime _lastGoLiveRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Rapid-poll timer activated at T≤2s so we don't depend on clockTickProvider
   // to trigger _maybeRefreshAroundGoLive after the countdown hits zero.
