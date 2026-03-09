@@ -334,7 +334,8 @@ class QueueLoopManager:
                 # bad path that would cause the match to be cancelled.
                 sp = pair_match.savestate_path
                 if sp and Path(sp).exists():
-                    return (int(pair_match.best_of or 3), sp)
+                    # Always use best_of=3 for new matches (don't copy from previous)
+                    return (3, sp)
                 elif sp:
                     logger.warning(
                         "Ignoring savestate_path '%s' from previous match %s — file not found on disk",

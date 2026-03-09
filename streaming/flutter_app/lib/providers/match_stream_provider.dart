@@ -44,11 +44,24 @@ final roundEndProvider = StreamProvider<Map<String, dynamic>>((ref) {
 });
 
 /// Streaming state changes (initializing, ready, error, etc.)
+/// Seeds from the cached lastStreamingState so late subscribers
+/// (e.g. LiveMatchScreen navigated to after WS already connected)
+/// instantly get the current state without waiting for the next WS event.
 final streamingStateProvider =
     StreamProvider<Map<String, dynamic>>((ref) {
   final service = ref.watch(matchStreamServiceProvider);
-  return service.streamingStateStream;
+  final cached = service.lastStreamingState;
+  return _seedStream(cached, service.streamingStateStream);
 });
+
+/// Yields [seed] first (if non-null), then forwards all events from [live].
+Stream<Map<String, dynamic>> _seedStream(
+  Map<String, dynamic>? seed,
+  Stream<Map<String, dynamic>> live,
+) async* {
+  if (seed != null) yield seed;
+  yield* live;
+}
 
 /// Always-alive side-effect that watches [matchProvider] for a live match
 /// and pre-connects the WebSocket as soon as one appears.

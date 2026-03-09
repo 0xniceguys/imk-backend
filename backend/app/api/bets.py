@@ -290,10 +290,11 @@ async def _load_and_validate_bet_request(
     except (ValueError, AttributeError):
         raise HTTPException(422, "match_id and fighter_id must be valid UUIDs")
 
-    # Validate match
+    # Validate match - USE FOR UPDATE to lock the row and prevent race conditions
     result = await db.execute(
         select(Match)
         .where(Match.id == match_uuid)
+        .with_for_update()  # CRITICAL: Lock the match row to prevent concurrent bet race conditions
         .options(
             selectinload(Match.bets),
             selectinload(Match.fighter1),
@@ -717,10 +718,11 @@ async def place_bet(
     except (ValueError, AttributeError):
         raise HTTPException(422, "match_id and fighter_id must be valid UUIDs")
 
-    # Validate match
+    # Validate match - USE FOR UPDATE to lock the row and prevent race conditions
     result = await db.execute(
         select(Match)
         .where(Match.id == match_uuid)
+        .with_for_update()  # CRITICAL: Lock the match row to prevent concurrent bet race conditions
         .options(
             selectinload(Match.bets),
             selectinload(Match.fighter1),

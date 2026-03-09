@@ -25,6 +25,11 @@ class MatchStreamService {
   bool _hasConnectedEvent = false;
   DateTime _lastReconnectScheduleAt = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// Cached latest streaming state — allows late subscribers to get the
+  /// current state without waiting for the next WS event.
+  Map<String, dynamic>? _lastStreamingState;
+  Map<String, dynamic>? get lastStreamingState => _lastStreamingState;
+
   // Stream controllers for different message types
   final _gameStateCtrl = StreamController<GameState>.broadcast();
   final _viewerCountCtrl = StreamController<int>.broadcast();
@@ -114,6 +119,8 @@ class MatchStreamService {
       switch (type) {
         case 'connected':
           try {
+            _isConnecting = false;
+            _hasConnectedEvent = true;
             debugPrint('[Stream] ✅ Connected to match $_matchId viewers=${json['viewer_count']}');
             _viewerCountCtrl.add(json['viewer_count'] as int? ?? 0);
 
@@ -135,14 +142,18 @@ class MatchStreamService {
               debugPrint('[Stream] Forwarding streaming_state=$streamingState from connected handshake');
               if (streamingState == 'ready' && _matchId != null) {
                 debugPrint('[Stream] >>> streaming_state=ready — emitting LiveKit event for match=$_matchId');
-                _streamingStateCtrl.add({
+                final payload = {
                   'state': streamingState,
                   'mode': 'livekit',
                   'room': _matchId,
                   'token_url': '/stream/$_matchId/livekit/token',
-                });
+                };
+                _lastStreamingState = payload;
+                _streamingStateCtrl.add(payload);
               } else if (streamingState == 'initializing' || streamingState == 'error') {
-                _streamingStateCtrl.add({'state': streamingState});
+                final payload = {'state': streamingState};
+                _lastStreamingState = payload;
+                _streamingStateCtrl.add(payload);
               }
             }
           } catch (e, st) {
@@ -159,6 +170,7 @@ class MatchStreamService {
           final state = json['state'] as String?;
           final error = json['error'] as String?;
           debugPrint('[Stream] Streaming state: $state${error != null ? " ERROR: $error" : ""}');
+          _lastStreamingState = json;
           _streamingStateCtrl.add(json);
 
         case 'round_end':

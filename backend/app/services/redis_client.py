@@ -131,6 +131,15 @@ async def publish_bytes(match_id: str, data: bytes) -> None:
         logger.debug("Redis publish_bytes failed for %s (non-fatal)", match_id)
 
 
+async def publish_global_event(data: dict) -> None:
+    """Publish a global event to all connected clients (for multi-server fan-out)."""
+    try:
+        r = get_redis()
+        await r.publish("global:events", json.dumps(data))
+    except Exception:
+        logger.debug("Redis publish_global_event failed (non-fatal)")
+
+
 # ── WebRTC/LiveKit runner tracking ──────────────────────────────────────────
 
 async def register_webrtc_runner(match_id: str, room_name: str) -> None:
