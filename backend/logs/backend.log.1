@@ -66885,3 +66885,359 @@ On-chain match PDA verified: 8c4BqKvaqf4FYEtVukKQvtfxtxKRu4vdGcUn6SXsrUS1 (id=94
 Queue loop enqueued Sonya vs Sub-Zero at tail
 HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
 Queue loop armed countdown: head=8c78efa6-53dd-4484-ae31-5d5d93a60ef1 starts_at=2026-03-09T11:06:14.294012+00:00
+Global subscriber added (1 total)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+lock_match tx confirmed: 2iChdcV5mgTkm44yBM8ZrkXJqwfrF6igXeHDJcZpd8YyA1DZBVjJAYLmbeBgAiYhyLaPn6nAXAjhwted4HyBjncK (match_pda=CxZfjDKQLpt5BZtBMXR1Tsu74sasn7WBshjETrn6uwU1)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match CxZfjDKQLpt5BZtBMXR1Tsu74sasn7WBshjETrn6uwU1 already Locked on-chain — skipping
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match CxZfjDKQLpt5BZtBMXR1Tsu74sasn7WBshjETrn6uwU1 already Locked on-chain — skipping
+ONNX DiscRSSM agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/disc_rssm.onnx (det=128 obs_dim=28 frame_stack=2)
+ONNX LSTM agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/lstm.onnx (obs_dim=28, hidden=128, outputs=3)
+Starting match runner ae308f85-770e-458b-b859-ac896e9eb27b (instance=match-791248f3)
+RAM debug trace: /home/ubuntu/imk/backend/logs/ram_debug/20260309_111121__ae308f85-770e-458b-b859-ac896e9eb27b__match-791248f3.jsonl
+Xvnc started on display :99 (pid=3285245)
+Copied base config from /home/ubuntu/imk/.m64p/instances/match-008d326b/config/mupen64plus.cfg
+Config: ScreenshotPath=/dev/shm/imk_screenshots/match-791248f3, format=JPEG, resolution=640x480 → /home/ubuntu/imk/.m64p/instances/match-791248f3/config/mupen64plus.cfg
+Linux emulator env: DISPLAY=:99 SDL_RENDER_DRIVER=software z64
+Launching bridge server: ctrl_p1=/tmp/imk/match-791248f3/ctrl_p1, ctrl_p2=/tmp/imk/match-791248f3/ctrl_p2, display=:99
+Bridge server started (pid=3285248, instance=match-791248f3, socket=/home/ubuntu/imk/training/data/bridge/match-791248f3.sock)
+Bridge socket ready: /home/ubuntu/imk/training/data/bridge/match-791248f3.sock
+Bridge server ready (instance=match-791248f3)
+Connecting to bridge at /home/ubuntu/imk/training/data/bridge/match-791248f3.sock
+Bridge connected (set_inputs=True, frame_step=True, debugger=True)
+Emulator warm-up: starting run before stateload (instance=match-791248f3)
+Found mupen window: 0x200006 "Glide64mk2": ("mupen64plus" "mupen64plus")  640x480+0+0  +0+0
+Resizing mupen64plus window 0x200006 → 640x480 on :99
+Window after resize: Width: 640
+Window after resize: Height: 480
+Window after resize: -geometry 640x480+0+0
+Savestate loaded: /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_cage.st → BridgeResponse(payload={'loaded': True, 'savestate_path': '/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_cage.st', 'debugger_command': 'stateload', 'output_tail': 'Audio: Initializing SDL audio subsystem...\r\n\r\nPC at 0x800170A0.\r\nstateload /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_cage.st\r\nM64P_STATELOAD_OK file=/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_cage.st\r\n(dbg) '}, frame_id=0)
+Emulator set to free-running mode
+Starting combined HLS capture for match ae308f85-770e-458b-b859-ac896e9eb27b
+Combined HLS capture started (pid=3285302) for match ae308f85-770e-458b-b859-ac896e9eb27b
+Combined HLS capture started for match ae308f85-770e-458b-b859-ac896e9eb27b
+Match runner ae308f85-770e-458b-b859-ac896e9eb27b is LIVE (P1=OnnxDiscRssmAgent, P2=OnnxLstmAgent, best_of=1)
+Round 1/1 starting (P1=0, P2=0)
+WS connected to match ae308f85-770e-458b-b859-ac896e9eb27b (1 viewers)
+HLS stream ready for match ae308f85-770e-458b-b859-ac896e9eb27b
+R1 Brain step 30: P1=MacroAction.RUN P2=MacroAction.CROUCH_BLOCK | HP 0-0 T=0
+R1 Brain step 60: P1=MacroAction.JUMP_BACK P2=MacroAction.SIDE_STEP_OUT | HP 160-160 T=99
+R1 Brain step 90: P1=MacroAction.SPECIAL_2 P2=MacroAction.STAND_BLOCK | HP 160-160 T=96
+R1 Brain step 120: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.RUN | HP 160-160 T=92
+R1 Brain step 150: P1=MacroAction.LOW_KICK P2=MacroAction.RETREAT | HP 144-160 T=87
+R1 Brain step 180: P1=MacroAction.LOW_KICK P2=MacroAction.JAB_COMBO | HP 144-152 T=83
+R1 Brain step 210: P1=MacroAction.HIGH_KICK P2=MacroAction.PUNISH | HP 144-104 T=78
+R1 Brain step 240: P1=MacroAction.JUMP_FORWARD P2=MacroAction.JAB_COMBO | HP 144-104 T=74
+R1 Brain step 270: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.SIDE_STEP_IN | HP 144-104 T=69
+R1 Brain step 300: P1=MacroAction.SPECIAL_2 P2=MacroAction.CROUCH | HP 122-104 T=65
+R1 Brain step 330: P1=MacroAction.LOW_PUNCH P2=MacroAction.NEUTRAL | HP 122-104 T=60
+R1 Brain step 360: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.THROW_ATTEMPT | HP 122-104 T=56
+R1 Brain step 390: P1=MacroAction.ADVANCE P2=MacroAction.RETREAT | HP 107-104 T=51
+R1 Brain step 420: P1=MacroAction.HIGH_KICK P2=MacroAction.JUMP_NEUTRAL | HP 107-104 T=47
+R1 Brain step 450: P1=MacroAction.STAND_BLOCK P2=MacroAction.SIDE_STEP_IN | HP 107-104 T=42
+R1 Brain step 480: P1=MacroAction.SIDE_STEP_OUT P2=MacroAction.RETREAT | HP 99-104 T=38
+R1 Brain step 510: P1=MacroAction.NEUTRAL P2=MacroAction.SPECIAL_2 | HP 67-104 T=33
+R1 Brain step 540: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.SIDE_STEP_OUT | HP 67-104 T=29
+R1 Brain step 570: P1=MacroAction.SIDE_STEP_OUT P2=MacroAction.HIGH_PUNCH | HP 51-104 T=24
+R1 Brain step 600: P1=MacroAction.JUMP_FORWARD P2=MacroAction.LOW_KICK | HP 51-104 T=20
+R1 Brain step 630: P1=MacroAction.RUN P2=MacroAction.CROUCH_BLOCK | HP 13-104 T=15
+R1 Brain step 660: P1=MacroAction.RUN P2=MacroAction.THROW_ATTEMPT | HP 13-104 T=11
+R1 Brain step 690: P1=MacroAction.JUMP_BACK P2=MacroAction.SIDE_STEP_OUT | HP 13-85 T=6
+R1 Brain step 720: P1=MacroAction.LOW_PUNCH P2=MacroAction.SIDE_STEP_IN | HP 13-67 T=2
+Round 1 over! P1 LOST (hp=13 vs 67)
+Match over! P2 wins (0-1)
+Attempting on-chain settlement for match ae308f85-770e-458b-b859-ac896e9eb27b (PDA: CxZfjDKQLpt5BZtBMXR1Tsu74sasn7WBshjETrn6uwU1)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+match CxZfjDKQLpt5BZtBMXR1Tsu74sasn7WBshjETrn6uwU1 already LOCKED on-chain
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+resolve_match tx: 3ZKswbRUdvoUDd8HWtRyKuD6tcGWu4bMcBQ8CKJAfHa7gBDZLhhGPZDYhKg1jnfDidirv4dqPdU948oKh5JX1rMQ (match_pda=CxZfjDKQLpt5BZtBMXR1Tsu74sasn7WBshjETrn6uwU1, winner=B)
+On-chain settlement successful for match ae308f85-770e-458b-b859-ac896e9eb27b
+Match ae308f85-770e-458b-b859-ac896e9eb27b settled: winner=P2, bets=0, pool=0.000000, fee_bps=500
+Successfully settled match ae308f85-770e-458b-b859-ac896e9eb27b with winner player 2
+Combined HLS capture stopped for match ae308f85-770e-458b-b859-ac896e9eb27b
+Stopping emulator session match-791248f3 (pid=3285248)
+Sent SIGTERM to process 3285248
+Process 3285248 didn't terminate gracefully, force killing
+Stopping Xvfb (display=:99)
+Sent SIGTERM to process 3285245
+Process 3285245 didn't terminate gracefully, force killing
+Emulator session stopped cleanly (instance=match-791248f3)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+lock_match tx confirmed: 4VWLeBPnhtPz96vMdYh8UhhmnFY5dbWe3MineZnZKM6z2DjegbiEPpQzfm9ebqVkTpaqpahWDh89khsxGoJEeV4x (match_pda=CpYbAQQgkTqeSeZ7nC3G48BrrTZrdHZzcd3zeApoUhgf)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match CpYbAQQgkTqeSeZ7nC3G48BrrTZrdHZzcd3zeApoUhgf already Locked on-chain — skipping
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match CpYbAQQgkTqeSeZ7nC3G48BrrTZrdHZzcd3zeApoUhgf already Locked on-chain — skipping
+ONNX LSTM agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/lstm.onnx (obs_dim=28, hidden=128, outputs=3)
+ONNX Transformer agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/transformer.onnx (shape=[16, 28] seq=16 obs_dim=28 frame_stack=2)
+Starting match runner a9c55956-48e5-4ff2-957d-24894f42394c (instance=match-afb03b9d)
+RAM debug trace: /home/ubuntu/imk/backend/logs/ram_debug/20260309_111353__a9c55956-48e5-4ff2-957d-24894f42394c__match-afb03b9d.jsonl
+Xvnc started on display :99 (pid=3285798)
+Copied base config from /home/ubuntu/imk/.m64p/instances/match-008d326b/config/mupen64plus.cfg
+Config: ScreenshotPath=/dev/shm/imk_screenshots/match-afb03b9d, format=JPEG, resolution=640x480 → /home/ubuntu/imk/.m64p/instances/match-afb03b9d/config/mupen64plus.cfg
+Linux emulator env: DISPLAY=:99 SDL_RENDER_DRIVER=software z64
+Launching bridge server: ctrl_p1=/tmp/imk/match-afb03b9d/ctrl_p1, ctrl_p2=/tmp/imk/match-afb03b9d/ctrl_p2, display=:99
+Bridge server started (pid=3285801, instance=match-afb03b9d, socket=/home/ubuntu/imk/training/data/bridge/match-afb03b9d.sock)
+Bridge socket ready: /home/ubuntu/imk/training/data/bridge/match-afb03b9d.sock
+Bridge server ready (instance=match-afb03b9d)
+Connecting to bridge at /home/ubuntu/imk/training/data/bridge/match-afb03b9d.sock
+Bridge connected (set_inputs=True, frame_step=True, debugger=True)
+Emulator warm-up: starting run before stateload (instance=match-afb03b9d)
+Found mupen window: 0x200006 "Glide64mk2": ("mupen64plus" "mupen64plus")  640x480+0+0  +0+0
+Resizing mupen64plus window 0x200006 → 640x480 on :99
+Window after resize: Width: 640
+Window after resize: Height: 480
+Window after resize: -geometry 640x480+0+0
+Savestate loaded: /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_subzero.st → BridgeResponse(payload={'loaded': True, 'savestate_path': '/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_subzero.st', 'debugger_command': 'stateload', 'output_tail': 'Audio: Initializing SDL audio subsystem...\r\n\r\nPC at 0x800170A0.\r\nstateload /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_subzero.st\r\nM64P_STATELOAD_OK file=/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_subzero.st\r\n(dbg) '}, frame_id=0)
+Emulator set to free-running mode
+Starting combined HLS capture for match a9c55956-48e5-4ff2-957d-24894f42394c
+Combined HLS capture started (pid=3285853) for match a9c55956-48e5-4ff2-957d-24894f42394c
+Combined HLS capture started for match a9c55956-48e5-4ff2-957d-24894f42394c
+Match runner a9c55956-48e5-4ff2-957d-24894f42394c is LIVE (P1=OnnxLstmAgent, P2=OnnxTransformerAgent, best_of=1)
+Round 1/1 starting (P1=0, P2=0)
+HLS stream ready for match a9c55956-48e5-4ff2-957d-24894f42394c
+R1 Brain step 30: P1=MacroAction.CROUCH P2=MacroAction.SPECIAL_1 | HP 0-0 T=0
+R1 Brain step 60: P1=MacroAction.JUMP_BACK P2=MacroAction.ADVANCE | HP 160-160 T=99
+R1 Brain step 90: P1=MacroAction.SIDE_STEP_OUT P2=MacroAction.SPECIAL_1 | HP 160-138 T=96
+R1 Brain step 120: P1=MacroAction.HIGH_KICK P2=MacroAction.JUMP_BACK | HP 160-115 T=92
+R1 Brain step 150: P1=MacroAction.SPECIAL_1 P2=MacroAction.THROW_ATTEMPT | HP 160-99 T=87
+R1 Brain step 180: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.LOW_KICK | HP 160-99 T=83
+R1 Brain step 210: P1=MacroAction.STAND_BLOCK P2=MacroAction.JAB_COMBO | HP 160-83 T=78
+R1 Brain step 240: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.SIDE_STEP_OUT | HP 160-83 T=73
+R1 Brain step 270: P1=MacroAction.SPECIAL_2 P2=MacroAction.SIDE_STEP_IN | HP 160-83 T=69
+R1 Brain step 300: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.HIGH_KICK | HP 160-67 T=64
+R1 Brain step 330: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.SPECIAL_2 | HP 160-35 T=60
+R1 Brain step 360: P1=MacroAction.RETREAT P2=MacroAction.CROUCH | HP 160-19 T=55
+R1 Brain step 390: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.LOW_KICK | HP 160-0 T=52
+R1 Brain step 420: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.SIDE_STEP_IN | HP 160-0 T=52
+R1 Brain step 450: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.LOW_KICK | HP 160-160 T=99
+R1 Brain step 480: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.LOW_KICK | HP 160-146 T=98
+R1 Brain step 510: P1=MacroAction.NEUTRAL P2=MacroAction.LOW_KICK | HP 160-146 T=93
+R1 Brain step 540: P1=MacroAction.STAND_BLOCK P2=MacroAction.SIDE_STEP_OUT | HP 160-146 T=89
+R1 Brain step 570: P1=MacroAction.RETREAT P2=MacroAction.SIDE_STEP_IN | HP 160-115 T=84
+R1 Brain step 600: P1=MacroAction.PUNISH P2=MacroAction.RUN | HP 160-115 T=80
+R1 Brain step 630: P1=MacroAction.PUNISH P2=MacroAction.HIGH_PUNCH | HP 160-115 T=75
+R1 Brain step 660: P1=MacroAction.CROUCH P2=MacroAction.HIGH_KICK | HP 160-97 T=70
+R1 Brain step 690: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.JUMP_NEUTRAL | HP 160-97 T=66
+R1 Brain step 720: P1=MacroAction.STAND_BLOCK P2=MacroAction.JAB_COMBO | HP 160-76 T=61
+R1 Brain step 750: P1=MacroAction.LOW_KICK P2=MacroAction.HIGH_KICK | HP 160-76 T=57
+R1 Brain step 780: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.LOW_KICK | HP 160-76 T=52
+R1 Brain step 810: P1=MacroAction.SPECIAL_2 P2=MacroAction.ADVANCE | HP 141-76 T=48
+R1 Brain step 840: P1=MacroAction.NEUTRAL P2=MacroAction.JUMP_NEUTRAL | HP 141-60 T=43
+R1 Brain step 870: P1=MacroAction.JUMP_FORWARD P2=MacroAction.JUMP_FORWARD | HP 141-60 T=39
+R1 Brain step 900: P1=MacroAction.JUMP_BACK P2=MacroAction.ADVANCE | HP 141-60 T=34
+R1 Brain step 930: P1=MacroAction.SIDE_STEP_OUT P2=MacroAction.LOW_KICK | HP 126-60 T=30
+R1 Brain step 960: P1=MacroAction.SPECIAL_1 P2=MacroAction.CROUCH_BLOCK | HP 126-60 T=25
+R1 Brain step 990: P1=MacroAction.STAND_BLOCK P2=MacroAction.PUNISH | HP 126-28 T=21
+R1 Brain step 1020: P1=MacroAction.SPECIAL_1 P2=MacroAction.CROUCH_BLOCK | HP 126-12 T=16
+R1 Brain step 1050: P1=MacroAction.LOW_PUNCH P2=MacroAction.CROUCH_BLOCK | HP 118-12 T=12
+Round 1 over! P1 WON (hp=118 vs 0)
+Match over! P1 wins (1-0)
+Attempting on-chain settlement for match a9c55956-48e5-4ff2-957d-24894f42394c (PDA: CpYbAQQgkTqeSeZ7nC3G48BrrTZrdHZzcd3zeApoUhgf)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+match CpYbAQQgkTqeSeZ7nC3G48BrrTZrdHZzcd3zeApoUhgf already LOCKED on-chain
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+resolve_match tx: 5gGKoq9pDe9wTEq2VdgG6hYGxisn97duBYZpuzqhYhKdAsWZQ8p5UVreJCekTUDKF8t5yk1dexkDeDDDsjFHfYR6 (match_pda=CpYbAQQgkTqeSeZ7nC3G48BrrTZrdHZzcd3zeApoUhgf, winner=A)
+On-chain settlement successful for match a9c55956-48e5-4ff2-957d-24894f42394c
+Match a9c55956-48e5-4ff2-957d-24894f42394c settled: winner=P1, bets=0, pool=0.000000, fee_bps=500
+Successfully settled match a9c55956-48e5-4ff2-957d-24894f42394c with winner player 1
+Combined HLS capture stopped for match a9c55956-48e5-4ff2-957d-24894f42394c
+Stopping emulator session match-afb03b9d (pid=3285801)
+Sent SIGTERM to process 3285801
+Process 3285801 didn't terminate gracefully, force killing
+Stopping Xvfb (display=:99)
+Sent SIGTERM to process 3285798
+Process 3285798 didn't terminate gracefully, force killing
+Emulator session stopped cleanly (instance=match-afb03b9d)
+Global subscriber removed (0 total)
+WS connected to match cda6b9f2-63ce-43c2-814f-6cd54fde1345 (1 viewers)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+lock_match tx confirmed: 3JHucZVfRgM9HHsDcSVEFQ4p54ZYku6UizSi4pjX4bPSsxdqdxpJzqqquo4ovJt7JtcsUmGsDes2QJNFxYm9kZxT (match_pda=2MgczEkFPQRJaCgkmaLbgV8822ttbA5KqYb66EH4K2oN)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match 2MgczEkFPQRJaCgkmaLbgV8822ttbA5KqYb66EH4K2oN already Locked on-chain — skipping
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match 2MgczEkFPQRJaCgkmaLbgV8822ttbA5KqYb66EH4K2oN already Locked on-chain — skipping
+ONNX LSTM agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/lstm.onnx (obs_dim=28, hidden=128, outputs=3)
+ONNX agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/obj_belief.onnx (input=obs shape=['batch', 28] obs_dim=28 output=logits frame_stack=2)
+Starting match runner c2ece212-74ec-4b8f-ade0-42dc3a6051bc (instance=match-543f98f2)
+RAM debug trace: /home/ubuntu/imk/backend/logs/ram_debug/20260309_112532__c2ece212-74ec-4b8f-ade0-42dc3a6051bc__match-543f98f2.jsonl
+Xvnc started on display :99 (pid=3288372)
+Copied base config from /home/ubuntu/imk/.m64p/instances/match-008d326b/config/mupen64plus.cfg
+Config: ScreenshotPath=/dev/shm/imk_screenshots/match-543f98f2, format=JPEG, resolution=640x480 → /home/ubuntu/imk/.m64p/instances/match-543f98f2/config/mupen64plus.cfg
+Linux emulator env: DISPLAY=:99 SDL_RENDER_DRIVER=software z64
+Launching bridge server: ctrl_p1=/tmp/imk/match-543f98f2/ctrl_p1, ctrl_p2=/tmp/imk/match-543f98f2/ctrl_p2, display=:99
+Bridge server started (pid=3288375, instance=match-543f98f2, socket=/home/ubuntu/imk/training/data/bridge/match-543f98f2.sock)
+Bridge socket ready: /home/ubuntu/imk/training/data/bridge/match-543f98f2.sock
+Bridge server ready (instance=match-543f98f2)
+Connecting to bridge at /home/ubuntu/imk/training/data/bridge/match-543f98f2.sock
+Bridge connected (set_inputs=True, frame_step=True, debugger=True)
+Emulator warm-up: starting run before stateload (instance=match-543f98f2)
+Found mupen window: 0x200006 "Glide64mk2": ("mupen64plus" "mupen64plus")  640x480+0+0  +0+0
+Resizing mupen64plus window 0x200006 → 640x480 on :99
+Window after resize: Width: 640
+Window after resize: Height: 480
+Window after resize: -geometry 640x480+0+0
+Savestate loaded: /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_sonya.st → BridgeResponse(payload={'loaded': True, 'savestate_path': '/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_sonya.st', 'debugger_command': 'stateload', 'output_tail': 'Audio: Initializing SDL audio subsystem...\r\n\r\nPC at 0x800170A0.\r\nstateload /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_sonya.st\r\nM64P_STATELOAD_OK file=/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_cage_sonya.st\r\n(dbg) '}, frame_id=0)
+Emulator set to free-running mode
+Starting combined HLS capture for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc
+Combined HLS capture started (pid=3288429) for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc
+Combined HLS capture started for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc
+Match runner c2ece212-74ec-4b8f-ade0-42dc3a6051bc is LIVE (P1=OnnxLstmAgent, P2=OnnxAgent, best_of=1)
+Round 1/1 starting (P1=0, P2=0)
+HLS stream ready for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc
+R1 Brain step 30: P1=MacroAction.HIGH_KICK P2=MacroAction.JUMP_FORWARD | HP 0-0 T=0
+R1 Brain step 60: P1=MacroAction.RUN P2=MacroAction.CROUCH | HP 160-160 T=99
+R1 Brain step 90: P1=MacroAction.NEUTRAL P2=MacroAction.LOW_KICK | HP 160-144 T=96
+R1 Brain step 120: P1=MacroAction.ADVANCE P2=MacroAction.JUMP_NEUTRAL | HP 127-128 T=91
+R1 Brain step 150: P1=MacroAction.LOW_PUNCH P2=MacroAction.SIDE_STEP_OUT | HP 141-128 T=87
+R1 Brain step 180: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.HIGH_PUNCH | HP 109-128 T=82
+R1 Brain step 210: P1=MacroAction.JUMP_BACK P2=MacroAction.JUMP_BACK | HP 109-112 T=78
+R1 Brain step 240: P1=MacroAction.HIGH_KICK P2=MacroAction.JUMP_FORWARD | HP 109-112 T=73
+R1 Brain step 270: P1=MacroAction.RUN P2=MacroAction.LOW_KICK | HP 109-94 T=69
+R1 Brain step 300: P1=MacroAction.LOW_PUNCH P2=MacroAction.CROUCH_BLOCK | HP 90-78 T=64
+WS connected to match c2ece212-74ec-4b8f-ade0-42dc3a6051bc (1 viewers)
+R1 Brain step 330: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.CROUCH_BLOCK | HP 90-78 T=60
+R1 Brain step 360: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.JUMP_NEUTRAL | HP 90-62 T=55
+R1 Brain step 390: P1=MacroAction.RETREAT P2=MacroAction.SPECIAL_1 | HP 90-62 T=51
+R1 Brain step 420: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.RUN | HP 90-62 T=46
+R1 Brain step 450: P1=MacroAction.NEUTRAL P2=MacroAction.THROW_ATTEMPT | HP 90-62 T=42
+R1 Brain step 480: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.SIDE_STEP_OUT | HP 70-62 T=37
+R1 Brain step 510: P1=MacroAction.STAND_BLOCK P2=MacroAction.SIDE_STEP_IN | HP 70-62 T=33
+R1 Brain step 540: P1=MacroAction.RUN P2=MacroAction.STAND_BLOCK | HP 67-62 T=28
+R1 Brain step 570: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.RETREAT | HP 46-62 T=24
+R1 Brain step 600: P1=MacroAction.SIDE_STEP_IN P2=MacroAction.PUNISH | HP 46-62 T=19
+R1 Brain step 630: P1=MacroAction.LOW_KICK P2=MacroAction.LOW_KICK | HP 46-62 T=15
+R1 Brain step 660: P1=MacroAction.NEUTRAL P2=MacroAction.SIDE_STEP_IN | HP 46-62 T=10
+R1 Brain step 690: P1=MacroAction.LOW_KICK P2=MacroAction.ADVANCE | HP 46-24 T=6
+R1 Brain step 720: P1=MacroAction.PUNISH P2=MacroAction.NEUTRAL | HP 46-24 T=1
+Round 1 over! P1 WON (hp=46 vs 24)
+Match over! P1 wins (1-0)
+Attempting on-chain settlement for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc (PDA: 2MgczEkFPQRJaCgkmaLbgV8822ttbA5KqYb66EH4K2oN)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+match 2MgczEkFPQRJaCgkmaLbgV8822ttbA5KqYb66EH4K2oN already LOCKED on-chain
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+resolve_match tx: 3pKNXU9bhRBNKU54TtsXnzghCoB4ig7aN7LJGzT68G5UoLaSunJwNtQtCuZB6zG78h9mfQUgLJMphyJpxjbPTMix (match_pda=2MgczEkFPQRJaCgkmaLbgV8822ttbA5KqYb66EH4K2oN, winner=A)
+On-chain settlement successful for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc
+Match c2ece212-74ec-4b8f-ade0-42dc3a6051bc settled: winner=P1, bets=0, pool=0.000000, fee_bps=500
+Successfully settled match c2ece212-74ec-4b8f-ade0-42dc3a6051bc with winner player 1
+Combined HLS capture stopped for match c2ece212-74ec-4b8f-ade0-42dc3a6051bc
+Stopping emulator session match-543f98f2 (pid=3288375)
+Sent SIGTERM to process 3288375
+Process 3288375 didn't terminate gracefully, force killing
+Stopping Xvfb (display=:99)
+Sent SIGTERM to process 3288372
+Process 3288372 didn't terminate gracefully, force killing
+Emulator session stopped cleanly (instance=match-543f98f2)
+WS connected to match c3ff904b-4302-425a-9e11-9ab5d133b8bb (1 viewers)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+lock_match tx confirmed: 26ceKNZCdCSWfq523nj9GMW1uw2eDBMwJF2SPmY87UmzB9oWAwmwFKiBGiZngVUMHR5Pgz7Lc6AMgLRwEFvhmHQD (match_pda=34tFg2fdQscptkGPPXMkmJx42Z761tHroKSNxbGzhfmk)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match 34tFg2fdQscptkGPPXMkmJx42Z761tHroKSNxbGzhfmk already Locked on-chain — skipping
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+Match 34tFg2fdQscptkGPPXMkmJx42Z761tHroKSNxbGzhfmk already Locked on-chain — skipping
+ONNX DiscRSSM agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/disc_rssm.onnx (det=128 obs_dim=28 frame_stack=2)
+ONNX agent loaded: /home/ubuntu/imk/backend/app/agents/checkpoints/obj_belief.onnx (input=obs shape=['batch', 28] obs_dim=28 output=logits frame_stack=2)
+Starting match runner ba18eba5-1f1e-4c6a-a131-ee0c76152428 (instance=match-6451aaa1)
+RAM debug trace: /home/ubuntu/imk/backend/logs/ram_debug/20260309_113401__ba18eba5-1f1e-4c6a-a131-ee0c76152428__match-6451aaa1.jsonl
+Xvnc started on display :99 (pid=3290220)
+Copied base config from /home/ubuntu/imk/.m64p/instances/match-008d326b/config/mupen64plus.cfg
+Config: ScreenshotPath=/dev/shm/imk_screenshots/match-6451aaa1, format=JPEG, resolution=640x480 → /home/ubuntu/imk/.m64p/instances/match-6451aaa1/config/mupen64plus.cfg
+Linux emulator env: DISPLAY=:99 SDL_RENDER_DRIVER=software z64
+Launching bridge server: ctrl_p1=/tmp/imk/match-6451aaa1/ctrl_p1, ctrl_p2=/tmp/imk/match-6451aaa1/ctrl_p2, display=:99
+Bridge server started (pid=3290223, instance=match-6451aaa1, socket=/home/ubuntu/imk/training/data/bridge/match-6451aaa1.sock)
+Bridge socket ready: /home/ubuntu/imk/training/data/bridge/match-6451aaa1.sock
+Bridge server ready (instance=match-6451aaa1)
+Connecting to bridge at /home/ubuntu/imk/training/data/bridge/match-6451aaa1.sock
+Bridge connected (set_inputs=True, frame_step=True, debugger=True)
+Emulator warm-up: starting run before stateload (instance=match-6451aaa1)
+Found mupen window: 0x200006 "Glide64mk2": ("mupen64plus" "mupen64plus")  640x480+0+0  +0+0
+Resizing mupen64plus window 0x200006 → 640x480 on :99
+Window after resize: Width: 640
+Window after resize: Height: 480
+Window after resize: -geometry 640x480+0+0
+Savestate loaded: /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_sonya.st → BridgeResponse(payload={'loaded': True, 'savestate_path': '/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_sonya.st', 'debugger_command': 'stateload', 'output_tail': 'Audio: Initializing SDL audio subsystem...\r\n\r\nPC at 0x800170A0.\r\nstateload /home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_sonya.st\r\nM64P_STATELOAD_OK file=/home/ubuntu/imk/training/data/savestates/mk4_arcade/p1p2_scorpion_sonya.st\r\n(dbg) '}, frame_id=0)
+Emulator set to free-running mode
+Starting combined HLS capture for match ba18eba5-1f1e-4c6a-a131-ee0c76152428
+Combined HLS capture started (pid=3290275) for match ba18eba5-1f1e-4c6a-a131-ee0c76152428
+Combined HLS capture started for match ba18eba5-1f1e-4c6a-a131-ee0c76152428
+Match runner ba18eba5-1f1e-4c6a-a131-ee0c76152428 is LIVE (P1=OnnxDiscRssmAgent, P2=OnnxAgent, best_of=1)
+Round 1/1 starting (P1=0, P2=0)
+HLS stream ready for match ba18eba5-1f1e-4c6a-a131-ee0c76152428
+R1 Brain step 30: P1=MacroAction.RETREAT P2=MacroAction.JAB_COMBO | HP 0-0 T=0
+R1 Brain step 60: P1=MacroAction.JUMP_NEUTRAL P2=MacroAction.RUN | HP 160-160 T=99
+R1 Brain step 90: P1=MacroAction.SPECIAL_1 P2=MacroAction.ADVANCE | HP 160-126 T=95
+R1 Brain step 120: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.JUMP_NEUTRAL | HP 160-126 T=91
+R1 Brain step 150: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.RUN | HP 160-104 T=86
+R1 Brain step 180: P1=MacroAction.RUN P2=MacroAction.RETREAT | HP 160-89 T=82
+R1 Brain step 210: P1=MacroAction.SPECIAL_1 P2=MacroAction.SIDE_STEP_OUT | HP 160-54 T=77
+R1 Brain step 240: P1=MacroAction.LOW_PUNCH P2=MacroAction.LOW_PUNCH | HP 156-54 T=73
+R1 Brain step 270: P1=MacroAction.SIDE_STEP_OUT P2=MacroAction.HIGH_KICK | HP 156-48 T=68
+R1 Brain step 300: P1=MacroAction.JAB_COMBO P2=MacroAction.RETREAT | HP 156-48 T=64
+R1 Brain step 330: P1=MacroAction.RETREAT P2=MacroAction.JUMP_NEUTRAL | HP 156-48 T=59
+R1 Brain step 360: P1=MacroAction.NEUTRAL P2=MacroAction.SIDE_STEP_OUT | HP 156-48 T=55
+R1 Brain step 390: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.NEUTRAL | HP 132-48 T=50
+R1 Brain step 420: P1=MacroAction.JAB_COMBO P2=MacroAction.JUMP_NEUTRAL | HP 119-48 T=45
+R1 Brain step 450: P1=MacroAction.NEUTRAL P2=MacroAction.JUMP_FORWARD | HP 119-27 T=41
+R1 Brain step 480: P1=MacroAction.CROUCH_BLOCK P2=MacroAction.SPECIAL_2 | HP 119-27 T=36
+R1 Brain step 510: P1=MacroAction.STAND_BLOCK P2=MacroAction.STAND_BLOCK | HP 119-27 T=32
+R1 Brain step 540: P1=MacroAction.SPECIAL_2 P2=MacroAction.HIGH_PUNCH | HP 119-27 T=27
+R1 Brain step 570: P1=MacroAction.THROW_ATTEMPT P2=MacroAction.JUMP_NEUTRAL | HP 100-27 T=23
+R1 Brain step 600: P1=MacroAction.NEUTRAL P2=MacroAction.PUNISH | HP 100-27 T=18
+R1 Brain step 630: P1=MacroAction.HIGH_KICK P2=MacroAction.JUMP_NEUTRAL | HP 100-9 T=14
+R1 Brain step 660: P1=MacroAction.CROUCH P2=MacroAction.JUMP_NEUTRAL | HP 83-9 T=9
+Round 1 over! P1 WON (hp=83 vs 0)
+Match over! P1 wins (1-0)
+Attempting on-chain settlement for match ba18eba5-1f1e-4c6a-a131-ee0c76152428 (PDA: 34tFg2fdQscptkGPPXMkmJx42Z761tHroKSNxbGzhfmk)
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+match 34tFg2fdQscptkGPPXMkmJx42Z761tHroKSNxbGzhfmk already LOCKED on-chain
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+HTTP Request: POST https://api.devnet.solana.com "HTTP/1.1 200 OK"
+resolve_match tx: KELsWvdihJ3z4P5ku9QLSDL9cZUrG2CyBdYeTiXvb8bBroXQXvJ4EuJ1h24pSXBBZ4Y3AjEDmY34dvSndqzxWda (match_pda=34tFg2fdQscptkGPPXMkmJx42Z761tHroKSNxbGzhfmk, winner=A)
+On-chain settlement successful for match ba18eba5-1f1e-4c6a-a131-ee0c76152428
+Match ba18eba5-1f1e-4c6a-a131-ee0c76152428 settled: winner=P1, bets=0, pool=0.000000, fee_bps=500
+Successfully settled match ba18eba5-1f1e-4c6a-a131-ee0c76152428 with winner player 1
+Combined HLS capture stopped for match ba18eba5-1f1e-4c6a-a131-ee0c76152428
+Stopping emulator session match-6451aaa1 (pid=3290223)
+Sent SIGTERM to process 3290223
+Process 3290223 didn't terminate gracefully, force killing
+Stopping Xvfb (display=:99)
+Sent SIGTERM to process 3290220
+Process 3290220 didn't terminate gracefully, force killing
+Emulator session stopped cleanly (instance=match-6451aaa1)
+Global subscriber added (1 total)
+Global subscriber removed (0 total)
+Shutting down IMK backend...
+Queue loop manager stopped
+Starting full system cleanup...
+Cleanup complete: {'processes_killed': 0, 'displays_killed': 0, 'sockets_removed': 0}
+Shutdown cleanup: {'processes_killed': 0, 'displays_killed': 0, 'sockets_removed': 0}
+Redis connection closed
+IMK backend shutdown complete

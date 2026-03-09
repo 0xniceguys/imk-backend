@@ -29,7 +29,7 @@ class HlsPlayerService {
   static const _watchdogInterval = Duration(seconds: 5);
   static const _stuckTicksBeforeRestart = 2; // 2 × 5s = 10s frozen → restart
 
-  Future<void> preload(String matchId, String hlsUrl, {int _attempt = 1}) async {
+  Future<void> preload(String matchId, String hlsUrl, {int attempt_ = 1}) async {
     if (_disposed) return;
     const maxAttempts = 3;
 
@@ -56,7 +56,7 @@ class HlsPlayerService {
     activeMatchIdNotifier.value = matchId;
     _setState(HlsPreloadState.initializing);
 
-    debugPrint('[HlsPlayerService] Loading HLS (attempt $_attempt/$maxAttempts): $matchId — $hlsUrl');
+    debugPrint('[HlsPlayerService] Loading HLS (attempt $attempt_/$maxAttempts): $matchId — $hlsUrl');
 
     VideoPlayerController? ctrl;
     try {
@@ -93,25 +93,25 @@ class HlsPlayerService {
         debugPrint('[HlsPlayerService] ✅ Playing $matchId (muted)');
       }
     } on TimeoutException {
-      debugPrint('[HlsPlayerService] ⏰ Timeout initializing HLS $matchId (attempt $_attempt)');
+      debugPrint('[HlsPlayerService] ⏰ Timeout initializing HLS $matchId (attempt $attempt_)');
       await _safeDispose(ctrl);
       if (_disposed || _initToken != token) return;
-      if (_attempt < maxAttempts) {
-        debugPrint('[HlsPlayerService] Retrying in 2s (attempt ${_attempt + 1}/$maxAttempts)…');
+      if (attempt_ < maxAttempts) {
+        debugPrint('[HlsPlayerService] Retrying in 2s (attempt ${attempt_ + 1}/$maxAttempts)…');
         await Future.delayed(const Duration(seconds: 2));
-        if (!_disposed) preload(matchId, hlsUrl, _attempt: _attempt + 1);
+        if (!_disposed) preload(matchId, hlsUrl, attempt_: attempt_ + 1);
       } else {
         debugPrint('[HlsPlayerService] ❌ Giving up after $maxAttempts attempts for $matchId');
         _setState(HlsPreloadState.error);
       }
     } catch (e, st) {
-      debugPrint('[HlsPlayerService] ❌ Init error $matchId (attempt $_attempt): $e\n$st');
+      debugPrint('[HlsPlayerService] ❌ Init error $matchId (attempt $attempt_): $e\n$st');
       await _safeDispose(ctrl);
       if (_disposed || _initToken != token) return;
-      if (_attempt < maxAttempts) {
-        debugPrint('[HlsPlayerService] Retrying in 2s (attempt ${_attempt + 1}/$maxAttempts)…');
+      if (attempt_ < maxAttempts) {
+        debugPrint('[HlsPlayerService] Retrying in 2s (attempt ${attempt_ + 1}/$maxAttempts)…');
         await Future.delayed(const Duration(seconds: 2));
-        if (!_disposed) preload(matchId, hlsUrl, _attempt: _attempt + 1);
+        if (!_disposed) preload(matchId, hlsUrl, attempt_: attempt_ + 1);
       } else {
         debugPrint('[HlsPlayerService] ❌ Giving up after $maxAttempts attempts for $matchId');
         _setState(HlsPreloadState.error);

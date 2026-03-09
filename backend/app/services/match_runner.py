@@ -42,7 +42,7 @@ from app.services.game_state import FightState, is_round_over, p1_won, read_figh
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
-KO_CONFIRM_FRAMES = 5
+KO_CONFIRM_FRAMES = 15  # 15 × 100ms = 1.5s of stable health==0 before declaring KO
 
 
 def apply_round_end_policy(
@@ -780,10 +780,20 @@ class MatchRunner:
 
                 # More rounds to play — reload savestate.
                 self.current_round += 1
-                logger.info("Between rounds — reloading savestate for round %d", self.current_round)
+                next_round = self.current_round
+                logger.info("Between rounds — reloading savestate for round %d", next_round)
 
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, self._bridge.debugger_command, "pause")
+
+                # Notify Flutter BEFORE stopping HLS so it can show a "Round N
+                # starting..." overlay and pause the stuck-position watchdog.
+                await ws_manager.broadcast_json(self.match_id, {
+                    "type": "streaming_state",
+                    "state": "round_transition",
+                    "round": next_round,
+                    "timestamp": time.time(),
+                })
 
                 # Between rounds: stop HLS capture so there's no stale stream
                 # through the round transition. It will be restarted by

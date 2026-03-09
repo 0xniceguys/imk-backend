@@ -492,8 +492,15 @@ def read_fight_state(
 
 
 def is_round_over(state: FightState) -> bool:
-    """True when someone is KO'd or the timer runs out."""
-    p1, p2, timer = state.p1_health, state.p2_health, state.timer
+    """True when someone is KO'd (health reaches 0).
+
+    Timer-based endings are intentionally disabled: the emulator runs at
+    native speed so the MK4 in-game timer hits 0 in ~30 real seconds. A
+    timeout-based 'higher health wins' result is confusing and unreliable
+    due to possible stale health reads at that exact frame. Rounds only
+    end by KO.
+    """
+    p1, p2 = state.p1_health, state.p2_health
 
     if p1 == 0 and p2 == 0:
         return False
@@ -502,8 +509,6 @@ def is_round_over(state: FightState) -> bool:
     if (p1 == HEALTH_MAX and p2 == 0) or (p2 == HEALTH_MAX and p1 == 0):
         return False
     if p1 <= 0 or p2 <= 0:
-        return True
-    if timer == 0:
         return True
     return False
 
