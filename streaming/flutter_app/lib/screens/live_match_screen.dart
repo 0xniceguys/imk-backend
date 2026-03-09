@@ -1,0 +1,936 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/constants.dart';
+import '../core/palette.dart';
+import '../core/runtime_client_config.dart';
+import '../core/typography.dart';
+import '../router.dart';
+import '../models/match.dart';
+import '../providers/bet_provider.dart';
+import '../providers/match_provider.dart';
+import '../providers/match_stream_provider.dart';
+import '../providers/global_events_provider.dart';
+import '../services/webrtc_player_service.dart';
+import 'package:livekit_client/livekit_client.dart';
+import '../app.dart' show routeObserver;
+import '../widgets/shared/app_shell.dart';
+import '../widgets/shared/ornate_button.dart';
+import '../widgets/shared/ik_loader.dart';
+import '../widgets/betting/bet_bottom_sheet.dart';
+
+enum LiveStreamClientState {
+  idle,
+  wsConnected,
+  streamInitializing,
+  streamReady,
+  playerInitializing,
+  playing,
+  ended,
+  error,
+}
+
+
+class LiveMatchScreen extends ConsumerStatefulWidget {
+  const LiveMatchScreen({super.key, required this.onNavigate, this.matchId});
+  final void Function(String) onNavigate;
+  final String? matchId;
+
+  @override
+  ConsumerState<LiveMatchScreen> createState() => _LiveMatchScreenState();
+}
+
+class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
+    with SingleTickerProviderStateMixin
+    implements RouteAware {
+  late final AnimationController _pulseCtrl;
+
+  // ignore: unused_field
+  // Subscription references kept to prevent premature GC of listenManual subs.
+  ProviderSubscription<MatchState>? _matchStateSub;
+  // ignore: unused_field
+  ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _matchEndSub;
+  // ignore: unused_field
+  ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _streamingStateSub;
+
+  // ignore: unused_field
+  ProviderSubscription<AsyncValue<bool>>? _wsConnectedSub;
+
+  String? _lastConnectedMatchId;
+  bool _navigatedToPostMatch = false;
+  bool _matchEndScheduled = false; // guard against firing the drain+nav flow twice
+  bool _inRoundTransition = false; // shows round overlay between rounds
+  int _nextRound = 2; // round number to display in the overlay
+  Timer? _fastPollTimer;
+
+  // Active match tracking
+  String? _activeMatchId;
+  LiveStreamClientState _streamState = LiveStreamClientState.idle;
+
+  // LiveKit player — connects when backend signals streaming ready
+  LiveKitPlayerService? _livekitSvc;
+  String? _livekitMatchId; // match ID currently connected via LiveKit
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _streamState = LiveStreamClientState.idle;
+    ref.read(matchProvider.notifier).startFastPolling();
+    _setupListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // If we have an explicit matchId, connect the WS immediately without
+      // waiting for the REST poll to confirm match.status == live.
+      // The WS rejects with 4004 if not ready yet and retries automatically.
+      if (widget.matchId != null) {
+        debugPrint('[LiveMatch] initState postFrame — connecting WS for matchId=${widget.matchId}');
+        _activeMatchId = widget.matchId;
+        _connectToMatch();
+        // If WS was pre-connected (autoWsPreconnect), streaming_state=ready
+        // was already emitted before this screen existed. Check now.
+        _tryConnectLiveKit();
+      } else {
+        debugPrint('[LiveMatch] initState postFrame — no explicit matchId, waiting for matchProvider');
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route observer so we get didPop/didPushNext immediately
+    // when navigation starts — not after the 300ms exit animation completes.
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  // ── RouteAware: fires at the START of navigation, before animation ──────────
+
+  @override
+  void didPop() {
+    debugPrint('[LiveMatch] RouteAware: didPop');
+  }
+
+  @override
+  void didPushNext() {
+    debugPrint('[LiveMatch] RouteAware: didPushNext');
+  }
+
+  @override
+  void didPopNext() {
+    debugPrint('[LiveMatch] RouteAware: didPopNext');
+  }
+
+  @override
+  void didPush() {
+    debugPrint('[LiveMatch] RouteAware: didPush');
+  }
+
+  void _setupListeners() {
+    _matchStateSub = ref.listenManual<MatchState>(
+      matchProvider,
+      (prev, next) => _onMatchState(next),
+      fireImmediately: true,
+    );
+    _matchEndSub = ref.listenManual<AsyncValue<Map<String, dynamic>>>(matchEndProvider, (
+      _,
+      next,
+    ) {
+      if (!next.hasValue) return;
+      _handleMatchEnded();
+    });
+    _streamingStateSub = ref.listenManual<AsyncValue<Map<String, dynamic>>>(
+      streamingStateProvider,
+      (_, next) {
+        final data = next.valueOrNull;
+        if (data == null) return;
+        final state = data['state'] as String?;
+        if (state == null) return;
+
+        debugPrint('[LiveMatch] streaming_state="$state" | match=$_activeMatchId | lkMatch=$_livekitMatchId | lkState=${_livekitSvc?.state.name} | hasVideo=${_livekitSvc?.videoTrack != null} | roundTransition=$_inRoundTransition');
+
+        // ── Round transition overlay ─────
+        if (state == 'round_transition') {
+          final round = (data['round'] as num?)?.toInt() ?? (_nextRound);
+          debugPrint('[LiveMatch] round_transition → round $round');
+          if (mounted) setState(() { _inRoundTransition = true; _nextRound = round; });
+          return;
+        }
+
+        if (state != 'ready' && state != 'playing') {
+          debugPrint('[LiveMatch] Ignoring streaming_state "$state" (not ready/playing)');
+          return;
+        }
+        if (_activeMatchId == null) {
+          debugPrint('[LiveMatch] streaming_state "$state" received but _activeMatchId is null — ignoring');
+          return;
+        }
+
+        // Clear round transition overlay when new round stream is ready
+        if (_inRoundTransition) {
+          debugPrint('[LiveMatch] Round transition ended — stream ready for new round');
+          if (mounted) setState(() => _inRoundTransition = false);
+        }
+
+        // Connect LiveKit — reuse existing connection if already on this match
+        final matchId = _activeMatchId!;
+        if (_livekitSvc != null && _livekitMatchId == matchId &&
+            (_livekitSvc!.state == LiveKitPlayerState.connected ||
+             _livekitSvc!.state == LiveKitPlayerState.connecting)) {
+          debugPrint('[LiveMatch] LiveKit already ${_livekitSvc!.state.name} for match=$matchId — skipping redundant connect');
+          return;
+        }
+
+        _startLiveKit(matchId);
+      },
+    );
+
+    _wsConnectedSub = ref.listenManual<AsyncValue<bool>>(wsConnectedProvider, (
+      _,
+      next,
+    ) {
+      final connected = next.valueOrNull;
+      if (connected == true &&
+          (_streamState == LiveStreamClientState.idle ||
+              _streamState == LiveStreamClientState.error)) {
+        if (mounted) setState(() => _streamState = LiveStreamClientState.wsConnected);
+      }
+    });
+    // Global match-status events (completed/cancelled) from the backend
+    ref.listenManual<AsyncValue<Map<String, dynamic>>>(
+      matchStatusEventsProvider,
+      (_, next) {
+        next.whenData((event) {
+          final eventMatchId = event['match_id'] as String?;
+          final currentMatchId = widget.matchId ?? _lastConnectedMatchId;
+          if (eventMatchId != currentMatchId) return;
+          if (event['type'] == 'match_status_changed') {
+            final status = event['status'] as String?;
+            if (status == 'completed' || status == 'cancelled') {
+              debugPrint('[LiveMatch] Global event: match $eventMatchId ended ($status)');
+              _stopLiveKit();
+              if (eventMatchId != null) _navigateToPostMatch(eventMatchId);
+            }
+          }
+        });
+      },
+    );
+  }
+
+  /// Handles match completion with a deterministic post-match transition.
+  ///
+  /// The backend keeps FFmpeg alive for 35s after sending match_ended, so the
+  /// HLS stream continues playing during our delay. Flow:
+  ///   1. Prefetch result data (bets + match) immediately.
+  ///   2. Wait 5s so the user sees the final action on screen.
+  ///   3. Stop HLS and navigate to post-match (result already cached).
+  void _handleMatchEnded() {
+    if (_matchEndScheduled) return;
+    _matchEndScheduled = true;
+    final matchId = _activeMatchId ?? widget.matchId;
+    if (matchId == null) return;
+
+    debugPrint('[LiveMatch] match ended — prefetching result, navigating in 5s');
+
+    // Prefetch result data while the user watches the last few seconds.
+    ref.read(betProvider.notifier).refresh();
+    ref.read(matchProvider.notifier).refresh();
+
+    // Fixed 5s delay: the match_ended WS fires ~instantly after the KO/win,
+    // and the backend keeps FFmpeg alive for 35s, so the stream keeps playing.
+    // 5s is enough to see the final blow land, then we transition cleanly.
+    Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      debugPrint('[LiveMatch] Post-match delay complete — navigating');
+      _stopLiveKit();
+      _navigateToPostMatch(matchId);
+    });
+  }
+
+
+  /// Connects the WebSocket for the current active match.
+  void _connectToMatch() {
+    final matchId = widget.matchId ?? _findLiveMatchId();
+    if (matchId == null) {
+      debugPrint('[LiveMatch] _connectToMatch() — no matchId found');
+      return;
+    }
+    if (_lastConnectedMatchId == matchId) return; // already connecting
+    debugPrint('[LiveMatch] _connectToMatch() — connecting WS for match=$matchId');
+    _lastConnectedMatchId = matchId;
+    _activeMatchId = matchId;
+    ref.read(matchStreamServiceProvider).connect(matchId);
+  }
+
+  void _onMatchState(MatchState state) {
+    if (!mounted) return;
+    final matchId = _findLiveMatchId(state.matches) ?? widget.matchId;
+    if (matchId == null) {
+      debugPrint('[LiveMatch] _onMatchState — no live match found (${state.matches.length} matches total)');
+      return;
+    }
+
+    if (_activeMatchId != matchId) {
+      debugPrint('[LiveMatch] _onMatchState — active match changed: $_activeMatchId → $matchId');
+      _activeMatchId = matchId;
+    }
+
+    final match = ref.read(matchProvider.notifier).matchById(matchId);
+    if (match == null) return;
+
+    if (match.status == MatchStatus.completed ||
+        match.status == MatchStatus.cancelled) {
+      _handleMatchEnded();
+      return;
+    }
+
+    if (match.status != MatchStatus.live) {
+      return;
+    }
+
+    // Connect after first frame — at this point providers may already have data.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connectToMatch();
+      _tryConnectLiveKit();
+    });
+  }
+
+
+  void _navigateToPostMatch(String matchId) {
+    if (_navigatedToPostMatch || !mounted) return;
+    _navigatedToPostMatch = true;
+    _fastPollTimer?.cancel();
+    // Data was already prefetched in _handleMatchEnded while the stream was
+    // draining — navigate immediately, no "Calculating Results" delay needed.
+    debugPrint('[LiveMatch] Navigating to post-match (result already prefetched)');
+    if (mounted) widget.onNavigate('/post-match/$matchId');
+  }
+
+
+
+  /// Returns the ID of the first truly LIVE match, or null.
+  /// Never falls back to non-live matches to avoid connecting a WS
+  /// that the backend will immediately close with 4004.
+  String? _findLiveMatchId([List<Match>? source]) {
+    final matches = source ?? ref.read(matchProvider).matches;
+    try {
+      return matches.firstWhere((m) => m.status == MatchStatus.live).id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void dispose() {
+    debugPrint('[LiveMatch] dispose() (matchId=$_activeMatchId)');
+    _fastPollTimer?.cancel();
+    _pulseCtrl.dispose();
+    _stopLiveKit();
+    routeObserver.unsubscribe(this);
+    debugPrint('[LiveMatch] dispose() complete');
+    super.dispose();
+  }
+
+  /// Check if streamingStateProvider already has ready data (e.g. WS was
+  /// pre-connected before this screen opened). If so, kick off LiveKit.
+  void _tryConnectLiveKit() {
+    if (_activeMatchId == null || _matchEndScheduled) return;
+    // Already have LiveKit running for this match
+    if (_livekitSvc != null && _livekitMatchId == _activeMatchId &&
+        (_livekitSvc!.state == LiveKitPlayerState.connected ||
+         _livekitSvc!.state == LiveKitPlayerState.connecting)) {
+      return;
+    }
+    final streamingState = ref.read(streamingStateProvider).valueOrNull;
+    if (streamingState == null) {
+      debugPrint('[LiveMatch] _tryConnectLiveKit — no streaming state cached yet');
+      return;
+    }
+    final state = streamingState['state'] as String?;
+    if (state != 'ready' && state != 'playing') {
+      debugPrint('[LiveMatch] _tryConnectLiveKit — streaming state is "$state", not ready');
+      return;
+    }
+    debugPrint('[LiveMatch] _tryConnectLiveKit — streaming state already ready, starting LiveKit for $_activeMatchId');
+    _startLiveKit(_activeMatchId!);
+  }
+
+  void _startLiveKit(String matchId) {
+    debugPrint('[LiveMatch] ── STARTING LIVEKIT ── match=$matchId (previous lkMatch=$_livekitMatchId)');
+    _stopLiveKit();
+    _livekitMatchId = matchId;
+    final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
+    _livekitSvc = svc;
+    if (mounted) setState(() {});
+
+    svc.videoTrackNotifier.addListener(() {
+      debugPrint('[LiveMatch] videoTrackNotifier fired — hasVideo=${svc.videoTrack != null} mounted=$mounted');
+      if (mounted) setState(() {});
+    });
+
+    svc.stateNotifier.addListener(() {
+      debugPrint('[LiveMatch] stateNotifier fired — state=${svc.state.name} matchEnded=$_matchEndScheduled mounted=$mounted');
+      if (svc.state == LiveKitPlayerState.error && !_matchEndScheduled && mounted) {
+        debugPrint('[LiveMatch] LiveKit error — will reconnect in 2s');
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && !_matchEndScheduled && _livekitSvc == svc) {
+            debugPrint('[LiveMatch] Triggering reconnect now');
+            svc.reconnect();
+          } else {
+            debugPrint('[LiveMatch] Reconnect skipped — mounted=$mounted matchEnded=$_matchEndScheduled sameService=${_livekitSvc == svc}');
+          }
+        });
+      }
+    });
+
+    debugPrint('[LiveMatch] Calling svc.connect($matchId)...');
+    svc.connect(matchId).then((_) {
+      debugPrint('[LiveMatch] svc.connect() returned — state=${svc.state.name} hasVideo=${svc.videoTrack != null} mounted=$mounted');
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _stopLiveKit() {
+    if (_livekitSvc != null) {
+      debugPrint('[LiveMatch] _stopLiveKit() — disposing match=$_livekitMatchId state=${_livekitSvc!.state.name} hasVideo=${_livekitSvc!.videoTrack != null}');
+      _livekitSvc!.dispose();
+      _livekitSvc = null;
+      _livekitMatchId = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final matchState = ref.watch(matchProvider);
+    final matches = matchState.matches;
+
+    // Retry connecting when match list loads / updates. Also detects when
+    // REST polling catches a completed match (missed WS event or cold-start).
+    ref.listen<MatchState>(matchProvider, (prev, next) {
+      final id = widget.matchId ?? _findLiveMatchId();
+      if (id != null) {
+        final updated = next.matches.cast<Match?>().firstWhere(
+          (m) => m?.id == id,
+          orElse: () => null,
+        );
+        if (updated != null &&
+            (updated.status == MatchStatus.completed ||
+                updated.status == MatchStatus.cancelled)) {
+          _handleMatchEnded();
+          return;
+        }
+      }
+      _connectToMatch();
+    });
+
+    final matchId = widget.matchId ?? _findLiveMatchId();
+    final match = matchId != null
+        ? matches.cast<Match?>().firstWhere(
+            (m) => m?.id == matchId,
+            orElse: () => null,
+          )
+        : null;
+
+    if (match == null) {
+      final isStillLoading = !matchState.hasLoaded;
+      return AppShell(
+        activeTab: NavTab.arena,
+        onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
+        content: Center(
+          child: isStillLoading
+              ? const IKLoader(size: 44)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Match not found',
+                      style: bodyStyle(color: Palette.muted),
+                    ),
+                    const SizedBox(height: 16),
+                    OrnateButton(
+                      label: 'Back',
+                      color: Palette.muted,
+                      onTap: () => widget.onNavigate('/arena-list'),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    }
+
+    final viewerAsync = ref.watch(viewerCountProvider);
+    final streamingStateAsync = ref.watch(streamingStateProvider);
+
+    // Determine what message to show when stream isn't playing
+    final hasLiveKitVideo = _livekitSvc?.videoTrack != null;
+    final isLiveKitError = _livekitSvc?.state == LiveKitPlayerState.error;
+    String streamStatusMessage = 'Stream starting...';
+    streamingStateAsync.whenData((data) {
+      final state = data['state'] as String?;
+      final error = data['error'] as String?;
+      switch (state) {
+        case 'initializing':
+          streamStatusMessage = 'Initializing stream...';
+          break;
+        case 'ready':
+        case 'playing':
+          streamStatusMessage = _livekitSvc != null
+              ? 'Connecting to stream...'
+              : 'Stream ready, loading...';
+          break;
+        case 'error':
+          streamStatusMessage = error ?? 'Stream error';
+          break;
+        default:
+          streamStatusMessage = 'Stream starting...';
+      }
+    });
+
+    return AppShell(
+      activeTab: NavTab.arena,
+      onNavigate: (slug) => widget.onNavigate(routeFor(slug)),
+      content: Column(
+        children: [
+          // Header row: LIVE indicator + label
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    FadeTransition(
+                      opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
+                        CurvedAnimation(
+                          parent: _pulseCtrl,
+                          curve: Curves.easeInOut,
+                        ),
+                      ),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Palette.red,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'LIVE',
+                      style: bodyStyle(size: 14, color: Palette.red),
+                    ),
+                    const SizedBox(width: 12),
+                    viewerAsync.when(
+                      data: (count) => Text(
+                        '$count watching',
+                        style: bodyStyle(size: 12, color: Palette.muted),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (e, s) => const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+                Text(
+                  match.label,
+                  style: bodyStyle(size: 14, color: Palette.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // LiveKit video player (with round transition overlay on top)
+          Stack(
+            children: [
+              // ── Video layer ──
+              Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 4 / 3,
+                    child: Container(
+                      color: Palette.black,
+                      child: hasLiveKitVideo
+                          ? VideoTrackRenderer(_livekitSvc!.videoTrack!)
+                          : Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (!isLiveKitError) const IKLoader(size: 44)
+                                  else const Icon(Icons.videocam_off,
+                                      color: Palette.muted, size: 36),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    isLiveKitError
+                                        ? 'Stream unavailable'
+                                        : streamStatusMessage,
+                                    style: const TextStyle(
+                                        color: Palette.muted, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ),
+                  // Connection-lost banner
+                  Builder(builder: (ctx) {
+                    final svc = ref.watch(matchStreamServiceProvider);
+                    if (!svc.hasGivenUp) return const SizedBox.shrink();
+                    return Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: GestureDetector(
+                        onTap: () {
+                          final id = widget.matchId ?? _lastConnectedMatchId;
+                          if (id != null) {
+                            _lastConnectedMatchId = null;
+                            svc.resetAndReconnect(id);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          color: Palette.red.withValues(alpha: 0.85),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                              SizedBox(width: 6),
+                              Text('Connection lost — tap to retry',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+              // ── Round-transition overlay ────────────────────────────────────
+              // Sits ON TOP of the video (same Stack) so it doesn't push the
+              // Column down and cause RenderFlex overflow.
+              if (_inRoundTransition)
+                Positioned.fill(
+                  child: Container(
+                    color: Palette.black.withValues(alpha: 0.92),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const IKLoader(size: 40),
+                        const SizedBox(height: 16),
+                        Text(
+                          'ROUND $_nextRound',
+                          style: displayStyle(size: 28, color: Palette.gold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'starting…',
+                          style: bodyStyle(size: 14, color: Palette.secondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // HUD: round dots — self-updating, never rebuilds parent screen
+          const _GameHud(),
+          const SizedBox(height: 6),
+
+          // Fighter names
+
+          Text(
+            '${match.fighter1?.name ?? '---'} V/S ${match.fighter2?.name ?? '---'}',
+            style: displayStyle(size: 22, color: Palette.gold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${match.fighter1?.llmModel ?? ''} vs ${match.fighter2?.llmModel ?? ''}',
+            style: bodyStyle(size: 14, color: Palette.secondary),
+          ),
+          const SizedBox(height: 12),
+
+          // Bet pool breakdown — both sides always visible during live match
+          _LiveBetPools(match: match),
+          const SizedBox(height: 12),
+
+          // Place Bet button (only if betting is open)
+          if (match.bettingOpen)
+            OrnateButton(
+              label: 'Place Bet',
+              color: Palette.gold,
+              onTap: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => BetBottomSheet(match: match),
+                );
+              },
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// Compact bet pool breakdown shown during live matches.
+/// Shows both fighters' pool percentages and SKR amounts at a glance.
+class _LiveBetPools extends StatelessWidget {
+  const _LiveBetPools({required this.match});
+  final Match match;
+
+  String _fmt(double v) {
+    final s = v.toStringAsFixed(2);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final token = RuntimeClientConfig.instance.tokenSymbol;
+    final odds = match.odds;
+    final sideAPool = odds.fighter1Pool > 0
+        ? odds.fighter1Pool
+        : match.totalPool * odds.fighter1PoolPct;
+    final sideBPool = odds.fighter2Pool > 0
+        ? odds.fighter2Pool
+        : match.totalPool * odds.fighter2PoolPct;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _PoolSide(
+                  name: match.fighter1?.name ?? 'Fighter 1',
+                  pool: sideAPool,
+                  pct: odds.fighter1PoolPct,
+                  token: token,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 48,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: Palette.border,
+              ),
+              Expanded(
+                child: _PoolSide(
+                  name: match.fighter2?.name ?? 'Fighter 2',
+                  pool: sideBPool,
+                  pct: odds.fighter2PoolPct,
+                  token: token,
+                  alignRight: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_fmt(match.totalPool)} $token total · ${match.activeBets} bets',
+            style: bodyStyle(size: 11, color: Palette.muted),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PoolSide extends StatelessWidget {
+  const _PoolSide({
+    required this.name,
+    required this.pool,
+    required this.pct,
+    required this.token,
+    this.alignRight = false,
+  });
+
+  final String name;
+  final double pool;
+  final double pct;
+  final String token;
+  final bool alignRight;
+
+  @override
+  Widget build(BuildContext context) {
+    final align = alignRight ? TextAlign.right : TextAlign.left;
+    final crossAlign =
+        alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final poolStr = pool > 0 ? '${pool.toStringAsFixed(1)} $token' : '—';
+    return Column(
+      crossAxisAlignment: crossAlign,
+      children: [
+        Text(
+          name.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: align,
+          style: bodyStyle(size: 10, color: Palette.muted, letterSpacing: 0.5),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          '${(pct * 100).toStringAsFixed(1)}%',
+          textAlign: align,
+          style: bodyStyle(
+            size: 20,
+            color: Palette.gold,
+            weight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          poolStr,
+          textAlign: align,
+          style: bodyStyle(size: 12, color: Palette.secondary),
+        ),
+      ],
+    );
+  }
+}
+
+/// Isolated HUD ConsumerWidget: watches [gameStateProvider] directly so that
+/// 5Hz game-state updates never trigger a rebuild of [LiveMatchScreen].
+class _GameHud extends ConsumerWidget {
+  const _GameHud();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gameState = ref.watch(gameStateProvider).valueOrNull;
+    if (gameState == null) return const SizedBox.shrink();
+    return _RoundDots(
+      bestOf: gameState.bestOf,
+      roundsWonP1: gameState.roundsWonP1,
+      roundsWonP2: gameState.roundsWonP2,
+      currentRound: gameState.currentRound,
+    );
+  }
+}
+
+
+/// Round score dots — shows filled circles for won rounds.
+class _RoundDots extends StatelessWidget {
+  const _RoundDots({
+    required this.bestOf,
+    required this.roundsWonP1,
+    required this.roundsWonP2,
+    required this.currentRound,
+  });
+
+  final int bestOf;
+  final int roundsWonP1;
+  final int roundsWonP2;
+  final int currentRound;
+
+  @override
+  Widget build(BuildContext context) {
+    final roundsToWin = (bestOf ~/ 2) + 1;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // P1 round dots
+          _dots(roundsWonP1, roundsToWin, const Color(0xFF4CAF50)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'R$currentRound',
+              style: bodyStyle(size: 12, color: Palette.muted),
+            ),
+          ),
+          // P2 round dots
+          _dots(roundsWonP2, roundsToWin, const Color(0xFFF44336)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dots(int won, int total, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(total, (i) {
+        final isWon = i < won;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isWon ? color : Colors.transparent,
+              border: Border.all(
+                color: isWon ? color : Palette.muted.withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+/// Reusable pulsing dot widget
+class PulsingDot extends StatefulWidget {
+  const PulsingDot({super.key, this.color = Palette.red, this.size = 8});
+  final Color color;
+  final double size;
+
+  @override
+  State<PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(
+        begin: 0.3,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color),
+      ),
+    );
+  }
+}
