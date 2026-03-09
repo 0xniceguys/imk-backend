@@ -223,7 +223,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           hlsSvc.resumeWatchdog();
           if (mounted) setState(() => _inRoundTransition = false);
           final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
-          hlsSvc.preload(_activeMatchId!, url).then((_) => hlsSvc.unmute());
+          hlsSvc.preload(_activeMatchId!, url).then((_) { if (mounted) hlsSvc.unmute(); });
           return;
         }
 
@@ -238,7 +238,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         // Global service not active for this match — trigger it directly
         final url = '$kStreamBaseUrl/stream/$_activeMatchId/stream.m3u8';
         debugPrint('[LiveMatch] HlsPlayerService not active for $_activeMatchId — calling preload() url=$url');
-        hlsSvc.preload(_activeMatchId!, url).then((_) => hlsSvc.unmute());
+        hlsSvc.preload(_activeMatchId!, url).then((_) { if (mounted) hlsSvc.unmute(); });
       },
     );
 
@@ -354,7 +354,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
       debugPrint('[LiveMatch] Early HLS start via hlsService (stream was ready on entry)');
       _earlyStartAttempted = true; // must be set BEFORE the async call
-      hlsSvc.preload(matchId, url).then((_) => hlsSvc.unmute());
+      hlsSvc.preload(matchId, url).then((_) { if (mounted) hlsSvc.unmute(); });
     });
   }
 
@@ -388,20 +388,19 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   @override
   void dispose() {
-    _fastPollTimer?.cancel();
-    _pulseCtrl.dispose();
-    _stopHls(); // stops local _hlsController
-
-    // Kill audio immediately (sync) then fully dispose async.
-    // silenceAndReset() clears wantsAudio flag so a background preload restart
-    // won't auto-unmute. stop() disposes ExoPlayer fire-and-forget.
+    // ── Mute FIRST — before anything else, so audio never bleeds regardless
+    // of how we got here (RouteAware callback, programmatic navigation, etc.)
     try {
       final hlsSvc = ref.read(hlsPlayerServiceProvider);
       hlsSvc.silenceAndReset(); // synchronous — instant audio cut
-      hlsSvc.stop();            // async fire-and-forget — full disposal
+      hlsSvc.stop();            // async fire-and-forget — full ExoPlayer disposal
     } catch (_) {
       // ref may be invalidated on hot restart — ignore
     }
+
+    _fastPollTimer?.cancel();
+    _pulseCtrl.dispose();
+    _stopHls(); // stops local _hlsController (no-op if already stopped above)
 
     routeObserver.unsubscribe(this);
     super.dispose();

@@ -26,8 +26,12 @@ class HlsPlayerService {
   Duration _lastPosition = Duration.zero;
   int _stuckTicks = 0; // consecutive 5s ticks with no position advance
   bool _watchdogPaused = false; // paused during known round-transition gaps
+  int _graceTicks = 0;     // ticks to skip at startup before checking position
+  int _bufferingTicks = 0; // consecutive ticks where controller is buffering
   static const _watchdogInterval = Duration(seconds: 5);
-  static const _stuckTicksBeforeRestart = 2; // 2 × 5s = 10s frozen → restart
+  static const _stuckTicksBeforeRestart = 3;     // 3 × 5s = 15s frozen → restart
+  static const _bufferingTicksBeforeRestart = 2; // 2 × 5s = 10s buffering → restart
+  static const _watchdogGraceTicks = 3;           // skip first 15s (live buffer warmup)
 
   Future<void> preload(String matchId, String hlsUrl, {int attempt_ = 1}) async {
     if (_disposed) return;
@@ -127,6 +131,8 @@ class HlsPlayerService {
     _stopWatchdog();
     _lastPosition = Duration.zero;
     _stuckTicks = 0;
+    _bufferingTicks = 0;
+    _graceTicks = _watchdogGraceTicks; // allow live-stream buffer to warm up
 
     _watchdogTimer = Timer.periodic(_watchdogInterval, (_) {
       if (_disposed) {
@@ -146,16 +152,45 @@ class HlsPlayerService {
         return;
       }
 
+      // Grace period: HLS live streams sit at ~2 s position while the initial
+      // buffer fills. Silently snapshot position each grace tick so the first
+      // real comparison starts from a meaningful baseline, not Duration.zero.
+      if (_graceTicks > 0) {
+        _graceTicks--;
+        _lastPosition = ctrl.value.position;
+        debugPrint('[HlsPlayerService] Watchdog grace tick ($_graceTicks remaining), pos=${ctrl.value.position}');
+        return;
+      }
+
       try {
         final pos = ctrl.value.position;
         final isPlaying = ctrl.value.isPlaying;
         final hasError = ctrl.value.hasError;
+        final isBuffering = ctrl.value.isBuffering;
 
         if (hasError) {
           debugPrint('[HlsPlayerService] 🔴 Controller error detected — restarting');
           _stopWatchdog();
           preload(matchId, hlsUrl);
           return;
+        }
+
+        // Prolonged buffering = decoder stalled (e.g. corrupt TS packets).
+        // Position may still advance slightly so we can't rely on stuck-check alone.
+        if (isBuffering) {
+          _bufferingTicks++;
+          _stuckTicks = 0; // position won't advance while buffering — don't double-count
+          debugPrint(
+            '[HlsPlayerService] ⏳ Buffering stall tick $_bufferingTicks/$_bufferingTicksBeforeRestart',
+          );
+          if (_bufferingTicks >= _bufferingTicksBeforeRestart) {
+            debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 5}s) — restarting stream');
+            _stopWatchdog();
+            preload(matchId, hlsUrl);
+          }
+          return;
+        } else {
+          _bufferingTicks = 0;
         }
 
         if (!isPlaying) {
@@ -188,6 +223,7 @@ class HlsPlayerService {
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _stuckTicks = 0;
+    _bufferingTicks = 0;
     _watchdogPaused = false;
   }
 

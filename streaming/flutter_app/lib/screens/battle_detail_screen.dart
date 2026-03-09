@@ -8,6 +8,7 @@ import '../core/runtime_client_config.dart';
 import '../core/typography.dart';
 import '../models/match.dart';
 import '../models/match_bet_feed_item.dart';
+import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
 import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
@@ -148,6 +149,15 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     final matchState = ref.watch(matchProvider);
     final matches = matchState.matches;
     final tokenSymbol = RuntimeClientConfig.instance.tokenSymbol;
+
+    // Subscribe to the 1 Hz clock tick so _queueLabel()'s countdown
+    // updates every second for queue-#1 upcoming matches, not just on the
+    // REST poll (~2 s). Only watch when actually needed to avoid wasted rebuilds.
+    final needsClock = matches.isNotEmpty &&
+        matches.first.status == MatchStatus.upcoming &&
+        matches.first.queuePosition == 1 &&
+        matches.first.queueStartsAt != null;
+    if (needsClock) ref.watch(clockTickProvider);
 
     if (!matchState.hasLoaded) {
       return const Scaffold(
