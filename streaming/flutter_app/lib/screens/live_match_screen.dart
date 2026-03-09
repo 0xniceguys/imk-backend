@@ -80,6 +80,10 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   int _fps = 0;
   int _lastFpsCheck = 0;
   int _fpsFrameCount = 0;
+  // Guard: _checkEarlyStreamReady() fires from two code paths on entry (initState
+  // postFrameCallback + _onMatchState postFrameCallback). This flag prevents the
+  // second call from starting a duplicate preload before the first one completes.
+  bool _earlyStartAttempted = false;
 
   void _onPlayerUpdate() {
     // Track FPS from VideoPlayer positions advancing (used for internal diagnostics).
@@ -327,6 +331,11 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   /// Eagerly starts HLS if the pre-connected WebSocket already received a
   /// 'ready' signal before the user navigated to this screen.
   void _checkEarlyStreamReady() {
+    // Guard: this method is called from two postFrameCallbacks on every navigation
+    // (initState + _onMatchState with fireImmediately). Without this flag both
+    // would race to call hlsSvc.preload() concurrently before the first one's
+    // await _teardown() completes, causing two ExoPlayer instances to be created.
+    if (_earlyStartAttempted) return;
     final matchId = widget.matchId ?? _findLiveMatchId();
     if (matchId == null) return;
     final currentState = ref.read(streamingStateProvider);
@@ -344,6 +353,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       }
       final url = '$kStreamBaseUrl/stream/$matchId/stream.m3u8';
       debugPrint('[LiveMatch] Early HLS start via hlsService (stream was ready on entry)');
+      _earlyStartAttempted = true; // must be set BEFORE the async call
       hlsSvc.preload(matchId, url).then((_) => hlsSvc.unmute());
     });
   }

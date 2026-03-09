@@ -146,10 +146,12 @@ final globalHlsPreloaderProvider = Provider<void>((ref) {
 
       final hlsUrl = _resolveHlsUrl(matchId, rawUrl);
       debugPrint('[GlobalHlsPreloader] → preloading match=$matchId url=$hlsUrl');
-      // Skip if user explicitly stopped (left live screen). Arena list will
-      // restart preload via _preconnectForLiveMatch() when user browses back.
-      if (hlsService.state == HlsPreloadState.stopped) {
-        debugPrint('[GlobalHlsPreloader] state=stopped — skipping auto-restart for $matchId');
+      // Skip auto-restart only if the user explicitly left THIS same match
+      // (state=stopped is set by stop() when user leaves the live screen).
+      // A NEW match ID must always trigger a fresh preload — don't block it.
+      if (hlsService.state == HlsPreloadState.stopped &&
+          hlsService.activeMatchId == matchId) {
+        debugPrint('[GlobalHlsPreloader] state=stopped — skipping auto-restart for same match $matchId');
         return;
       }
       hlsService.preload(matchId, hlsUrl);
