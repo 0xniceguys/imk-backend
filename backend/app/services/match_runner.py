@@ -42,7 +42,7 @@ from app.services.game_state import FightState, is_round_over, p1_won, read_figh
 from app.ws.connection_manager import manager as ws_manager
 
 logger = logging.getLogger(__name__)
-KO_CONFIRM_FRAMES = 15  # 15 × 100ms = 1.5s of stable health==0 before declaring KO
+KO_CONFIRM_FRAMES = 8  # 8 × 100ms = 0.8s of stable health==0 before declaring KO
 
 
 def apply_round_end_policy(

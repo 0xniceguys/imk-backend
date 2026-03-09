@@ -92,6 +92,7 @@ class _PostMatchScreenState extends ConsumerState<PostMatchScreen> {
         title: 'Preparing Result',
         subtitle: 'Settling the final result for this match.',
         showLoader: true,
+        showBackButton: false, // no Back to Arena while waiting for result
       );
     }
 
@@ -203,10 +204,17 @@ class _PostMatchScreenState extends ConsumerState<PostMatchScreen> {
           // Bet result
           if (userBet != null) _BetResult(bet: userBet) else _NoBetPlaced(),
           const SizedBox(height: 20),
-          OrnateButton(
-            label: 'Back to Arena',
-            onTap: () => widget.onNavigate('/arena-list'),
-          ),
+          // Primary CTA: Claim Rewards if the user won and can claim, else Back to Arena
+          if (userBet != null && userBet.isClaimable)
+            OrnateButton(
+              label: 'Claim Rewards',
+              onTap: () => widget.onNavigate('/profile'),
+            )
+          else
+            OrnateButton(
+              label: 'Back to Arena',
+              onTap: () => widget.onNavigate('/arena-list'),
+            ),
           const SizedBox(height: 16),
         ],
       ),
@@ -217,6 +225,7 @@ class _PostMatchScreenState extends ConsumerState<PostMatchScreen> {
     required String title,
     required String subtitle,
     bool showLoader = false,
+    bool showBackButton = true,
   }) {
     return AppShell(
       activeTab: NavTab.arena,
@@ -232,11 +241,13 @@ class _PostMatchScreenState extends ConsumerState<PostMatchScreen> {
             Text(title, style: displayStyle(size: 20, color: Palette.gold)),
             const SizedBox(height: 8),
             Text(subtitle, style: bodyStyle(color: Palette.muted)),
-            const SizedBox(height: 16),
-            OrnateButton(
-              label: 'Back to Arena',
-              onTap: () => widget.onNavigate('/arena-list'),
-            ),
+            if (showBackButton) ...[
+              const SizedBox(height: 16),
+              OrnateButton(
+                label: 'Back to Arena',
+                onTap: () => widget.onNavigate('/arena-list'),
+              ),
+            ],
           ],
         ),
       ),

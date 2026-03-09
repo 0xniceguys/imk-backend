@@ -38,15 +38,17 @@ XVFB_DISPLAY = ":99"
 # lower bitrate and faster segment download time.
 CAPTURE_WIDTH = 640
 CAPTURE_HEIGHT = 480
-CAPTURE_FPS = 30
+CAPTURE_FPS = 24  # 24fps — lower than 30 to reduce mobile decoder pipeline pressure
 
 # Output resolution — scale down in encoder to shrink segment size ~60%
 OUTPUT_WIDTH = 480
 OUTPUT_HEIGHT = 360
 
-# HLS tuning — 1-second segments with a wider live window for mobile resilience
+# HLS tuning — 1-second segments with a wide live window for mobile resilience.
+# 30 segments = 30-second buffer. This prevents BehindLiveWindowException on
+# devices that decode slowly and fall behind the live edge.
 HLS_SEGMENT_DURATION = 1
-HLS_LIST_SIZE = 12
+HLS_LIST_SIZE = 30
 READY_MIN_SEGMENTS = 1   # mark ready after first segment — don't wait for two
 READY_MIN_BYTES = 188  # One MPEG-TS packet
 
