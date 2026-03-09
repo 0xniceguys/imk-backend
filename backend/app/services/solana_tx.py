@@ -194,8 +194,12 @@ async def confirm_transaction(sig: str, rpc_url: str, retries: int = 10) -> bool
         "method": "getSignatureStatuses",
         "params": [[sig], {"searchTransactionHistory": True}],
     }
-    for _ in range(retries):
-        await asyncio.sleep(2)
+    for attempt in range(retries):
+        # Progressive backoff: 0.5s, 1.0s, 1.5s, 2.0s … (capped at 2s).
+        # Most devnet txs confirm within 1s, so the first check at 0.5s
+        # catches the majority — far faster than the previous flat 2s.
+        delay = min(0.5 + attempt * 0.5, 2.0)
+        await asyncio.sleep(delay)
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(rpc_url, headers=_RPC_HEADERS, json=payload)
         if resp.status_code == 200:
@@ -206,6 +210,7 @@ async def confirm_transaction(sig: str, rpc_url: str, retries: int = 10) -> bool
             if status and status.get("confirmationStatus") in ("confirmed", "finalized"):
                 return True
     return False
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -641,14 +641,14 @@ async def broadcast_bet(
     except HTTPException as exc:
         raise HTTPException(exc.status_code, _map_contract_error(Exception(str(exc.detail))))
 
-    confirmed = await solana_tx.confirm_transaction(
-        tx_sig, rpc, retries=settings.solana_confirm_retries
-    )
-    if not confirmed:
-        raise HTTPException(502, f"On-chain bet transaction not confirmed: {tx_sig}")
+    # ── Optimistic bet recording ─────────────────────────────────────────────
+    # sendTransaction succeeded (preflight simulation passed) → the tx is
+    # accepted by the RPC node and will almost certainly confirm.  Write the
+    # bet to DB immediately and return to Flutter.  Confirmation is verified
+    # asynchronously in the background — no more 10-30s blocking wait.
 
-    # Re-check idempotency after confirmation in case another worker wrote first.
-    existing_after_confirm_result = await db.execute(
+    # Re-check idempotency in case another request raced us.
+    existing_after_broadcast_result = await db.execute(
         select(Bet)
         .where(Bet.user_id == user.id, Bet.tx_signature == tx_sig)
         .options(
@@ -657,9 +657,9 @@ async def broadcast_bet(
             selectinload(Bet.match).selectinload(Match.fighter2),
         )
     )
-    existing_after_confirm = existing_after_confirm_result.scalar_one_or_none()
-    if existing_after_confirm:
-        return _bet_to_out(existing_after_confirm)
+    existing_after_broadcast = existing_after_broadcast_result.scalar_one_or_none()
+    if existing_after_broadcast:
+        return _bet_to_out(existing_after_broadcast)
 
     odds = _snapshot_odds(match, fighter_uuid, amount_skr)
 
@@ -681,6 +681,24 @@ async def broadcast_bet(
     # Attach relationships for response
     bet.match = match
     bet.fighter = match.fighter1 if side == "A" else match.fighter2
+
+    # Fire-and-forget background confirmation check.
+    # If the tx fails on-chain (extremely rare after preflight passes),
+    # we log an error.  Settlement will skip unconfirmed bets anyway.
+    import asyncio
+
+    async def _background_confirm(sig: str, rpc_url: str, bet_id: int) -> None:
+        try:
+            confirmed = await solana_tx.confirm_transaction(sig, rpc_url, retries=10)
+            if confirmed:
+                logger.info("Background bet confirmation OK: sig=%s bet_id=%s", sig, bet_id)
+            else:
+                logger.error("Background bet confirmation FAILED (not confirmed): sig=%s bet_id=%s", sig, bet_id)
+        except Exception:
+            logger.exception("Background bet confirmation error: sig=%s bet_id=%s", sig, bet_id)
+
+    asyncio.create_task(_background_confirm(tx_sig, rpc, bet.id))
+
     return _bet_to_out(bet)
 
 
