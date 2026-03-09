@@ -384,6 +384,11 @@ class _WalletManageSheetState extends ConsumerState<WalletManageSheet> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Do not send any other token than SKR and SOL to this address.',
+              style: bodyStyle(size: 11, color: Palette.red),
+            ),
             const SizedBox(height: 20),
 
             Container(height: 1, color: Palette.border),

@@ -66,10 +66,10 @@ class HlsPlayerService {
   int _graceTicks = 0;     // ticks to skip at startup before checking position
   int _bufferingTicks = 0; // consecutive ticks where controller is buffering
   int _healthyTickCount = 0;
-  static const _watchdogInterval = Duration(seconds: 2);
-  static const _stuckTicksBeforeRestart = 5;     // 5 × 2s = 10s frozen → restart
-  static const _bufferingTicksBeforeRestart = 4; // 4 × 2s = 8s buffering → restart
-  static const _watchdogGraceTicks = 5;           // skip first 10s (live buffer warmup)
+  static const _watchdogInterval = Duration(seconds: 1);
+  static const _stuckTicksBeforeRestart = 6;     // 6 × 1s = 6s frozen → restart
+  static const _bufferingTicksBeforeRestart = 5; // 5 × 1s = 5s buffering → restart
+  static const _watchdogGraceTicks = 4;           // skip first 4s (0.5s segments fill buffer fast)
 
   /// Called instead of restarting if set when the stream fatally errors or
   /// freezes. Used by live_match_screen to navigate after match end once the
@@ -250,10 +250,10 @@ class HlsPlayerService {
           if (_bufferingTicks >= _bufferingTicksBeforeRestart) {
             _stopWatchdog();
             if (onStreamDied != null) {
-              debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 2}s) — calling onStreamDied (match ended, stream drained)');
+              debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks}s) — calling onStreamDied (match ended, stream drained)');
               onStreamDied!();
             } else {
-              debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 2}s) — restarting stream via forceReload');
+              debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks}s) — restarting stream via forceReload');
               forceReload(matchId, hlsUrl);
             }
           }
@@ -288,7 +288,7 @@ class HlsPlayerService {
               'playing=$isPlaying buffering=$isBuffering error=$hasError',
             );
             if (_stuckTicks >= _stuckTicksBeforeRestart) {
-              debugPrint('[HlsWatchdog] 🔄 Stream frozen for ${_stuckTicks * 2}s — restarting');
+              debugPrint('[HlsWatchdog] 🔄 Stream frozen for ${_stuckTicks}s — restarting');
               _stopWatchdog();
               if (onStreamDied != null) {
                 debugPrint('[HlsWatchdog] → calling onStreamDied (frozen in match-ended mode)');
@@ -305,8 +305,8 @@ class HlsPlayerService {
           }
           _stuckTicks = 0;
           _lastPosition = pos;
-          // Log healthy tick every ~30s (every 15th tick) to confirm stream is alive
-          if (_healthyTickCount++ % 15 == 0) {
+          // Log healthy tick every ~30s (every 30th tick at 1s interval) to confirm stream is alive
+          if (_healthyTickCount++ % 30 == 0) {
             debugPrint(
               '[HlsWatchdog] OK pos=$pos playing=$isPlaying buffering=$isBuffering',
             );

@@ -87,7 +87,6 @@ def _match_to_out(
     match: Match,
     queue_position: int | None = None,
     now: datetime | None = None,
-    show_head_countdown: bool = True,
 ) -> MatchOut:
     # fighter IDs may be None if fighter was deleted
     f1_id = match.fighter1_id or match.id  # fallback prevents div-by-zero
@@ -97,7 +96,9 @@ def _match_to_out(
 
     queue_starts_at: datetime | None = None
     queue_countdown_seconds: int | None = None
-    if show_head_countdown and queue_position == 1 and match.status == MatchStatus.UPCOMING:
+    # Always provide countdown for the #1 upcoming match — the client syncs
+    # its local timer to the backend's scheduled_at (set by queue_loop).
+    if queue_position == 1 and match.status == MatchStatus.UPCOMING:
         starts_at = _as_utc(match.scheduled_at)
         queue_starts_at = starts_at
         queue_countdown_seconds = max(0, int((starts_at - now_utc).total_seconds()))
@@ -167,14 +168,12 @@ async def list_matches(
     result = await db.execute(query)
     matches = result.scalars().all()
     queue_positions = _queue_positions_for_matches(matches)
-    has_live = any(m.status == MatchStatus.LIVE for m in matches)
     now = datetime.now(timezone.utc)
     return [
         _match_to_out(
             m,
             queue_position=queue_positions.get(m.id),
             now=now,
-            show_head_countdown=not has_live,
         )
         for m in matches
     ]
@@ -203,15 +202,11 @@ async def get_match(match_id: UUID, db: AsyncSession = Depends(get_db)):
         )
         queue_matches = queue_rows.scalars().all()
         queue_position = _queue_positions_for_matches(queue_matches).get(match.id)
-        has_live = any(m.status == MatchStatus.LIVE for m in queue_matches)
-    else:
-        has_live = False
 
     return _match_to_out(
         match,
         queue_position=queue_position,
         now=datetime.now(timezone.utc),
-        show_head_countdown=not has_live,
     )
 
 
