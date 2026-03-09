@@ -70,6 +70,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
 
   // LiveKit player — connects when backend signals streaming ready
   LiveKitPlayerService? _livekitSvc;
+  String? _livekitMatchId; // match ID currently connected via LiveKit
 
   @override
   void initState() {
@@ -172,39 +173,40 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           if (mounted) setState(() => _inRoundTransition = false);
         }
 
-        // Connect LiveKit
-        debugPrint('[LiveMatch] LiveKit mode — connecting for match=$_activeMatchId');
-        _stopLiveKit(); // clean up any existing instance
+        // Connect LiveKit — reuse existing connection if already on this match
         final matchId = _activeMatchId!;
+        if (_livekitSvc != null && _livekitMatchId == matchId &&
+            (_livekitSvc!.state == LiveKitPlayerState.connected ||
+             _livekitSvc!.state == LiveKitPlayerState.connecting)) {
+          debugPrint('[LiveMatch] LiveKit already connected for match=$matchId — skipping');
+          return;
+        }
+
+        debugPrint('[LiveMatch] LiveKit — connecting for match=$matchId');
+        _stopLiveKit();
+        _livekitMatchId = matchId;
         final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
         _livekitSvc = svc;
         if (mounted) setState(() {});
-        svc.connect(matchId).then((_) {
-          if (mounted && svc.state == LiveKitPlayerState.connected) {
-            debugPrint('[LiveMatch] LiveKit connected match=$matchId');
-            if (mounted) setState(() {});
-          }
-        });
+
         // Listen for video track changes
         svc.videoTrackNotifier.addListener(() {
           if (mounted) setState(() {});
         });
-        // Auto-reconnect on error (unless match has ended)
+        // Auto-reconnect on error — reuse same service instance (no listener leak)
         svc.stateNotifier.addListener(() {
           if (svc.state == LiveKitPlayerState.error && !_matchEndScheduled && mounted) {
             debugPrint('[LiveMatch] LiveKit error — reconnecting in 2s');
             Future.delayed(const Duration(seconds: 2), () {
               if (mounted && !_matchEndScheduled && _livekitSvc == svc) {
-                svc.dispose();
-                final newSvc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
-                _livekitSvc = newSvc;
-                newSvc.connect(matchId);
-                newSvc.videoTrackNotifier.addListener(() {
-                  if (mounted) setState(() {});
-                });
+                svc.reconnect();
               }
             });
           }
+        });
+
+        svc.connect(matchId).then((_) {
+          if (mounted) setState(() {});
         });
       },
     );
@@ -351,6 +353,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       debugPrint('[LiveMatch] Stopping LiveKit player');
       _livekitSvc!.dispose();
       _livekitSvc = null;
+      _livekitMatchId = null;
     }
   }
 

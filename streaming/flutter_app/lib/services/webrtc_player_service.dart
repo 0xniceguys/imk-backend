@@ -37,17 +37,33 @@ class LiveKitPlayerService {
   Room? _room;
   EventsListener<RoomEvent>? _listener;
   bool _disposed = false;
+  String? _connectedMatchId;
 
   /// Connect to the match's LiveKit room as a subscriber.
   Future<void> connect(String matchId) async {
     if (_disposed) return;
+
+    // Already connected to this match — skip redundant reconnection.
+    if (_connectedMatchId == matchId &&
+        (state == LiveKitPlayerState.connected ||
+         state == LiveKitPlayerState.connecting)) {
+      debugPrint('[LiveKitPlayer] Already connected/connecting to $matchId — skipping');
+      return;
+    }
+
+    // Tear down previous connection if switching matches
+    if (_room != null) {
+      await _disconnectRoom();
+    }
+
+    _connectedMatchId = matchId;
     _setState(LiveKitPlayerState.connecting);
 
     try {
-      // 1. Fetch subscriber token from backend
+      // 1. Fetch subscriber token from backend (5s timeout)
       final resp = await http.get(
         Uri.parse('$baseUrl/stream/$matchId/livekit/token?participant=flutter-${DateTime.now().millisecondsSinceEpoch}'),
-      );
+      ).timeout(const Duration(seconds: 5));
       if (resp.statusCode != 200) {
         throw Exception('Token fetch failed: ${resp.statusCode} ${resp.body}');
       }
@@ -55,7 +71,8 @@ class LiveKitPlayerService {
       final token = data['token'] as String;
       final url   = data['url'] as String;
 
-      debugPrint('[LiveKitPlayer] 🔑 Token received, connecting to $url room=$matchId');
+      if (_disposed) return;
+      debugPrint('[LiveKitPlayer] Token received, connecting to $url room=$matchId');
 
       // 2. Create room and set up event listener
       _room = Room(
@@ -70,25 +87,25 @@ class LiveKitPlayerService {
       _listener!
         ..on<RoomConnectedEvent>((_) {
           _setState(LiveKitPlayerState.connected);
-          debugPrint('[LiveKitPlayer] ✅ Connected to room=$matchId');
+          debugPrint('[LiveKitPlayer] Connected to room=$matchId');
         })
         ..on<RoomDisconnectedEvent>((event) {
-          debugPrint('[LiveKitPlayer] ❌ Disconnected: ${event.reason}');
+          debugPrint('[LiveKitPlayer] Disconnected: ${event.reason}');
           if (!_disposed) _setError('Disconnected: ${event.reason}');
         })
         ..on<TrackSubscribedEvent>((event) {
           if (event.track is VideoTrack) {
             videoTrackNotifier.value = event.track as VideoTrack;
-            debugPrint('[LiveKitPlayer] 🎥 Video track subscribed from ${event.participant.identity}');
+            debugPrint('[LiveKitPlayer] Video track subscribed from ${event.participant.identity}');
           }
           if (event.track is AudioTrack) {
-            debugPrint('[LiveKitPlayer] 🔊 Audio track subscribed from ${event.participant.identity}');
+            debugPrint('[LiveKitPlayer] Audio track subscribed from ${event.participant.identity}');
           }
         })
         ..on<TrackUnsubscribedEvent>((event) {
           if (event.track is VideoTrack && videoTrackNotifier.value == event.track) {
             videoTrackNotifier.value = null;
-            debugPrint('[LiveKitPlayer] 🎥 Video track unsubscribed');
+            debugPrint('[LiveKitPlayer] Video track unsubscribed');
           }
         });
 
@@ -100,15 +117,27 @@ class LiveKitPlayerService {
         for (final pub in p.trackPublications.values) {
           if (pub.track != null && pub.track is VideoTrack) {
             videoTrackNotifier.value = pub.track as VideoTrack;
-            debugPrint('[LiveKitPlayer] 🎥 Found existing video track from ${p.identity}');
+            debugPrint('[LiveKitPlayer] Found existing video track from ${p.identity}');
           }
         }
       }
 
     } catch (e) {
-      debugPrint('[LiveKitPlayer] ❌ connect() failed: $e');
-      _setError(e.toString());
+      debugPrint('[LiveKitPlayer] connect() failed: $e');
+      if (!_disposed) _setError(e.toString());
     }
+  }
+
+  /// Reconnect to the same match after an error. Reuses the service instance
+  /// instead of creating a new one (avoids listener leaks).
+  Future<void> reconnect() async {
+    final matchId = _connectedMatchId;
+    if (matchId == null || _disposed) return;
+    debugPrint('[LiveKitPlayer] Reconnecting to $matchId');
+    await _disconnectRoom();
+    _connectedMatchId = null; // clear so connect() doesn't skip
+    errorNotifier.value = null;
+    await connect(matchId);
   }
 
   void _setState(LiveKitPlayerState s) {
@@ -120,14 +149,19 @@ class LiveKitPlayerService {
     _setState(LiveKitPlayerState.error);
   }
 
-  Future<void> dispose() async {
-    _disposed = true;
-    _setState(LiveKitPlayerState.disposed);
+  Future<void> _disconnectRoom() async {
     _listener?.dispose();
     _listener = null;
     try { await _room?.disconnect(); } catch (_) {}
     try { await _room?.dispose(); } catch (_) {}
     _room = null;
+    videoTrackNotifier.value = null;
+  }
+
+  Future<void> dispose() async {
+    _disposed = true;
+    _setState(LiveKitPlayerState.disposed);
+    await _disconnectRoom();
     stateNotifier.dispose();
     errorNotifier.dispose();
     videoTrackNotifier.dispose();
