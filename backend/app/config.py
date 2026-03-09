@@ -53,9 +53,9 @@ class Settings(BaseSettings):
     queue_lock_before_start_seconds: int = 1
     queue_leader_lock_file: str = "/tmp/imk_queue_loop.lock"
 
-    # ── WebRTC streaming (replaces HLS when enabled) ──────────────────────────
-    # Set use_webrtc=true in .env to enable. HLS still works as fallback.
-    use_webrtc: bool = False
+    # ── WebRTC streaming (LiveKit) ──────────────────────────────────────────
+    # WebRTC is now the primary streaming method (HLS removed)
+    use_webrtc: bool = True  # Always use WebRTC/LiveKit
     livekit_url: str = "ws://localhost:7880"
     livekit_api_key: str = "imk_key"
     livekit_api_secret: str = "imk_secret_change_in_production_32chars"

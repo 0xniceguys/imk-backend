@@ -36,7 +36,7 @@ from app.services.bridge import EmulatorBridge
 from app.services.ctrl_writer import write_ctrl
 from app.services.emulator import EmulatorSession, LaunchOptions
 from app.services.ffmpeg_capture import ffmpeg_available, is_linux
-from app.services.ffmpeg_combined_hls import FFmpegCombinedHls
+# HLS removed - using WebRTC/LiveKit only
 from app.services.ram_debug import RamDebugRecorder
 from app.services.game_state import FightState, is_round_over, p1_won, read_fight_state
 from app.ws.connection_manager import manager as ws_manager
@@ -205,9 +205,9 @@ class MatchRunner:
         self._ctrl_p1_path: str | None = None
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
-        # Combined HLS capture OR WebRTC capture (feature-flagged by settings.use_webrtc)
-        self._hls_capture = FFmpegCombinedHls(match_id=self.match_id)
-        self._webrtc_capture = None   # set lazily if use_webrtc is True
+        # WebRTC/LiveKit capture (HLS removed)
+        self._webrtc_capture = None  # Will be initialized in _start_free_running
+        self._hls_capture = None  # HLS completely removed
         self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
         self._manual_overrides: dict[int, ManualOverrideState] = {
             1: ManualOverrideState(),
@@ -217,9 +217,7 @@ class MatchRunner:
         self._round_context_reset_requested = False
         # Game state broadcast throttle: cap at 5Hz to avoid spamming clients
         self._last_state_broadcast: float = 0.0
-        # Streaming state monitoring
-        self._stream_monitor_task: asyncio.Task | None = None
-        self._hls_health_task: asyncio.Task | None = None
+        # Streaming state monitoring (HLS removed - WebRTC is instant)
         # Anti-camping: injects real N64 D-pad inputs when fighters are stuck
         self._anti_camping = AntiCampingGuard()
 
@@ -502,123 +500,42 @@ class MatchRunner:
             "state": self.streaming_state.value,
         })
 
-        if _settings.use_webrtc:
-            # ── LiveKit path: FFmpeg → Python → LiveKit room ──────────────────
-            from app.services.ffmpeg_webrtc import LiveKitPublisher
-            self._webrtc_capture = LiveKitPublisher(
-                match_id=self.match_id,
-                livekit_url=_settings.livekit_url,
-                api_key=_settings.livekit_api_key,
-                api_secret=_settings.livekit_api_secret,
-            )
-            await self._webrtc_capture.start()
-            logger.info(
-                "[MatchRunner] ✅ LiveKit publisher started match=%s",
-                self.match_id,
-            )
-
-            # Register in Redis so other workers can find this WebRTC runner
-            from app.services.redis_client import register_webrtc_runner
-            await register_webrtc_runner(self.match_id, self.match_id)
-
-            # No playlist polling needed — LiveKit is ready immediately.
-            self.streaming_state = StreamingState.READY
-            await ws_manager.broadcast_json(self.match_id, {
-                "type": "streaming_state",
-                "state": "ready",
-                "mode": "livekit",
-                "room": self.match_id,
-                "token_url": f"/stream/{self.match_id}/livekit/token",
-            })
-        else:
-            # ── HLS path (default) ────────────────────────────────────────────
-            await self._hls_capture.start()
-            logger.info("[MatchRunner] FFmpeg HLS capture started (match=%s)", self.match_id)
-
-            self._stream_monitor_task = asyncio.create_task(
-                self._monitor_hls_ready(), name=f"hls-monitor-{self.match_id}"
-            )
-
-    async def _monitor_hls_ready(self) -> None:
-        """Poll until HLS playlist is ready, then notify clients."""
-        max_wait = 20  # seconds
-        poll_interval = 0.5
-        elapsed = 0.0
-        t_start = time.monotonic()
-
-        while elapsed < max_wait:
-            if self._hls_capture.ready_for_playback():
-                t_ready = time.monotonic() - t_start
-                self.streaming_state = StreamingState.READY
-                logger.info(
-                    "[MatchRunner] ✅ HLS READY after %.1fs (match=%s) — broadcasting streaming_state=ready",
-                    t_ready, self.match_id,
-                )
-                await ws_manager.broadcast_json(self.match_id, {
-                    "type": "streaming_state",
-                    "state": self.streaming_state.value,
-                    "hls_url": f"/stream/{self.match_id}/stream.m3u8",
-                })
-                return
-
-            await asyncio.sleep(poll_interval)
-            elapsed += poll_interval
-
-        # Timeout — stream failed to initialize
-        self.streaming_state = StreamingState.ERROR
-        logger.error(
-            "[MatchRunner] ❌ HLS TIMEOUT after %ds — stream never became ready (match=%s)",
-            max_wait, self.match_id,
+        # ── LiveKit/WebRTC streaming (HLS removed) ──────────────────────────
+        from app.services.ffmpeg_webrtc import LiveKitPublisher
+        self._webrtc_capture = LiveKitPublisher(
+            match_id=self.match_id,
+            livekit_url=_settings.livekit_url,
+            api_key=_settings.livekit_api_key,
+            api_secret=_settings.livekit_api_secret,
         )
+        await self._webrtc_capture.start()
+        logger.info(
+            "[MatchRunner] ✅ LiveKit publisher started match=%s",
+            self.match_id,
+        )
+
+        # Register in Redis so other workers can find this WebRTC runner
+        from app.services.redis_client import register_webrtc_runner
+        await register_webrtc_runner(self.match_id, self.match_id)
+
+        # No playlist polling needed — LiveKit is ready immediately.
+        self.streaming_state = StreamingState.READY
         await ws_manager.broadcast_json(self.match_id, {
             "type": "streaming_state",
-            "state": self.streaming_state.value,
-            "error": "Stream initialization timeout",
+            "state": "ready",
+            "mode": "livekit",
+            "room": self.match_id,
+            "token_url": f"/stream/{self.match_id}/livekit/token",
         })
+
+    async def _monitor_hls_ready(self) -> None:
+        """DEPRECATED: HLS removed, using WebRTC/LiveKit only."""
+        pass  # This method is no longer used
 
 
     async def _monitor_hls_health(self) -> None:
-        """Periodic health check for HLS capture — logs warnings when segments stop being written."""
-        check_interval = 5  # seconds
-        stale_threshold = 4.0  # warn if newest segment is older than this
-        consecutive_stale = 0
-
-        # Wait for initial ready before monitoring
-        await asyncio.sleep(10)
-
-        try:
-            while True:
-                snap = self._hls_capture.health_snapshot()
-
-                if not snap["process_alive"]:
-                    logger.error(
-                        "[HlsHealth] FFmpeg DIED (exit_code=%s) match=%s — segments will stop",
-                        snap.get("process_exit_code", "?"), self.match_id,
-                    )
-                    break
-
-                age = snap.get("newest_segment_age_s")
-                if age is not None and age > stale_threshold:
-                    consecutive_stale += 1
-                    logger.warning(
-                        "[HlsHealth] STALE segments (age=%.1fs, stale_tick=%d) "
-                        "seg_count=%d newest=%s pid=%s match=%s",
-                        age, consecutive_stale, snap["segment_count"],
-                        snap.get("newest_segment"), snap["pid"], self.match_id,
-                    )
-                else:
-                    if consecutive_stale > 0:
-                        logger.info(
-                            "[HlsHealth] Segments flowing again (age=%.1fs) match=%s",
-                            age, self.match_id,
-                        )
-                    consecutive_stale = 0
-
-                await asyncio.sleep(check_interval)
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("[HlsHealth] Health monitor crashed match=%s", self.match_id)
+        """DEPRECATED: HLS removed, using WebRTC/LiveKit only."""
+        pass  # This method is no longer used
 
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
@@ -626,23 +543,12 @@ class MatchRunner:
         self.state = RunnerState.STOPPED
         self.streaming_state = StreamingState.STOPPED
 
-        # Stop HLS monitors
-        for task in (self._stream_monitor_task, self._hls_health_task):
-            if task and not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-
-        # Stop capture (HLS or WebRTC depending on mode)
+        # Stop WebRTC capture (HLS monitors removed)
         if self._webrtc_capture is not None:
             await self._webrtc_capture.stop()
             # Unregister from Redis
             from app.services.redis_client import unregister_webrtc_runner
             await unregister_webrtc_runner(self.match_id)
-        else:
-            await self._hls_capture.stop()
 
         # Cancel background task
         if self._agent_loop_task and not self._agent_loop_task.done():
@@ -861,28 +767,12 @@ class MatchRunner:
                     )
                     await ws_manager.broadcast_json(self.match_id, ended_payload)
 
-                    # Keep HLS stream alive while Flutter drains its buffer.
-                    # HLS has HLS_LIST_SIZE=30 segments × 1s each = 30s behind the
-                    # live edge.  Clients will see a premature cut if we stop FFmpeg
-                    # too early.  Run settlement in parallel with the drain window.
-                    #
-                    # ⚠️  BUG HISTORY: was 12s — not enough to cover the 30s HLS buffer.
-                    # Increased to 35s so the full match plays out on client before
-                    # the stream 404s and onStreamDied fires.
-                    drain_seconds = 35
+                    # WebRTC/LiveKit: Real-time, no drain window needed
                     logger.info(
-                        "[MatchRunner] ⏳ HLS drain window: keeping FFmpeg alive for %ds "
-                        "(HLS buffer is ~30s behind live) match=%s",
-                        drain_seconds, self.match_id,
-                    )
-                    await asyncio.gather(
-                        self._auto_settle(winner_player),
-                        asyncio.sleep(drain_seconds),
-                    )
-                    logger.info(
-                        "[MatchRunner] ✅ HLS drain window complete — stopping FFmpeg (match=%s)",
+                        "[MatchRunner] 🏁 Match ended — settling immediately (match=%s)",
                         self.match_id,
                     )
+                    await self._auto_settle(winner_player)
                     break
 
                 # More rounds to play — reload savestate.
@@ -909,10 +799,11 @@ class MatchRunner:
                     "timestamp": time.time(),
                 })
 
-                # Between rounds: stop HLS capture so there's no stale stream
-                # through the round transition. It will be restarted by
-                # _start_free_running after the savestate reload.
-                await self._hls_capture.stop()
+                # WebRTC: Keep streaming during round transition (real-time, no delay)
+                logger.info(
+                    "[MatchRunner] WebRTC: Keeping stream alive during round transition (match=%s)",
+                    self.match_id,
+                )
 
                 await asyncio.sleep(2.0)  # KO animation visible
 
@@ -1298,8 +1189,12 @@ class MatchRunner:
 
     async def _cleanup_emulator(self) -> None:
         """Clean up emulator resources after match ends."""
-        # Stop combined HLS capture if still running
-        await self._hls_capture.stop()
+        # Stop WebRTC capture if still running
+        if self._webrtc_capture is not None:
+            try:
+                await self._webrtc_capture.stop()
+            except Exception:
+                pass
         if self._bridge:
             try:
                 self._bridge.close()
