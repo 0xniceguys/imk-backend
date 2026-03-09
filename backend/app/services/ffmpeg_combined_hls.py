@@ -43,7 +43,8 @@ CAPTURE_FPS = 24  # 24fps — lower than 30 to reduce mobile decoder pipeline pr
 
 # Output resolution — scale down in encoder to shrink segment size ~60%
 OUTPUT_WIDTH = 480
-OUTPUT_HEIGHT = 360
+OUTPUT_HEIGHT = 368   # multiple of 16 → hardware decoder uses this anyway; set explicitly
+                      # to avoid the codec padding step (360 → 368) inside ExoPlayer.
 
 # HLS tuning — 1-second segments with a wide live window for mobile resilience.
 # 30 segments = 30-second buffer. This prevents BehindLiveWindowException on
@@ -93,14 +94,20 @@ class FFmpegCombinedHls:
             "-fflags", "+genpts",
             # ── Video input: Xvfb virtual display ──────────────────────────
             "-thread_queue_size", "4096",
-            "-use_wallclock_as_timestamps", "1",
+            # DO NOT use -use_wallclock_as_timestamps here: it introduces
+            # microsecond-level wall-clock jitter that misaligns video PTS
+            # with audio PTS at the muxer level, producing false 0x000001
+            # sequences in PES packets (Unexpected start code prefix errors).
+            # x11grab's native counter-based PTS is perfectly monotonic.
             "-f", "x11grab",
             "-video_size", f"{CAPTURE_WIDTH}x{CAPTURE_HEIGHT}",
             "-framerate", str(CAPTURE_FPS),
             "-i", XVFB_DISPLAY,
             # ── Audio input: PulseAudio null-sink monitor ───────────────────
             "-thread_queue_size", "4096",
-            "-use_wallclock_as_timestamps", "1",
+            # DO NOT use -use_wallclock_as_timestamps here: pulse native PTS
+            # is sample-count-based (perfectly regular at 1024/44100 ≈ 23.2ms)
+            # which is far more stable than wall clock readings.
             "-f", "pulse",
             "-i", PULSE_MONITOR_SOURCE,
             # Explicit mapping and timestamp normalization:
@@ -109,7 +116,9 @@ class FFmpegCombinedHls:
             "-map", "0:v:0",
             "-map", "1:a:0",
             "-vf", "setpts=PTS-STARTPTS",
-            "-af", "aresample=async=1000:min_hard_comp=0.100:first_pts=0",
+            # async=200: gentle clock drift correction (was 1000 — too aggressive,
+            # caused audio resampler to over-correct and shift PTS noticeably).
+            "-af", "aresample=async=200:min_hard_comp=0.100:first_pts=0",
             # ── Video encoding: H.264 ultrafast / zero-latency ──────────────
             "-fps_mode", "cfr",
             "-r", str(CAPTURE_FPS),      # stable output cadence for HLS
@@ -148,7 +157,7 @@ class FFmpegCombinedHls:
             # Keep recent segments on disk while live. This avoids clients
             # briefly requesting a just-rotated segment and receiving JSON 404
             # payloads that confuse some mobile decoders.
-            "-hls_flags", "append_list+discont_start+independent_segments+temp_file",
+            "-hls_flags", "append_list+independent_segments+temp_file",
             "-hls_segment_type", "mpegts",
             "-hls_segment_filename", seg_pattern,
             playlist,
