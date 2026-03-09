@@ -195,6 +195,27 @@ async def audio_segment_compat(match_id: str, segment: str):
     return RedirectResponse(url=f"/stream/{match_id}/{segment}")
 
 
+# ── WebRTC Signaling (when use_webrtc=True) ──────────────────────────────────
+
+@app.post("/stream/{match_id}/webrtc/offer")
+async def webrtc_offer(match_id: str, body: dict):
+    """Flutter sends SDP offer; we forward to mediasoup and return SDP answer."""
+    from fastapi.responses import JSONResponse  # noqa: E402
+    import httpx as _httpx  # noqa: E402
+    if not settings.use_webrtc:
+        return JSONResponse(status_code=404, content={"error": "WebRTC not enabled"})
+    sdp_offer = body.get("sdpOffer", "")
+    try:
+        async with _httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                f"{settings.mediasoup_url}/rooms/{match_id}/consume",
+                json={"sdpOffer": sdp_offer},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as exc:
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
 
 @app.get("/health/detailed")
 async def health_detailed():

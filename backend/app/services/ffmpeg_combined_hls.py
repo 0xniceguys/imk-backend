@@ -49,8 +49,9 @@ OUTPUT_HEIGHT = 368   # multiple of 16 → hardware decoder uses this anyway; se
 # HLS tuning — 1-second segments with a wide live window for mobile resilience.
 # 30 segments = 30-second buffer. This prevents BehindLiveWindowException on
 # devices that decode slowly and fall behind the live edge.
-HLS_SEGMENT_DURATION = 1
-HLS_LIST_SIZE = 30
+HLS_SEGMENT_DURATION = 0.5   # 0.5s segments — smaller chunks means faster recovery
+                             # from any ExoPlayer buffering event (less data to discard)
+HLS_LIST_SIZE = 60           # 60 × 0.5s = 30s live window (same wall-clock buffer as before)
 READY_MIN_SEGMENTS = 1   # mark ready after first segment — don't wait for two
 READY_MIN_BYTES = 188  # One MPEG-TS packet
 
@@ -115,21 +116,24 @@ class FFmpegCombinedHls:
             # - continuously correct tiny audio clock drift vs video timeline
             "-map", "0:v:0",
             "-map", "1:a:0",
-            "-vf", "setpts=PTS-STARTPTS",
-            # async=200: gentle clock drift correction (was 1000 — too aggressive,
-            # caused audio resampler to over-correct and shift PTS noticeably).
+            # Single -vf: scale to output resolution and reset PTS origin.
+            # (Two -vf flags in one command is ambiguous — combined here.)
+            "-vf", f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT},setpts=PTS-STARTPTS",
+            # async=200: gentle clock drift correction.
             "-af", "aresample=async=200:min_hard_comp=0.100:first_pts=0",
             # ── Video encoding: H.264 ultrafast / zero-latency ──────────────
             "-fps_mode", "cfr",
-            "-r", str(CAPTURE_FPS),      # stable output cadence for HLS
-            "-vf", f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT},setpts=PTS-STARTPTS",
+            "-r", str(CAPTURE_FPS),
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
-            "-profile:v", "baseline",   # widest device compat (no B-frames)
+            "-profile:v", "baseline",
             "-level", "3.1",
-            "-g", str(CAPTURE_FPS),     # keyframe every 1s = one per segment
-            "-keyint_min", str(CAPTURE_FPS),
+            # Keyframe every segment (CAPTURE_FPS × HLS_SEGMENT_DURATION frames).
+            # This ensures every segment starts with an IDR frame, which is
+            # required for correct HLS seeking and independent_segments.
+            "-g", str(int(CAPTURE_FPS * HLS_SEGMENT_DURATION)),
+            "-keyint_min", str(int(CAPTURE_FPS * HLS_SEGMENT_DURATION)),
             "-sc_threshold", "0",
             "-force_key_frames", f"expr:gte(t,n_forced*{HLS_SEGMENT_DURATION})",
             "-b:v", "400k",

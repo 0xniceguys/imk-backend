@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     queue_lock_before_start_seconds: int = 1
     queue_leader_lock_file: str = "/tmp/imk_queue_loop.lock"
 
+    # ── WebRTC streaming (replaces HLS when enabled) ──────────────────────────
+    # Set use_webrtc=true in .env to enable. HLS still works as fallback.
+    use_webrtc: bool = False
+    mediasoup_url: str = "http://127.0.0.1:3000"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

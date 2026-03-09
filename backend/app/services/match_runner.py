@@ -205,8 +205,9 @@ class MatchRunner:
         self._ctrl_p1_path: str | None = None
         self._ctrl_p2_path: str | None = None
         self._agent_loop_task: asyncio.Task | None = None
-        # Combined HLS capture: one FFmpeg for video + audio
+        # Combined HLS capture OR WebRTC capture (feature-flagged by settings.use_webrtc)
         self._hls_capture = FFmpegCombinedHls(match_id=self.match_id)
+        self._webrtc_capture = None   # set lazily if use_webrtc is True
         self._ram_debug = RamDebugRecorder(match_id=self.match_id, instance_id=self.instance_id)
         self._manual_overrides: dict[int, ManualOverrideState] = {
             1: ManualOverrideState(),
@@ -492,28 +493,43 @@ class MatchRunner:
         # Give the video plugin time to render the first frame before FFmpeg starts
         await asyncio.sleep(1.5)
 
-        # Update streaming state and notify clients
+        from app.config import settings as _settings
+
         self.streaming_state = StreamingState.INITIALIZING
-        logger.info("[MatchRunner] Streaming state: INITIALIZING (match=%s) — starting FFmpeg HLS", self.match_id)
+        logger.info("[MatchRunner] Streaming state: INITIALIZING (match=%s)", self.match_id)
         await ws_manager.broadcast_json(self.match_id, {
             "type": "streaming_state",
             "state": self.streaming_state.value,
         })
 
-        await self._hls_capture.start()
-        logger.info("[MatchRunner] FFmpeg HLS capture started (match=%s, pid will appear in ffmpeg logs)", self.match_id)
+        if _settings.use_webrtc:
+            # ── WebRTC path: FFmpeg → mediasoup RTP ───────────────────────────
+            from app.services.ffmpeg_webrtc import FFmpegWebrtc
+            self._webrtc_capture = FFmpegWebrtc(
+                match_id=self.match_id,
+                mediasoup_url=_settings.mediasoup_url,
+            )
+            rtp_params = await self._webrtc_capture.start()
+            logger.info(
+                "[MatchRunner] ✅ WebRTC capture started match=%s videoPort=%s audioPort=%s",
+                self.match_id, rtp_params.get("videoPort"), rtp_params.get("audioPort"),
+            )
+            # No playlist polling needed — mediasoup is ready immediately.
+            self.streaming_state = StreamingState.READY
+            await ws_manager.broadcast_json(self.match_id, {
+                "type": "streaming_state",
+                "state": "ready",
+                "mode": "webrtc",
+                "offer_url": f"/stream/{self.match_id}/webrtc/offer",
+            })
+        else:
+            # ── HLS path (default) ────────────────────────────────────────────
+            await self._hls_capture.start()
+            logger.info("[MatchRunner] FFmpeg HLS capture started (match=%s)", self.match_id)
 
-        # Start monitoring for HLS playlist ready
-        self._stream_monitor_task = asyncio.create_task(
-            self._monitor_hls_ready(), name=f"hls-monitor-{self.match_id}"
-        )
-
-        # Start periodic HLS health monitor (cancel any previous one first)
-        if self._hls_health_task and not self._hls_health_task.done():
-            self._hls_health_task.cancel()
-        self._hls_health_task = asyncio.create_task(
-            self._monitor_hls_health(), name=f"hls-health-{self.match_id}"
-        )
+            self._stream_monitor_task = asyncio.create_task(
+                self._monitor_hls_ready(), name=f"hls-monitor-{self.match_id}"
+            )
 
     async def _monitor_hls_ready(self) -> None:
         """Poll until HLS playlist is ready, then notify clients."""
@@ -611,8 +627,11 @@ class MatchRunner:
                 except asyncio.CancelledError:
                     pass
 
-        # Stop combined HLS capture (video + audio)
-        await self._hls_capture.stop()
+        # Stop capture (HLS or WebRTC depending on mode)
+        if self._webrtc_capture is not None:
+            await self._webrtc_capture.stop()
+        else:
+            await self._hls_capture.stop()
 
         # Cancel background task
         if self._agent_loop_task and not self._agent_loop_task.done():
