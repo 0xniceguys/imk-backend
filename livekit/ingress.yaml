@@ -1,0 +1,9 @@
+api_key: imk_key
+api_secret: imk_secret_change_in_production
+ws_url: ws://localhost:7880
+redis:
+  address: localhost:6379
+rtmp_port: 1935
+http_relay_port: 9090
+logging:
+  level: warn

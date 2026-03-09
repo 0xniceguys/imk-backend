@@ -56,7 +56,9 @@ class Settings(BaseSettings):
     # ── WebRTC streaming (replaces HLS when enabled) ──────────────────────────
     # Set use_webrtc=true in .env to enable. HLS still works as fallback.
     use_webrtc: bool = False
-    mediasoup_url: str = "http://127.0.0.1:3000"
+    livekit_url: str = "ws://localhost:7880"
+    livekit_api_key: str = "imk_key"
+    livekit_api_secret: str = "imk_secret_change_in_production"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

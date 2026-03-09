@@ -22,8 +22,8 @@ dependencies:
   # Video player (HLS live streams)
   video_player: ^2.9.2
 
-  # WebRTC live streams (replaces video_player when use_webrtc=true)
-  flutter_webrtc: ^0.11.7
+  # WebRTC live streams via LiveKit (replaces video_player when use_webrtc=true)
+  livekit_client: ^2.3.4
 
   # Auth + embedded wallets
   privy_flutter: ^0.6.0

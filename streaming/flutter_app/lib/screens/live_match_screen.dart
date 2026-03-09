@@ -17,7 +17,7 @@ import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
 import '../services/hls_player_service.dart';
 import '../services/webrtc_player_service.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:livekit_client/livekit_client.dart';
 import '../app.dart' show routeObserver;
 import '../widgets/shared/app_shell.dart';
 import '../widgets/shared/ornate_button.dart';
@@ -77,9 +77,9 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   String? _hlsMatchId; // guard against double-init for the same match
   bool _hlsInitializing = false;
 
-  // WebRTC player — active when backend signals mode=webrtc
-  WebRtcPlayerService? _webrtcSvc;
-  bool _webrtcActive = false;
+  // LiveKit player — active when backend signals mode=livekit
+  LiveKitPlayerService? _livekitSvc;
+  bool _livekitActive = false;
   // FPS readout driven by VideoPlayerController listener
   int _fps = 0;
   int _lastFpsCheck = 0;
@@ -244,20 +244,24 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           return;
         }
 
-        // Check if backend is using WebRTC mode
+        // Check if backend is using LiveKit mode
         final mode = data['mode'] as String?;
-        if (mode == 'webrtc') {
-          final offerUrl = data['offer_url'] as String? ?? '/stream/$_activeMatchId/webrtc/offer';
-          final fullOfferUrl = '$kStreamBaseUrl$offerUrl';
-          debugPrint('[LiveMatch] WebRTC mode detected — connecting to $fullOfferUrl');
-          _webrtcSvc?.dispose();
-          final svc = WebRtcPlayerService(baseUrl: kStreamBaseUrl);
-          _webrtcSvc = svc;
-          if (mounted) setState(() => _webrtcActive = true);
+        if (mode == 'livekit') {
+          debugPrint('[LiveMatch] LiveKit mode detected for match=$_activeMatchId');
+          _livekitSvc?.dispose();
+          final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
+          _livekitSvc = svc;
+          if (mounted) setState(() => _livekitActive = true);
           svc.connect(_activeMatchId!).then((_) {
-            if (mounted && svc.state == WebRtcPlayerState.connected) {
-              debugPrint('[LiveMatch] WebRTC ✅ connected match=$_activeMatchId');
+            if (mounted && svc.state == LiveKitPlayerState.connected) {
+              debugPrint('[LiveMatch] LiveKit ✅ connected match=$_activeMatchId');
+              // Trigger rebuild to show video track
+              if (mounted) setState(() {});
             }
+          });
+          // Listen for video track changes
+          svc.videoTrackNotifier.addListener(() {
+            if (mounted) setState(() {});
           });
           return;
         }
@@ -673,8 +677,8 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
                     aspectRatio: 4 / 3,
                     child: Container(
                       color: Palette.black,
-                      child: _webrtcActive && _webrtcSvc != null
-                          ? RTCVideoView(_webrtcSvc!.renderer)
+                      child: _livekitActive && _livekitSvc?.videoTrack != null
+                          ? VideoTrackRenderer(_livekitSvc!.videoTrack!)
                           : isGlobalHlsReady
                           ? VideoPlayer(hlsCtrl!)
                           : Center(

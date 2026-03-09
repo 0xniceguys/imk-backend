@@ -195,26 +195,25 @@ async def audio_segment_compat(match_id: str, segment: str):
     return RedirectResponse(url=f"/stream/{match_id}/{segment}")
 
 
-# ── WebRTC Signaling (when use_webrtc=True) ──────────────────────────────────
+# ── LiveKit Token Endpoint (when use_webrtc=True) ────────────────────────────
 
-@app.post("/stream/{match_id}/webrtc/offer")
-async def webrtc_offer(match_id: str, body: dict):
-    """Flutter sends SDP offer; we forward to mediasoup and return SDP answer."""
+@app.get("/stream/{match_id}/livekit/token")
+async def livekit_token(match_id: str, participant: str = "viewer"):
+    """Generate a LiveKit subscriber JWT for a Flutter viewer."""
     from fastapi.responses import JSONResponse  # noqa: E402
-    import httpx as _httpx  # noqa: E402
     if not settings.use_webrtc:
         return JSONResponse(status_code=404, content={"error": "WebRTC not enabled"})
-    sdp_offer = body.get("sdpOffer", "")
-    try:
-        async with _httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                f"{settings.mediasoup_url}/rooms/{match_id}/consume",
-                json={"sdpOffer": sdp_offer},
-            )
-            resp.raise_for_status()
-            return resp.json()
-    except Exception as exc:
-        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+    from app.services.match_runner import get_runner
+    runner = get_runner(match_id)
+    if not runner or not runner._webrtc_capture:
+        return JSONResponse(status_code=404, content={"error": "No active LiveKit publisher"})
+
+    token = runner._webrtc_capture.make_subscriber_token(participant)
+    return {
+        "token": token,
+        "url": settings.livekit_url.replace("ws://", "wss://").replace("localhost", "immortalkombat.timesnap.xyz"),
+    }
 
 
 @app.get("/health/detailed")

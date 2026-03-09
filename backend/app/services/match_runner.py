@@ -503,24 +503,27 @@ class MatchRunner:
         })
 
         if _settings.use_webrtc:
-            # ── WebRTC path: FFmpeg → mediasoup RTP ───────────────────────────
-            from app.services.ffmpeg_webrtc import FFmpegWebrtc
-            self._webrtc_capture = FFmpegWebrtc(
+            # ── LiveKit path: FFmpeg → Python → LiveKit room ──────────────────
+            from app.services.ffmpeg_webrtc import LiveKitPublisher
+            self._webrtc_capture = LiveKitPublisher(
                 match_id=self.match_id,
-                mediasoup_url=_settings.mediasoup_url,
+                livekit_url=_settings.livekit_url,
+                api_key=_settings.livekit_api_key,
+                api_secret=_settings.livekit_api_secret,
             )
-            rtp_params = await self._webrtc_capture.start()
+            await self._webrtc_capture.start()
             logger.info(
-                "[MatchRunner] ✅ WebRTC capture started match=%s videoPort=%s audioPort=%s",
-                self.match_id, rtp_params.get("videoPort"), rtp_params.get("audioPort"),
+                "[MatchRunner] ✅ LiveKit publisher started match=%s",
+                self.match_id,
             )
-            # No playlist polling needed — mediasoup is ready immediately.
+            # No playlist polling needed — LiveKit is ready immediately.
             self.streaming_state = StreamingState.READY
             await ws_manager.broadcast_json(self.match_id, {
                 "type": "streaming_state",
                 "state": "ready",
-                "mode": "webrtc",
-                "offer_url": f"/stream/{self.match_id}/webrtc/offer",
+                "mode": "livekit",
+                "room": self.match_id,
+                "token_url": f"/stream/{self.match_id}/livekit/token",
             })
         else:
             # ── HLS path (default) ────────────────────────────────────────────
