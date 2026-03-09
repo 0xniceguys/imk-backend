@@ -21,6 +21,7 @@ import asyncio
 import logging
 import os
 import shutil
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -204,7 +205,14 @@ class FFmpegCombinedHls:
             async for line in self._process.stderr:
                 txt = line.decode(errors="replace").rstrip()
                 if txt and self._running:
-                    logger.debug("FFmpegHLS[%s]: %s", self.match_id, txt)
+                    # Surface errors/warnings at INFO so they're visible in normal logs
+                    lower = txt.lower()
+                    if "error" in lower or "fatal" in lower or "overrun" in lower:
+                        logger.warning("FFmpegHLS[%s]: %s", self.match_id, txt)
+                    elif "dropping" in lower or "queue" in lower or "overflow" in lower:
+                        logger.info("FFmpegHLS[%s]: %s", self.match_id, txt)
+                    else:
+                        logger.debug("FFmpegHLS[%s]: %s", self.match_id, txt)
         except Exception:
             pass
 
@@ -271,3 +279,39 @@ class FFmpegCombinedHls:
     def playlist_ready(self) -> bool:
         """Backward-compatible readiness check."""
         return self.ready_for_playback(min_segments=1)
+
+    def health_snapshot(self) -> dict:
+        """Return a diagnostic snapshot of HLS capture health.
+
+        Checks: FFmpeg process alive, latest segment age, segment count, playlist exists.
+        """
+        info: dict = {
+            "running": self._running,
+            "pid": self._process.pid if self._process else None,
+            "process_alive": False,
+            "playlist_exists": self._playlist.exists(),
+            "segment_count": 0,
+            "newest_segment_age_s": None,
+            "newest_segment": None,
+        }
+
+        # Process liveness
+        if self._process and self._process.returncode is None:
+            info["process_alive"] = True
+        elif self._process:
+            info["process_exit_code"] = self._process.returncode
+
+        # Segment freshness
+        segs = self._segment_paths_from_playlist()
+        info["segment_count"] = len(segs)
+        if segs:
+            try:
+                newest = max(segs, key=lambda p: p.stat().st_mtime if p.exists() else 0)
+                if newest.exists():
+                    age = time.time() - newest.stat().st_mtime
+                    info["newest_segment_age_s"] = round(age, 1)
+                    info["newest_segment"] = newest.name
+            except Exception:
+                pass
+
+        return info

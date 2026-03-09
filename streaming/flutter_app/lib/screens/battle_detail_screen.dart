@@ -10,7 +10,6 @@ import '../models/match.dart';
 import '../models/match_bet_feed_item.dart';
 import '../providers/clock_provider.dart';
 import '../providers/match_provider.dart';
-import '../providers/match_stream_provider.dart';
 import '../providers/global_events_provider.dart';
 import '../router.dart';
 import '../widgets/betting/bet_bottom_sheet.dart';
@@ -36,10 +35,6 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   Future<List<MatchBetFeedItem>>? _betFeedFuture;
   String? _betFeedMatchId;
   bool _navigatedToLive = false;
-
-  // Pre-connect WebSocket when match is #1 in queue so HLS starts
-  // loading in the background before the user navigates to the live screen.
-  String? _preConnectedMatchId;
 
   // Rapid-poll timer activated at T≤2s so we don't depend on clockTickProvider
   // to trigger _maybeRefreshAroundGoLive after the countdown hits zero.
@@ -98,15 +93,6 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     _rapidPollTimer?.cancel();
     _rapidPollTimer = null;
   }
-  void _maybePreConnect(Match match) {
-    if (match.status != MatchStatus.upcoming) return;
-    if (match.queuePosition != 1) return;
-    if (_preConnectedMatchId == match.id) return;
-    _preConnectedMatchId = match.id;
-    debugPrint('[BattleDetail] 🔌 Pre-connecting WS for match ${match.id} (queue #1, scheduled at ${match.queueStartsAt})');
-    ref.read(matchStreamServiceProvider).connect(match.id);
-  }
-
   void _ensureBetFeedFuture(String matchId) {
     if (_betFeedFuture == null || _betFeedMatchId != matchId) {
       _betFeedMatchId = matchId;
@@ -126,30 +112,17 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   }
 
   void _onMatchStateChanged(MatchState? prev, MatchState next) {
-    if (!mounted) return;
+    if (!mounted || _navigatedToLive) return;
     final match = _resolveMatch(next.matches);
     if (match == null || match.status != MatchStatus.live) return;
-
-    debugPrint('[BattleDetail] 🟢 Match ${match.id} went LIVE via REST poll — ensuring WS connected');
 
     // Match went live — stop the rapid poll timer immediately.
     _stopRapidPoll();
 
-    final streamSvc = ref.read(matchStreamServiceProvider);
-    if (streamSvc.matchId != match.id) {
-      debugPrint('[BattleDetail] 🔌 Connecting WS to newly-live match ${match.id}');
-      streamSvc.connect(match.id);
-    } else if (!streamSvc.isConnected && !streamSvc.isConnecting) {
-      debugPrint('[BattleDetail] 🔄 WS for ${match.id} exists but disconnected — reconnecting');
-      streamSvc.connect(match.id);
-    } else {
-      debugPrint('[BattleDetail] ✅ WS already connected to ${match.id} (isConnected=${streamSvc.isConnected})');
-    }
-
-    if (_navigatedToLive) return;
+    // WS preconnect is handled by autoWsPreconnectProvider — just navigate.
     final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
     if (!isCurrentRoute) {
-      debugPrint('[BattleDetail] ⚠️ Not current route — skipping navigation to live (isCurrentRoute=$isCurrentRoute)');
+      debugPrint('[BattleDetail] Not current route — skipping navigation to live');
       return;
     }
 
@@ -208,7 +181,6 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
     _maybeRefreshAroundGoLive(match);
 
     _ensureBetFeedFuture(match.id);
-    _maybePreConnect(match);
 
     final totalPool = match.totalPool;
     final sideAPool = match.odds.fighter1Pool > 0
@@ -392,6 +364,11 @@ class _BattleDetailScreenState extends ConsumerState<BattleDetailScreen> {
   }
 
   void _maybeRefreshAroundGoLive(Match match) {
+    // Already navigated to live — stop polling and don't restart.
+    if (_navigatedToLive) {
+      _stopRapidPoll();
+      return;
+    }
     if (match.status != MatchStatus.upcoming || match.queuePosition != 1) {
       _stopRapidPoll();
       return;

@@ -47,6 +47,7 @@ class MatchStreamService {
   void connect(String matchId) {
     if (_matchId == matchId && _channel != null) return;
     disconnect();
+    _isTerminal = false;
     _reconnectAttempts = 0;
     _upcoming4004Count = 0;
     _msgCount = 0;
@@ -169,7 +170,8 @@ class MatchStreamService {
           _roundEndCtrl.add(json);
 
         case 'match_ended':
-          debugPrint('[Stream] 🏁 match_ended received at ${DateTime.now().toIso8601String()} — Flutter will wait for stream to 404 before navigating');
+          debugPrint('[Stream] 🏁 match_ended received at ${DateTime.now().toIso8601String()} — marking terminal, no more reconnects');
+          _isTerminal = true;
           _matchEndCtrl.add(null);
 
         case 'pong':
@@ -196,6 +198,11 @@ class MatchStreamService {
 
   void _scheduleReconnect(String matchId, {int? closeCode}) {
     _reconnectTimer?.cancel();
+
+    if (_isTerminal) {
+      debugPrint('[Stream] ⛔ Match ended (terminal) — not reconnecting');
+      return;
+    }
 
     if (closeCode == 4004) {
       // 4004 = "no active runner for this match right now"

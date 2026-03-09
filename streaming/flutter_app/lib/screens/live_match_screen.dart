@@ -725,102 +725,106 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
           ),
           const SizedBox(height: 8),
 
-          // Combined HLS video+audio player
+          // Combined HLS video+audio player (with round transition overlay on top)
           Stack(
             children: [
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: Container(
-                  color: Palette.black,
-                  child: isGlobalHlsReady
-                      ? VideoPlayer(hlsCtrl!)
-                      : Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Only show dead camera on explicit HLS error.
-                              // All other gaps (idle, initializing, stopped) show a spinner.
-                              if (!isHlsError) const IKLoader(size: 44)
-                              else const Icon(Icons.videocam_off,
-                                  color: Palette.muted, size: 36),
-                              const SizedBox(height: 12),
-                              Text(
-                                isHlsError
-                                    ? 'Stream unavailable'
-                                    : streamStatusMessage,
-                                style: const TextStyle(
-                                    color: Palette.muted, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-              // Connection-lost banner
-              Builder(builder: (ctx) {
-                final svc = ref.watch(matchStreamServiceProvider);
-                if (!svc.hasGivenUp) return const SizedBox.shrink();
-                return Positioned(
-                  bottom: 0, left: 0, right: 0,
-                  child: GestureDetector(
-                    onTap: () {
-                      final id = widget.matchId ?? _lastConnectedMatchId;
-                      if (id != null) {
-                        _lastConnectedMatchId = null;
-                        svc.resetAndReconnect(id);
-                      }
-                    },
+              // ── Video layer ──
+              Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 4 / 3,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      color: Palette.red.withValues(alpha: 0.85),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text('Connection lost — tap to retry',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                      color: Palette.black,
+                      child: isGlobalHlsReady
+                          ? VideoPlayer(hlsCtrl!)
+                          : Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Only show dead camera on explicit HLS error.
+                                  // All other gaps (idle, initializing, stopped) show a spinner.
+                                  if (!isHlsError) const IKLoader(size: 44)
+                                  else const Icon(Icons.videocam_off,
+                                      color: Palette.muted, size: 36),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    isHlsError
+                                        ? 'Stream unavailable'
+                                        : streamStatusMessage,
+                                    style: const TextStyle(
+                                        color: Palette.muted, fontSize: 13),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
                     ),
-                  );
-                },
+                  ),
+                  // Connection-lost banner
+                  Builder(builder: (ctx) {
+                    final svc = ref.watch(matchStreamServiceProvider);
+                    if (!svc.hasGivenUp) return const SizedBox.shrink();
+                    return Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: GestureDetector(
+                        onTap: () {
+                          final id = widget.matchId ?? _lastConnectedMatchId;
+                          if (id != null) {
+                            _lastConnectedMatchId = null;
+                            svc.resetAndReconnect(id);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          color: Palette.red.withValues(alpha: 0.85),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                              SizedBox(width: 6),
+                              Text('Connection lost — tap to retry',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
+
+              // ── Round-transition overlay ────────────────────────────────────
+              // Sits ON TOP of the video (same Stack) so it doesn't push the
+              // Column down and cause RenderFlex overflow.
+              if (_inRoundTransition)
+                Positioned.fill(
+                  child: Container(
+                    color: Palette.black.withValues(alpha: 0.92),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const IKLoader(size: 40),
+                        const SizedBox(height: 16),
+                        Text(
+                          'ROUND $_nextRound',
+                          style: displayStyle(size: 28, color: Palette.gold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'starting…',
+                          style: bodyStyle(size: 14, color: Palette.secondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
-
-          // ── Round-transition overlay ──────────────────────────────────────
-          // Covers the video area during the HLS gap between rounds.
-          // Hides automatically when streaming_state: ready fires for the new round.
-          if (_inRoundTransition)
-            SizedBox(
-              height: MediaQuery.of(context).size.width * 9 / 16,
-              child: Container(
-                color: Palette.black.withValues(alpha: 0.92),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const IKLoader(size: 40),
-                    const SizedBox(height: 16),
-                    Text(
-                      'ROUND $_nextRound',
-                      style: displayStyle(size: 28, color: Palette.gold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'starting…',
-                      style: bodyStyle(size: 14, color: Palette.secondary),
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
           const SizedBox(height: 8),
 

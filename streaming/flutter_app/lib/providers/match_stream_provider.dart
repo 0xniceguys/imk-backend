@@ -5,6 +5,8 @@ import 'package:video_player/video_player.dart';
 
 import '../core/constants.dart';
 import '../models/game_state.dart';
+import '../models/match.dart';
+import '../providers/match_provider.dart';
 import '../services/match_stream_service.dart';
 import '../services/hls_player_service.dart';
 
@@ -168,6 +170,35 @@ final globalHlsPreloaderProvider = Provider<void>((ref) {
     streamingStateSub.cancel();
     debugPrint('[GlobalHlsPreloader] Disposed — subscriptions cancelled');
   });
+});
+
+/// Always-alive side-effect that watches [matchProvider] for a live match
+/// and pre-connects the WebSocket as soon as one appears.
+///
+/// HLS preload is NOT triggered here — [globalHlsPreloaderProvider] handles
+/// that when the backend signals [streaming_state: ready] over the WS.
+/// This avoids 404s from trying to preload before the stream exists.
+final autoWsPreconnectProvider = Provider<void>((ref) {
+  ref.keepAlive();
+
+  final wsService = ref.watch(matchStreamServiceProvider);
+  String? preconnectedMatchId;
+
+  ref.listen<MatchState>(matchProvider, (_, next) {
+    final liveMatch = next.matches
+        .where((m) => m.status == MatchStatus.live)
+        .firstOrNull;
+    if (liveMatch == null) return;
+    if (preconnectedMatchId == liveMatch.id) return;
+
+    // Guard: don't reset preconnectedMatchId when a match ends.
+    // Stale matchProvider state (still showing status=live for a just-ended
+    // match) would re-trigger a connect to a dead stream. A genuinely new
+    // match has a different UUID and bypasses this guard automatically.
+    preconnectedMatchId = liveMatch.id;
+    debugPrint('[AutoWsPreconnect] Pre-connecting WS for live match: ${liveMatch.id}');
+    wsService.connect(liveMatch.id);
+  }, fireImmediately: true);
 });
 
 String _resolveHlsUrl(String matchId, String? hintedUrl) {

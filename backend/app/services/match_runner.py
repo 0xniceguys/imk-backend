@@ -218,6 +218,7 @@ class MatchRunner:
         self._last_state_broadcast: float = 0.0
         # Streaming state monitoring
         self._stream_monitor_task: asyncio.Task | None = None
+        self._hls_health_task: asyncio.Task | None = None
         # Anti-camping: injects real N64 D-pad inputs when fighters are stuck
         self._anti_camping = AntiCampingGuard()
 
@@ -507,6 +508,13 @@ class MatchRunner:
             self._monitor_hls_ready(), name=f"hls-monitor-{self.match_id}"
         )
 
+        # Start periodic HLS health monitor (cancel any previous one first)
+        if self._hls_health_task and not self._hls_health_task.done():
+            self._hls_health_task.cancel()
+        self._hls_health_task = asyncio.create_task(
+            self._monitor_hls_health(), name=f"hls-health-{self.match_id}"
+        )
+
     async def _monitor_hls_ready(self) -> None:
         """Poll until HLS playlist is ready, then notify clients."""
         max_wait = 20  # seconds
@@ -545,19 +553,63 @@ class MatchRunner:
         })
 
 
+    async def _monitor_hls_health(self) -> None:
+        """Periodic health check for HLS capture — logs warnings when segments stop being written."""
+        check_interval = 5  # seconds
+        stale_threshold = 4.0  # warn if newest segment is older than this
+        consecutive_stale = 0
+
+        # Wait for initial ready before monitoring
+        await asyncio.sleep(10)
+
+        try:
+            while True:
+                snap = self._hls_capture.health_snapshot()
+
+                if not snap["process_alive"]:
+                    logger.error(
+                        "[HlsHealth] FFmpeg DIED (exit_code=%s) match=%s — segments will stop",
+                        snap.get("process_exit_code", "?"), self.match_id,
+                    )
+                    break
+
+                age = snap.get("newest_segment_age_s")
+                if age is not None and age > stale_threshold:
+                    consecutive_stale += 1
+                    logger.warning(
+                        "[HlsHealth] STALE segments (age=%.1fs, stale_tick=%d) "
+                        "seg_count=%d newest=%s pid=%s match=%s",
+                        age, consecutive_stale, snap["segment_count"],
+                        snap.get("newest_segment"), snap["pid"], self.match_id,
+                    )
+                else:
+                    if consecutive_stale > 0:
+                        logger.info(
+                            "[HlsHealth] Segments flowing again (age=%.1fs) match=%s",
+                            age, self.match_id,
+                        )
+                    consecutive_stale = 0
+
+                await asyncio.sleep(check_interval)
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("[HlsHealth] Health monitor crashed match=%s", self.match_id)
+
     async def stop(self) -> None:
         """Stop the match, kill emulator."""
         logger.info("[MatchRunner] 🛑 stop() called for match=%s (current state=%s)", self.match_id, self.state)
         self.state = RunnerState.STOPPED
         self.streaming_state = StreamingState.STOPPED
 
-        # Stop HLS monitor
-        if self._stream_monitor_task and not self._stream_monitor_task.done():
-            self._stream_monitor_task.cancel()
-            try:
-                await self._stream_monitor_task
-            except asyncio.CancelledError:
-                pass
+        # Stop HLS monitors
+        for task in (self._stream_monitor_task, self._hls_health_task):
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
 
         # Stop combined HLS capture (video + audio)
         await self._hls_capture.stop()

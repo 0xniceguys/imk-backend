@@ -21,17 +21,55 @@ class HlsPlayerService {
   // When true, unmute after init completes (live screen is in the foreground).
   bool _wantsAudio = false;
 
+  // ── Real-time controller state tracking ───────────────────────────────────
+  bool _lastBuffering = false;
+  bool _lastPlaying = false;
+  bool _lastHasError = false;
+
+  void _onControllerUpdate(VideoPlayerController ctrl, String matchId) {
+    try {
+      final v = ctrl.value;
+      final buffering = v.isBuffering;
+      final playing = v.isPlaying;
+      final hasError = v.hasError;
+
+      // Log transitions only (not every frame)
+      if (buffering != _lastBuffering) {
+        debugPrint(
+          '[HlsPlayer] ${buffering ? "⏳ BUFFERING started" : "▶️ BUFFERING ended"} '
+          'pos=${v.position} match=$matchId',
+        );
+        _lastBuffering = buffering;
+      }
+      if (playing != _lastPlaying) {
+        debugPrint(
+          '[HlsPlayer] ${playing ? "▶️ PLAYING" : "⏸️ NOT PLAYING"} '
+          'pos=${v.position} match=$matchId',
+        );
+        _lastPlaying = playing;
+      }
+      if (hasError && !_lastHasError) {
+        debugPrint(
+          '[HlsPlayer] 🔴 ERROR detected: ${v.errorDescription} '
+          'pos=${v.position} match=$matchId',
+        );
+        _lastHasError = hasError;
+      }
+    } catch (_) {}
+  }
+
   // ── Stuck watchdog ────────────────────────────────────────────────────────
   Timer? _watchdogTimer;
   Duration _lastPosition = Duration.zero;
-  int _stuckTicks = 0; // consecutive 5s ticks with no position advance
+  int _stuckTicks = 0; // consecutive ticks with no position advance
   bool _watchdogPaused = false; // paused during known round-transition gaps
   int _graceTicks = 0;     // ticks to skip at startup before checking position
   int _bufferingTicks = 0; // consecutive ticks where controller is buffering
-  static const _watchdogInterval = Duration(seconds: 5);
-  static const _stuckTicksBeforeRestart = 3;     // 3 × 5s = 15s frozen → restart
-  static const _bufferingTicksBeforeRestart = 2; // 2 × 5s = 10s buffering → restart
-  static const _watchdogGraceTicks = 3;           // skip first 15s (live buffer warmup)
+  int _healthyTickCount = 0;
+  static const _watchdogInterval = Duration(seconds: 2);
+  static const _stuckTicksBeforeRestart = 5;     // 5 × 2s = 10s frozen → restart
+  static const _bufferingTicksBeforeRestart = 4; // 4 × 2s = 8s buffering → restart
+  static const _watchdogGraceTicks = 5;           // skip first 10s (live buffer warmup)
 
   /// Called instead of restarting if set when the stream fatally errors or
   /// freezes. Used by live_match_screen to navigate after match end once the
@@ -92,6 +130,9 @@ class HlsPlayerService {
         return;
       }
 
+      // Listen for real-time state changes (buffering start/end, errors)
+      final nonNullCtrl = ctrl;
+      ctrl.addListener(() => _onControllerUpdate(nonNullCtrl, matchId));
       controllerNotifier.value = ctrl;
       _setState(HlsPreloadState.playing);
       _startWatchdog(matchId, hlsUrl);
@@ -145,6 +186,10 @@ class HlsPlayerService {
     _lastPosition = Duration.zero;
     _stuckTicks = 0;
     _bufferingTicks = 0;
+    _healthyTickCount = 0;
+    _lastBuffering = false;
+    _lastPlaying = false;
+    _lastHasError = false;
     _graceTicks = _watchdogGraceTicks; // allow live-stream buffer to warm up
 
     _watchdogTimer = Timer.periodic(_watchdogInterval, (_) {
@@ -188,7 +233,8 @@ class HlsPlayerService {
             debugPrint('[HlsPlayerService] → calling onStreamDied (match ended mode)');
             onStreamDied!();
           } else {
-            preload(matchId, hlsUrl);
+            debugPrint('[HlsPlayerService] 🔄 Restarting stream via forceReload (error recovery)');
+            forceReload(matchId, hlsUrl);
           }
           return;
         }
@@ -202,9 +248,9 @@ class HlsPlayerService {
             '[HlsPlayerService] ⏳ Buffering stall tick $_bufferingTicks/$_bufferingTicksBeforeRestart',
           );
           if (_bufferingTicks >= _bufferingTicksBeforeRestart) {
-            debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 5}s) — restarting stream');
+            debugPrint('[HlsPlayerService] 🔄 Prolonged buffering (${_bufferingTicks * 2}s) — restarting stream via forceReload');
             _stopWatchdog();
-            preload(matchId, hlsUrl);
+            forceReload(matchId, hlsUrl);
           }
           return;
         } else {
@@ -220,21 +266,32 @@ class HlsPlayerService {
         if (pos == _lastPosition) {
           _stuckTicks++;
           debugPrint(
-            '[HlsPlayerService] ⚠️ Position stuck at $pos (tick $_stuckTicks/$_stuckTicksBeforeRestart)',
+            '[HlsWatchdog] ⚠️ STUCK pos=$pos tick=$_stuckTicks/$_stuckTicksBeforeRestart '
+            'playing=$isPlaying buffering=$isBuffering error=$hasError',
           );
           if (_stuckTicks >= _stuckTicksBeforeRestart) {
-            debugPrint('[HlsPlayerService] 🔄 Stream frozen — checking onStreamDied');
+            debugPrint('[HlsWatchdog] 🔄 Stream frozen for ${_stuckTicks * 2}s — restarting');
             _stopWatchdog();
             if (onStreamDied != null) {
-              debugPrint('[HlsPlayerService] → calling onStreamDied (frozen in match-ended mode)');
+              debugPrint('[HlsWatchdog] → calling onStreamDied (frozen in match-ended mode)');
               onStreamDied!();
             } else {
-              preload(matchId, hlsUrl);
+              debugPrint('[HlsWatchdog] 🔄 Restarting stream via forceReload (stuck recovery)');
+              forceReload(matchId, hlsUrl);
             }
           }
         } else {
+          if (_stuckTicks > 0) {
+            debugPrint('[HlsWatchdog] ✅ Unstuck: pos advanced $_lastPosition → $pos');
+          }
           _stuckTicks = 0;
           _lastPosition = pos;
+          // Log healthy tick every ~30s (every 15th tick) to confirm stream is alive
+          if (_healthyTickCount++ % 15 == 0) {
+            debugPrint(
+              '[HlsWatchdog] OK pos=$pos playing=$isPlaying buffering=$isBuffering',
+            );
+          }
         }
       } catch (e) {
         debugPrint('[HlsPlayerService] Watchdog check error: $e');
