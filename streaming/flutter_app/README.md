@@ -31,8 +31,21 @@ Use this when you want Actions to handle the version bump, commit, tag, build, a
 
 ## What this workflow builds
 
-- `app-release.apk`
+- `immortal-kombat-android.apk`
 
 ## Current limitation
 
 This automation is Android-only right now. The repo does not contain a complete iOS project and signing setup, so iOS release builds are not ready for GitHub Actions yet.
+
+## Android signing
+
+Release builds support a real Android keystore through either:
+
+- `streaming/flutter_app/android/key.properties`
+- environment variables:
+  - `ANDROID_KEYSTORE_PATH`
+  - `ANDROID_KEYSTORE_PASSWORD`
+  - `ANDROID_KEY_ALIAS`
+  - `ANDROID_KEY_PASSWORD`
+
+If none of those are provided, the project falls back to debug signing so CI can still produce installable test APKs.

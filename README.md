@@ -21,7 +21,7 @@
 
 | APK | Notes |
 |-----|-------|
-| [`app-release.apk`](../../releases/latest/download/app-release.apk) | Universal Android APK from the latest GitHub release |
+| [`immortal-kombat-android.apk`](../../releases/latest/download/immortal-kombat-android.apk) | Universal Android APK from the latest GitHub release |
 
 **Install:** Enable *"Install from unknown sources"* in Android settings, then open the downloaded APK.
 

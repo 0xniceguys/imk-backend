@@ -167,11 +167,17 @@ jobs:
         working-directory: ${{ env.FLUTTER_APP_DIR }}
         run: flutter build apk --release
 
+      - name: Prepare release asset
+        run: |
+          mkdir -p release
+          cp "${FLUTTER_APP_DIR}/build/app/outputs/flutter-apk/app-release.apk" \
+            release/immortal-kombat-android.apk
+
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk-${{ steps.meta.outputs.tag }}
-          path: ${{ env.FLUTTER_APP_DIR }}/build/app/outputs/flutter-apk/*.apk
+          name: immortal-kombat-android-${{ steps.meta.outputs.tag }}
+          path: release/immortal-kombat-android.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -188,8 +194,8 @@ jobs:
             Flutter version: `${{ steps.meta.outputs.version }}+${{ steps.meta.outputs.build_number }}`
 
             Included APK:
-            - `app-release.apk`
-          files: ${{ env.FLUTTER_APP_DIR }}/build/app/outputs/flutter-apk/*.apk
+            - `immortal-kombat-android.apk`
+          files: release/immortal-kombat-android.apk
           fail_on_unmatched_files: true
           generate_release_notes: true
           draft: false
