@@ -130,9 +130,11 @@ class MatchStreamService {
             // on cold opens / reconnects (backend includes this in the
             // connected handshake when a stream is already ready).
             final streamingState = json['streaming_state'] as String?;
+            debugPrint('[Stream] WS handshake fields: streaming_state=$streamingState mode=${json['mode'] ?? json['streaming_mode']}');
             if (streamingState != null) {
-              debugPrint('[Stream] Initial streaming state from connected: $streamingState');
+              debugPrint('[Stream] Forwarding streaming_state=$streamingState from connected handshake');
               if (streamingState == 'ready' && _matchId != null) {
+                debugPrint('[Stream] >>> streaming_state=ready — emitting LiveKit event for match=$_matchId');
                 _streamingStateCtrl.add({
                   'state': streamingState,
                   'mode': 'livekit',

@@ -88,8 +88,14 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
       // waiting for the REST poll to confirm match.status == live.
       // The WS rejects with 4004 if not ready yet and retries automatically.
       if (widget.matchId != null) {
+        debugPrint('[LiveMatch] initState postFrame — connecting WS for matchId=${widget.matchId}');
         _activeMatchId = widget.matchId;
         _connectToMatch();
+        // If WS was pre-connected (autoWsPreconnect), streaming_state=ready
+        // was already emitted before this screen existed. Check now.
+        _tryConnectLiveKit();
+      } else {
+        debugPrint('[LiveMatch] initState postFrame — no explicit matchId, waiting for matchProvider');
       }
     });
   }
@@ -148,7 +154,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         final state = data['state'] as String?;
         if (state == null) return;
 
-        debugPrint('[LiveMatch] streaming_state received: "$state" | activeMatchId=$_activeMatchId | inRoundTransition=$_inRoundTransition');
+        debugPrint('[LiveMatch] streaming_state="$state" | match=$_activeMatchId | lkMatch=$_livekitMatchId | lkState=${_livekitSvc?.state.name} | hasVideo=${_livekitSvc?.videoTrack != null} | roundTransition=$_inRoundTransition');
 
         // ── Round transition overlay ─────
         if (state == 'round_transition') {
@@ -178,36 +184,11 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
         if (_livekitSvc != null && _livekitMatchId == matchId &&
             (_livekitSvc!.state == LiveKitPlayerState.connected ||
              _livekitSvc!.state == LiveKitPlayerState.connecting)) {
-          debugPrint('[LiveMatch] LiveKit already connected for match=$matchId — skipping');
+          debugPrint('[LiveMatch] LiveKit already ${_livekitSvc!.state.name} for match=$matchId — skipping redundant connect');
           return;
         }
 
-        debugPrint('[LiveMatch] LiveKit — connecting for match=$matchId');
-        _stopLiveKit();
-        _livekitMatchId = matchId;
-        final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
-        _livekitSvc = svc;
-        if (mounted) setState(() {});
-
-        // Listen for video track changes
-        svc.videoTrackNotifier.addListener(() {
-          if (mounted) setState(() {});
-        });
-        // Auto-reconnect on error — reuse same service instance (no listener leak)
-        svc.stateNotifier.addListener(() {
-          if (svc.state == LiveKitPlayerState.error && !_matchEndScheduled && mounted) {
-            debugPrint('[LiveMatch] LiveKit error — reconnecting in 2s');
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted && !_matchEndScheduled && _livekitSvc == svc) {
-                svc.reconnect();
-              }
-            });
-          }
-        });
-
-        svc.connect(matchId).then((_) {
-          if (mounted) setState(() {});
-        });
+        _startLiveKit(matchId);
       },
     );
 
@@ -277,8 +258,12 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   /// Connects the WebSocket for the current active match.
   void _connectToMatch() {
     final matchId = widget.matchId ?? _findLiveMatchId();
-    if (matchId == null) return;
-    if (_lastConnectedMatchId == matchId) return;
+    if (matchId == null) {
+      debugPrint('[LiveMatch] _connectToMatch() — no matchId found');
+      return;
+    }
+    if (_lastConnectedMatchId == matchId) return; // already connecting
+    debugPrint('[LiveMatch] _connectToMatch() — connecting WS for match=$matchId');
     _lastConnectedMatchId = matchId;
     _activeMatchId = matchId;
     ref.read(matchStreamServiceProvider).connect(matchId);
@@ -287,9 +272,13 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
   void _onMatchState(MatchState state) {
     if (!mounted) return;
     final matchId = _findLiveMatchId(state.matches) ?? widget.matchId;
-    if (matchId == null) return;
+    if (matchId == null) {
+      debugPrint('[LiveMatch] _onMatchState — no live match found (${state.matches.length} matches total)');
+      return;
+    }
 
     if (_activeMatchId != matchId) {
+      debugPrint('[LiveMatch] _onMatchState — active match changed: $_activeMatchId → $matchId');
       _activeMatchId = matchId;
     }
 
@@ -309,6 +298,7 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     // Connect after first frame — at this point providers may already have data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectToMatch();
+      _tryConnectLiveKit();
     });
   }
 
@@ -348,9 +338,68 @@ class _LiveMatchScreenState extends ConsumerState<LiveMatchScreen>
     super.dispose();
   }
 
+  /// Check if streamingStateProvider already has ready data (e.g. WS was
+  /// pre-connected before this screen opened). If so, kick off LiveKit.
+  void _tryConnectLiveKit() {
+    if (_activeMatchId == null || _matchEndScheduled) return;
+    // Already have LiveKit running for this match
+    if (_livekitSvc != null && _livekitMatchId == _activeMatchId &&
+        (_livekitSvc!.state == LiveKitPlayerState.connected ||
+         _livekitSvc!.state == LiveKitPlayerState.connecting)) {
+      return;
+    }
+    final streamingState = ref.read(streamingStateProvider).valueOrNull;
+    if (streamingState == null) {
+      debugPrint('[LiveMatch] _tryConnectLiveKit — no streaming state cached yet');
+      return;
+    }
+    final state = streamingState['state'] as String?;
+    if (state != 'ready' && state != 'playing') {
+      debugPrint('[LiveMatch] _tryConnectLiveKit — streaming state is "$state", not ready');
+      return;
+    }
+    debugPrint('[LiveMatch] _tryConnectLiveKit — streaming state already ready, starting LiveKit for $_activeMatchId');
+    _startLiveKit(_activeMatchId!);
+  }
+
+  void _startLiveKit(String matchId) {
+    debugPrint('[LiveMatch] ── STARTING LIVEKIT ── match=$matchId (previous lkMatch=$_livekitMatchId)');
+    _stopLiveKit();
+    _livekitMatchId = matchId;
+    final svc = LiveKitPlayerService(baseUrl: kStreamBaseUrl);
+    _livekitSvc = svc;
+    if (mounted) setState(() {});
+
+    svc.videoTrackNotifier.addListener(() {
+      debugPrint('[LiveMatch] videoTrackNotifier fired — hasVideo=${svc.videoTrack != null} mounted=$mounted');
+      if (mounted) setState(() {});
+    });
+
+    svc.stateNotifier.addListener(() {
+      debugPrint('[LiveMatch] stateNotifier fired — state=${svc.state.name} matchEnded=$_matchEndScheduled mounted=$mounted');
+      if (svc.state == LiveKitPlayerState.error && !_matchEndScheduled && mounted) {
+        debugPrint('[LiveMatch] LiveKit error — will reconnect in 2s');
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && !_matchEndScheduled && _livekitSvc == svc) {
+            debugPrint('[LiveMatch] Triggering reconnect now');
+            svc.reconnect();
+          } else {
+            debugPrint('[LiveMatch] Reconnect skipped — mounted=$mounted matchEnded=$_matchEndScheduled sameService=${_livekitSvc == svc}');
+          }
+        });
+      }
+    });
+
+    debugPrint('[LiveMatch] Calling svc.connect($matchId)...');
+    svc.connect(matchId).then((_) {
+      debugPrint('[LiveMatch] svc.connect() returned — state=${svc.state.name} hasVideo=${svc.videoTrack != null} mounted=$mounted');
+      if (mounted) setState(() {});
+    });
+  }
+
   void _stopLiveKit() {
     if (_livekitSvc != null) {
-      debugPrint('[LiveMatch] Stopping LiveKit player');
+      debugPrint('[LiveMatch] _stopLiveKit() — disposing match=$_livekitMatchId state=${_livekitSvc!.state.name} hasVideo=${_livekitSvc!.videoTrack != null}');
       _livekitSvc!.dispose();
       _livekitSvc = null;
       _livekitMatchId = null;
